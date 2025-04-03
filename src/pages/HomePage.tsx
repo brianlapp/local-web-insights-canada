@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { ChevronRight, Search, BarChart, Code, Users, Award, MessageSquare } from 'lucide-react';
@@ -104,95 +103,6 @@ const HomePage = () => {
                 Coming Soon
               </Button>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Website Transformations Section */}
-      <section className="section bg-civic-gray-50">
-        <div className="container">
-          <h2 className="text-2xl md:text-3xl font-bold text-civic-gray-900 text-center mb-8">
-            Website Transformations
-          </h2>
-          <p className="text-center text-civic-gray-600 max-w-2xl mx-auto mb-12">
-            See the impact of our community-driven website improvements through these before and after examples
-          </p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center mb-16">
-            <div>
-              <h3 className="text-xl font-semibold text-civic-gray-900 mb-2">Jane's Florist</h3>
-              <p className="text-civic-gray-600 mb-4">
-                The upgraded website led to a 45% increase in online inquiries and improved mobile conversion rates.
-              </p>
-              <div className="flex items-center space-x-2 mb-6">
-                <div className="flex items-center bg-civic-green-50 px-3 py-1 rounded-full">
-                  <Award className="text-civic-green w-4 h-4 mr-1" />
-                  <span className="text-sm text-civic-green-600">73/100 Score</span>
-                </div>
-                <span className="text-civic-gray-400">•</span>
-                <span className="text-civic-gray-600 text-sm">Ottawa</span>
-              </div>
-              <Button className="bg-civic-blue text-white hover:bg-civic-blue-600">
-                View Full Audit
-              </Button>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="relative">
-                <img 
-                  src="https://images.unsplash.com/photo-1594640387276-8e4cc5841661?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" 
-                  alt="Jane's Florist Website - After" 
-                  className="rounded-md shadow-md w-full"
-                />
-                <div className="absolute top-3 right-3 bg-civic-green text-white text-xs px-2 py-1 rounded-full">
-                  After
-                </div>
-              </div>
-              <div className="relative opacity-70">
-                <img 
-                  src="https://images.unsplash.com/photo-1593642532400-2682810df593?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" 
-                  alt="Jane's Florist Website - Before"
-                  className="rounded-md border border-civic-gray-300 w-full"
-                />
-                <div className="absolute top-3 right-3 bg-civic-gray-500 text-white text-xs px-2 py-1 rounded-full">
-                  Before
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="text-center">
-            <NavLink to="/audits" className="text-civic-blue hover:text-civic-blue-600 font-medium inline-flex items-center">
-              See more transformations <ChevronRight className="ml-1 w-5 h-5" />
-            </NavLink>
-          </div>
-        </div>
-      </section>
-
-      {/* Recent Audits Section */}
-      <section className="section bg-white">
-        <div className="container">
-          <div className="flex flex-col md:flex-row justify-between items-center mb-12">
-            <h2 className="text-2xl md:text-3xl font-bold text-civic-gray-900 mb-4 md:mb-0">
-              Latest Audit Highlights
-            </h2>
-            <NavLink to="/audits" className="text-civic-blue hover:text-civic-blue-600 font-medium flex items-center">
-              View all audits <ChevronRight className="ml-1 w-5 h-5" />
-            </NavLink>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {recentAudits.map((business) => (
-              <AuditCard key={business.id} business={{
-                name: business.name,
-                city: business.city,
-                slug: business.slug,
-                category: business.category,
-                image: business.image,
-                score: business.scores.overall,
-                isUpgraded: business.isUpgraded
-              }} />
-            ))}
           </div>
         </div>
       </section>
@@ -309,6 +219,95 @@ const HomePage = () => {
                 </svg>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Website Transformations Section */}
+      <section className="section bg-civic-gray-50">
+        <div className="container">
+          <h2 className="text-2xl md:text-3xl font-bold text-civic-gray-900 text-center mb-8">
+            Website Transformations
+          </h2>
+          <p className="text-center text-civic-gray-600 max-w-2xl mx-auto mb-12">
+            See the impact of our community-driven website improvements through these before and after examples
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center mb-16">
+            <div>
+              <h3 className="text-xl font-semibold text-civic-gray-900 mb-2">Jane's Florist</h3>
+              <p className="text-civic-gray-600 mb-4">
+                The upgraded website led to a 45% increase in online inquiries and improved mobile conversion rates.
+              </p>
+              <div className="flex items-center space-x-2 mb-6">
+                <div className="flex items-center bg-civic-green-50 px-3 py-1 rounded-full">
+                  <Award className="text-civic-green w-4 h-4 mr-1" />
+                  <span className="text-sm text-civic-green-600">73/100 Score</span>
+                </div>
+                <span className="text-civic-gray-400">•</span>
+                <span className="text-civic-gray-600 text-sm">Ottawa</span>
+              </div>
+              <Button className="bg-civic-blue text-white hover:bg-civic-blue-600">
+                View Full Audit
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="relative">
+                <img 
+                  src="https://images.unsplash.com/photo-1594640387276-8e4cc5841661?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" 
+                  alt="Jane's Florist Website - After" 
+                  className="rounded-md shadow-md w-full"
+                />
+                <div className="absolute top-3 right-3 bg-civic-green text-white text-xs px-2 py-1 rounded-full">
+                  After
+                </div>
+              </div>
+              <div className="relative opacity-70">
+                <img 
+                  src="https://images.unsplash.com/photo-1593642532400-2682810df593?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" 
+                  alt="Jane's Florist Website - Before"
+                  className="rounded-md border border-civic-gray-300 w-full"
+                />
+                <div className="absolute top-3 right-3 bg-civic-gray-500 text-white text-xs px-2 py-1 rounded-full">
+                  Before
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="text-center">
+            <NavLink to="/audits" className="text-civic-blue hover:text-civic-blue-600 font-medium inline-flex items-center">
+              See more transformations <ChevronRight className="ml-1 w-5 h-5" />
+            </NavLink>
+          </div>
+        </div>
+      </section>
+
+      {/* Recent Audits Section */}
+      <section className="section bg-white">
+        <div className="container">
+          <div className="flex flex-col md:flex-row justify-between items-center mb-12">
+            <h2 className="text-2xl md:text-3xl font-bold text-civic-gray-900 mb-4 md:mb-0">
+              Latest Audit Highlights
+            </h2>
+            <NavLink to="/audits" className="text-civic-blue hover:text-civic-blue-600 font-medium flex items-center">
+              View all audits <ChevronRight className="ml-1 w-5 h-5" />
+            </NavLink>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {recentAudits.map((business) => (
+              <AuditCard key={business.id} business={{
+                name: business.name,
+                city: business.city,
+                slug: business.slug,
+                category: business.category,
+                image: business.image,
+                score: business.scores.overall,
+                isUpgraded: business.isUpgraded
+              }} />
+            ))}
           </div>
         </div>
       </section>
