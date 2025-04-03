@@ -1,5 +1,9 @@
-import { useLocation } from "react-router-dom";
+
+import React from "react";
+import { useLocation, NavLink } from "react-router-dom";
 import { useEffect } from "react";
+import { HomeIcon } from "lucide-react";
+import PageLayout from "@/components/layout/PageLayout";
 
 const NotFound = () => {
   const location = useLocation();
@@ -12,15 +16,21 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">404</h1>
-        <p className="text-xl text-gray-600 mb-4">Oops! Page not found</p>
-        <a href="/" className="text-blue-500 hover:text-blue-700 underline">
-          Return to Home
-        </a>
+    <PageLayout>
+      <div className="container flex flex-col items-center justify-center py-24">
+        <h1 className="text-6xl font-bold text-civic-blue mb-6">404</h1>
+        <p className="text-2xl text-civic-gray-700 mb-8">Page not found</p>
+        <p className="text-civic-gray-600 mb-8 text-center max-w-md">
+          The page you are looking for might have been removed, had its name changed, or is temporarily unavailable.
+        </p>
+        <NavLink 
+          to="/" 
+          className="btn-primary flex items-center"
+        >
+          <HomeIcon className="w-4 h-4 mr-2" /> Return to Home
+        </NavLink>
       </div>
-    </div>
+    </PageLayout>
   );
 };
 
