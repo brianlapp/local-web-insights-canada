@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { ChevronRight, Search, BarChart, Code, Users, Award, MessageSquare } from 'lucide-react';
@@ -107,8 +108,36 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Community Testimonials */}
+      {/* Recent Audits Section - Moved up */}
       <section className="section bg-civic-gray-50">
+        <div className="container">
+          <div className="flex flex-col md:flex-row justify-between items-center mb-12">
+            <h2 className="text-2xl md:text-3xl font-bold text-civic-gray-900 mb-4 md:mb-0">
+              Latest Audit Highlights
+            </h2>
+            <NavLink to="/audits" className="text-civic-blue hover:text-civic-blue-600 font-medium flex items-center">
+              View all audits <ChevronRight className="ml-1 w-5 h-5" />
+            </NavLink>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {recentAudits.map((business) => (
+              <AuditCard key={business.id} business={{
+                name: business.name,
+                city: business.city,
+                slug: business.slug,
+                category: business.category,
+                image: business.image,
+                score: business.scores.overall,
+                isUpgraded: business.isUpgraded
+              }} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Community Testimonials */}
+      <section className="section bg-white">
         <div className="container">
           <h2 className="text-2xl md:text-3xl font-bold text-civic-gray-900 text-center mb-8">
             Community Impact
@@ -223,7 +252,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Website Transformations Section */}
+      {/* Website Transformations Section - Moved below Community Impact */}
       <section className="section bg-civic-gray-50">
         <div className="container">
           <h2 className="text-2xl md:text-3xl font-bold text-civic-gray-900 text-center mb-8">
@@ -280,34 +309,6 @@ const HomePage = () => {
             <NavLink to="/audits" className="text-civic-blue hover:text-civic-blue-600 font-medium inline-flex items-center">
               See more transformations <ChevronRight className="ml-1 w-5 h-5" />
             </NavLink>
-          </div>
-        </div>
-      </section>
-
-      {/* Recent Audits Section */}
-      <section className="section bg-white">
-        <div className="container">
-          <div className="flex flex-col md:flex-row justify-between items-center mb-12">
-            <h2 className="text-2xl md:text-3xl font-bold text-civic-gray-900 mb-4 md:mb-0">
-              Latest Audit Highlights
-            </h2>
-            <NavLink to="/audits" className="text-civic-blue hover:text-civic-blue-600 font-medium flex items-center">
-              View all audits <ChevronRight className="ml-1 w-5 h-5" />
-            </NavLink>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {recentAudits.map((business) => (
-              <AuditCard key={business.id} business={{
-                name: business.name,
-                city: business.city,
-                slug: business.slug,
-                category: business.category,
-                image: business.image,
-                score: business.scores.overall,
-                isUpgraded: business.isUpgraded
-              }} />
-            ))}
           </div>
         </div>
       </section>
