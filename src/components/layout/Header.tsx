@@ -12,7 +12,11 @@ const Header = () => {
     <header className="bg-white border-b border-civic-gray-200 sticky top-0 z-50">
       <div className="container py-4 flex justify-between items-center">
         <NavLink to="/" className="flex items-center">
-          <span className="text-2xl font-bold text-civic-blue">LocalWebsiteAudit<span className="text-civic-red">.ca</span></span>
+          <img 
+            src="/lovable-uploads/aaab4968-4845-48a0-9508-a67e4d230dec.png" 
+            alt="LocalWebsiteAudit.ca Logo" 
+            className="h-10 mr-2" 
+          />
         </NavLink>
         
         {isMobile ? (
