@@ -1,4 +1,3 @@
-
 export interface Business {
   id: string;
   name: string;
@@ -34,9 +33,9 @@ export const businesses: Business[] = [
     description: "Family-owned authentic Italian pizzeria serving Ottawa since 1985.",
     website: "https://mariospizza.example.com",
     address: "123 Bank Street, Ottawa, ON",
-    image: "https://images.unsplash.com/photo-1588315029754-2dd089d39a1a?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-    mobileScreenshot: "https://images.unsplash.com/photo-1588315029754-2dd089d39a1a?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-    desktopScreenshot: "https://images.unsplash.com/photo-1588315029754-2dd089d39a1a?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+    image: "https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+    mobileScreenshot: "https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+    desktopScreenshot: "https://images.unsplash.com/photo-1513104890138-7c749659a591?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
     scores: {
       seo: 45,
       performance: 32,
@@ -64,9 +63,9 @@ export const businesses: Business[] = [
     description: "Boutique florist specializing in custom arrangements for all occasions.",
     website: "https://janesflorist.example.com",
     address: "456 Elgin Street, Ottawa, ON",
-    image: "https://images.unsplash.com/photo-1594640387276-8e4cc5841661?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-    mobileScreenshot: "https://images.unsplash.com/photo-1594640387276-8e4cc5841661?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-    desktopScreenshot: "https://images.unsplash.com/photo-1594640387276-8e4cc5841661?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+    image: "https://images.unsplash.com/photo-1467533003447-e295ff1b0435?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+    mobileScreenshot: "https://images.unsplash.com/photo-1467533003447-e295ff1b0435?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+    desktopScreenshot: "https://images.unsplash.com/photo-1467533003447-e295ff1b0435?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
     scores: {
       seo: 70,
       performance: 65,
@@ -94,9 +93,9 @@ export const businesses: Business[] = [
     description: "Cozy cafe overlooking the Rideau Canal with locally-sourced ingredients.",
     website: "https://riversidecafe.example.com",
     address: "789 Queen Elizabeth Drive, Ottawa, ON",
-    image: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-    mobileScreenshot: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-    desktopScreenshot: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+    image: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+    mobileScreenshot: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+    desktopScreenshot: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
     scores: {
       seo: 55,
       performance: 48,
@@ -124,9 +123,9 @@ export const businesses: Business[] = [
     description: "Family-run hardware store serving the community for over 40 years.",
     website: "https://oakwoodhardware.example.com",
     address: "101 Wellington Street, Ottawa, ON",
-    image: "https://images.unsplash.com/photo-1590142035743-ee193aff6b6c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-    mobileScreenshot: "https://images.unsplash.com/photo-1590142035743-ee193aff6b6c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-    desktopScreenshot: "https://images.unsplash.com/photo-1590142035743-ee193aff6b6c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+    image: "https://images.unsplash.com/photo-1504222490345-c075b6008014?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+    mobileScreenshot: "https://images.unsplash.com/photo-1504222490345-c075b6008014?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+    desktopScreenshot: "https://images.unsplash.com/photo-1504222490345-c075b6008014?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
     scores: {
       seo: 35,
       performance: 42,

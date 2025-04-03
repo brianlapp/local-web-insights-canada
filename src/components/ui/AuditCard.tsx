@@ -1,7 +1,7 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Star, ArrowRight } from 'lucide-react';
+import { Star, ArrowRight, Image as ImageIcon } from 'lucide-react';
 
 interface AuditCardProps {
   business: {
@@ -16,14 +16,27 @@ interface AuditCardProps {
 }
 
 const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
+  const [imageError, setImageError] = useState(false);
+
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
   return (
     <div className="card group hover:shadow-md transition-shadow">
       <div className="relative mb-4">
-        <img 
-          src={business.image} 
-          alt={`Screenshot of ${business.name}'s website`}
-          className="w-full h-40 object-cover rounded-md"
-        />
+        {imageError ? (
+          <div className="w-full h-40 bg-civic-gray-100 rounded-md flex items-center justify-center">
+            <ImageIcon className="w-10 h-10 text-civic-gray-400" />
+          </div>
+        ) : (
+          <img 
+            src={business.image} 
+            alt={`Screenshot of ${business.name}'s website`}
+            className="w-full h-40 object-cover rounded-md"
+            onError={handleImageError}
+          />
+        )}
         {business.isUpgraded && (
           <span className="absolute top-2 right-2 bg-civic-green text-white text-xs px-2 py-1 rounded-full">
             Upgraded

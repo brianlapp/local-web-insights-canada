@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import AuditCard from '@/components/ui/AuditCard';
 import PageLayout from '@/components/layout/PageLayout';
 import { getRecentBusinesses } from '@/data/businesses';
+
 const HomePage = () => {
   const recentAudits = getRecentBusinesses(6);
   return <PageLayout>
@@ -106,7 +107,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Recent Audits Section - Moved up */}
+      {/* Recent Audits Section */}
       <section className="section bg-civic-gray-50">
         <div className="container">
           <div className="flex flex-col md:flex-row justify-between items-center mb-12">
@@ -236,7 +237,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Website Transformations Section - Moved below Community Impact */}
+      {/* Website Transformations Section */}
       <section className="section bg-civic-gray-50">
         <div className="container">
           <h2 className="text-2xl md:text-3xl font-bold text-civic-gray-900 text-center mb-8">
@@ -267,13 +268,13 @@ const HomePage = () => {
             
             <div className="space-y-4">
               <div className="relative">
-                <img src="https://images.unsplash.com/photo-1594640387276-8e4cc5841661?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Jane's Florist Website - After" className="rounded-md shadow-md w-full" />
+                <img src="https://images.unsplash.com/photo-1467533003447-e295ff1b0435?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Jane's Florist Website - After" className="rounded-md shadow-md w-full" />
                 <div className="absolute top-3 right-3 bg-civic-green text-white text-xs px-2 py-1 rounded-full">
                   After
                 </div>
               </div>
               <div className="relative opacity-70">
-                <img src="https://images.unsplash.com/photo-1593642532400-2682810df593?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Jane's Florist Website - Before" className="rounded-md border border-civic-gray-300 w-full" />
+                <img src="https://images.unsplash.com/photo-1511184118505-2d5cf3f86dc4?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Jane's Florist Website - Before" className="rounded-md border border-civic-gray-300 w-full" />
                 <div className="absolute top-3 right-3 bg-civic-gray-500 text-white text-xs px-2 py-1 rounded-full">
                   Before
                 </div>
@@ -360,4 +361,5 @@ const HomePage = () => {
       </section>
     </PageLayout>;
 };
+
 export default HomePage;
