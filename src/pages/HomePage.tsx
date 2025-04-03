@@ -13,8 +13,10 @@ const HomePage = () => {
   return (
     <PageLayout>
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-civic-blue-600 to-civic-blue py-16 md:py-24">
-        <div className="container text-center">
+      <section className="relative bg-cover bg-center py-16 md:py-24" style={{ backgroundImage: 'url("/lovable-uploads/bddb191c-4706-40b6-a8b3-e83ca94b3816.png")' }}>
+        {/* Blue gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-r from-civic-blue-600/80 to-civic-blue/80"></div>
+        <div className="container relative z-10 text-center">
           <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6">
             We help communities improve local websites
           </h1>
