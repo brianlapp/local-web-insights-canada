@@ -22,10 +22,12 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
     setImageError(true);
   };
 
-  // Use a specific flower image for Jane's Florist
+  // Use specific images for certain businesses
   const getImageSrc = () => {
     if (business.name === "Jane's Florist") {
       return "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
+    } else if (business.name === "Oakwood Hardware") {
+      return "https://images.unsplash.com/photo-1721322800607-8c38375eef04?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
     }
     return business.image;
   };
