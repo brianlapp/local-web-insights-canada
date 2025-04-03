@@ -22,6 +22,14 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
     setImageError(true);
   };
 
+  // Use a specific flower image for Jane's Florist
+  const getImageSrc = () => {
+    if (business.name === "Jane's Florist") {
+      return "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
+    }
+    return business.image;
+  };
+
   return (
     <div className="card group hover:shadow-md transition-shadow">
       <div className="relative mb-4">
@@ -31,7 +39,7 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
           </div>
         ) : (
           <img 
-            src={business.image} 
+            src={getImageSrc()} 
             alt={`Screenshot of ${business.name}'s website`}
             className="w-full h-40 object-cover rounded-md"
             onError={handleImageError}

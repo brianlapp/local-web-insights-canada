@@ -1,3 +1,4 @@
+
 export interface Business {
   id: string;
   name: string;
@@ -63,9 +64,9 @@ export const businesses: Business[] = [
     description: "Boutique florist specializing in custom arrangements for all occasions.",
     website: "https://janesflorist.example.com",
     address: "456 Elgin Street, Ottawa, ON",
-    image: "https://images.unsplash.com/photo-1467533003447-e295ff1b0435?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-    mobileScreenshot: "https://images.unsplash.com/photo-1467533003447-e295ff1b0435?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-    desktopScreenshot: "https://images.unsplash.com/photo-1467533003447-e295ff1b0435?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+    image: "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+    mobileScreenshot: "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
+    desktopScreenshot: "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
     scores: {
       seo: 70,
       performance: 65,
