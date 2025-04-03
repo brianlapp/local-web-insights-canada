@@ -4,7 +4,7 @@ import { ArrowLeft, Home } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Helmet } from 'react-helmet'
 
-export function NotFoundPage() {
+export default function NotFound() {
   const navigate = useNavigate()
   const location = useLocation()
   const homeLink = useRef<HTMLAnchorElement>(null)
