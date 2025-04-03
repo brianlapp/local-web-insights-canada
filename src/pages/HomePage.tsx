@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { ChevronRight, Search, BarChart, Code, Users, Award, MessageSquare } from 'lucide-react';
@@ -6,14 +5,13 @@ import { Button } from '@/components/ui/button';
 import AuditCard from '@/components/ui/AuditCard';
 import PageLayout from '@/components/layout/PageLayout';
 import { getRecentBusinesses } from '@/data/businesses';
-
 const HomePage = () => {
   const recentAudits = getRecentBusinesses(6);
-
-  return (
-    <PageLayout>
+  return <PageLayout>
       {/* Hero Section */}
-      <section className="relative bg-cover bg-center py-16 md:py-24" style={{ backgroundImage: 'url("/lovable-uploads/bddb191c-4706-40b6-a8b3-e83ca94b3816.png")' }}>
+      <section className="relative bg-cover bg-center py-16 md:py-24" style={{
+      backgroundImage: 'url("/lovable-uploads/bddb191c-4706-40b6-a8b3-e83ca94b3816.png")'
+    }}>
         {/* Blue gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-r from-civic-blue-600/80 to-civic-blue/80"></div>
         <div className="container relative z-10 text-center">
@@ -35,7 +33,7 @@ const HomePage = () => {
       </section>
 
       {/* Community Metrics Section */}
-      <section className="bg-civic-blue-50 py-10">
+      <section className="bg-civic-blue-50 py-2">
         <div className="container">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             <div className="p-4">
@@ -121,17 +119,15 @@ const HomePage = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {recentAudits.map((business) => (
-              <AuditCard key={business.id} business={{
-                name: business.name,
-                city: business.city,
-                slug: business.slug,
-                category: business.category,
-                image: business.image,
-                score: business.scores.overall,
-                isUpgraded: business.isUpgraded
-              }} />
-            ))}
+            {recentAudits.map(business => <AuditCard key={business.id} business={{
+            name: business.name,
+            city: business.city,
+            slug: business.slug,
+            category: business.category,
+            image: business.image,
+            score: business.scores.overall,
+            isUpgraded: business.isUpgraded
+          }} />)}
           </div>
         </div>
       </section>
@@ -149,11 +145,7 @@ const HomePage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             <div className="card">
               <div className="flex items-center mb-6">
-                <img 
-                  src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&q=80" 
-                  alt="Maria Garcia" 
-                  className="w-12 h-12 rounded-full object-cover mr-4"
-                />
+                <img src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&q=80" alt="Maria Garcia" className="w-12 h-12 rounded-full object-cover mr-4" />
                 <div>
                   <h3 className="font-semibold text-civic-gray-900">Maria Garcia</h3>
                   <p className="text-sm text-civic-gray-500">Riverside Café Owner</p>
@@ -183,11 +175,7 @@ const HomePage = () => {
             
             <div className="card">
               <div className="flex items-center mb-6">
-                <img 
-                  src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&q=80" 
-                  alt="James Wilson" 
-                  className="w-12 h-12 rounded-full object-cover mr-4"
-                />
+                <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&q=80" alt="James Wilson" className="w-12 h-12 rounded-full object-cover mr-4" />
                 <div>
                   <h3 className="font-semibold text-civic-gray-900">James Wilson</h3>
                   <p className="text-sm text-civic-gray-500">Volunteer Auditor</p>
@@ -217,11 +205,7 @@ const HomePage = () => {
             
             <div className="card">
               <div className="flex items-center mb-6">
-                <img 
-                  src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&q=80" 
-                  alt="Michael Lee" 
-                  className="w-12 h-12 rounded-full object-cover mr-4"
-                />
+                <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&q=80" alt="Michael Lee" className="w-12 h-12 rounded-full object-cover mr-4" />
                 <div>
                   <h3 className="font-semibold text-civic-gray-900">Michael Lee</h3>
                   <p className="text-sm text-civic-gray-500">Oakwood Hardware Owner</p>
@@ -283,21 +267,13 @@ const HomePage = () => {
             
             <div className="space-y-4">
               <div className="relative">
-                <img 
-                  src="https://images.unsplash.com/photo-1594640387276-8e4cc5841661?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" 
-                  alt="Jane's Florist Website - After" 
-                  className="rounded-md shadow-md w-full"
-                />
+                <img src="https://images.unsplash.com/photo-1594640387276-8e4cc5841661?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Jane's Florist Website - After" className="rounded-md shadow-md w-full" />
                 <div className="absolute top-3 right-3 bg-civic-green text-white text-xs px-2 py-1 rounded-full">
                   After
                 </div>
               </div>
               <div className="relative opacity-70">
-                <img 
-                  src="https://images.unsplash.com/photo-1593642532400-2682810df593?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" 
-                  alt="Jane's Florist Website - Before"
-                  className="rounded-md border border-civic-gray-300 w-full"
-                />
+                <img src="https://images.unsplash.com/photo-1593642532400-2682810df593?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Jane's Florist Website - Before" className="rounded-md border border-civic-gray-300 w-full" />
                 <div className="absolute top-3 right-3 bg-civic-gray-500 text-white text-xs px-2 py-1 rounded-full">
                   Before
                 </div>
@@ -373,11 +349,7 @@ const HomePage = () => {
                 Subscribe to our newsletter for community updates, success stories, and volunteer opportunities
               </p>
               <form className="flex flex-col sm:flex-row gap-3">
-                <input 
-                  type="email" 
-                  placeholder="Your email address" 
-                  className="flex-1 px-4 py-2 rounded-md text-civic-gray-900 focus:outline-none focus:ring-2 focus:ring-civic-green"
-                />
+                <input type="email" placeholder="Your email address" className="flex-1 px-4 py-2 rounded-md text-civic-gray-900 focus:outline-none focus:ring-2 focus:ring-civic-green" />
                 <Button className="bg-civic-green hover:bg-civic-green-600 text-white whitespace-nowrap">
                   Subscribe
                 </Button>
@@ -386,8 +358,6 @@ const HomePage = () => {
           </div>
         </div>
       </section>
-    </PageLayout>
-  );
+    </PageLayout>;
 };
-
 export default HomePage;
