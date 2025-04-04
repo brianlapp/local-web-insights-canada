@@ -1,41 +1,60 @@
-# Active Context
+# Active Development Context
 
 ## Current Focus
-- Implementing the Business Scraper Engine
-- Setting up the core infrastructure for automated data collection
-- Designing the scraper control panel UI
-- Planning the database schema for scraper data
+- Implemented the complete scraper service with business discovery and website auditing capabilities
+- Service is containerized and ready for deployment
 
 ## Recent Changes
-- Added business management CRUD operations
-- Implemented authentication system
-- Created business form component
-- Updated project scope to include scraper engine
+- Created the scraper service with the following components:
+  - Grid-based business discovery using Google Places API
+  - Website auditing with Lighthouse
+  - Screenshot capture for desktop and mobile views
+  - Queue-based job processing with Redis
+  - REST API for job management
+- Implemented TypeScript-based service architecture
+- Set up Docker configuration for both the scraper and Redis services
+- Configured logging and error handling
+- Added comprehensive API documentation
+
+## Current Architecture
+- Microservices:
+  - Scraper Service (Node.js/TypeScript)
+    - Business discovery module
+    - Website audit module
+    - Queue processing system
+  - Redis for job queues
+- Infrastructure:
+  - Docker containers
+  - Supabase for data storage
+  - Google Places API for business discovery
+  - Lighthouse for website auditing
 
 ## Next Steps
-1. Set up Node.js scraper service
-   - Initialize service structure
-   - Configure Docker environment
-   - Set up Bull queue system
-   - Implement basic job processing
+1. Test the scraper service:
+   - Unit tests for processors
+   - Integration tests for API endpoints
+   - Load testing for queue processing
+2. Set up monitoring and alerting
+3. Deploy to staging environment
+4. Integrate with the main application
 
-2. Implement Google Places API Integration
-   - Set up API client
-   - Create geographic grid system
-   - Implement rate limiting
-   - Add data normalization
+## Dependencies
+- Node.js 18
+- Redis 6
+- Google Chrome (for Lighthouse)
+- Google Maps API
+- Supabase
+- Docker
 
-3. Build Website Audit Pipeline
-   - Set up Lighthouse API integration
-   - Create screenshot capture service
-   - Implement scoring system
-   - Add tech stack detection
-
-4. Create Scraper Control Panel
-   - Design job management UI
-   - Add monitoring dashboard
-   - Implement error reporting
-   - Create geographic coverage view
+## Environment Configuration
+Required environment variables:
+- PORT
+- NODE_ENV
+- REDIS_URL
+- GOOGLE_MAPS_API_KEY
+- SUPABASE_URL
+- SUPABASE_SERVICE_KEY
+- LOG_LEVEL
 
 ## Active Decisions
 1. Scraper Architecture
