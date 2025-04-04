@@ -15,6 +15,7 @@ import AuditorPage from './pages/AuditorPage'
 import NotFound from './pages/NotFound'
 import { ResetPasswordPage } from './pages/admin/ResetPasswordPage'
 import { UpdatePasswordPage } from './pages/admin/UpdatePasswordPage'
+import { BusinessForm } from '@/pages/admin/BusinessForm'
 
 // Placeholder components until we implement them
 const PetitionList = () => <div>Petition List</div>
@@ -43,6 +44,8 @@ function App() {
                 }>
                   <Route path="dashboard" element={<DashboardPage />} />
                   <Route path="businesses" element={<BusinessList />} />
+                  <Route path="businesses/new" element={<BusinessForm />} />
+                  <Route path="businesses/:id" element={<BusinessForm />} />
                   <Route path="petitions" element={<PetitionList />} />
                   <Route path="settings" element={<Settings />} />
                 </Route>
