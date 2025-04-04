@@ -6,43 +6,10 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
-      audits: {
-        Row: {
-          id: string
-          business_slug: string
-          score: number
-          metrics: {
-            performance: number
-            accessibility: number
-            seo: number
-            bestPractices: number
-          }
-          recommendations: Array<{
-            id: number
-            category: string
-            description: string
-          }>
-          lastUpdated: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: Omit<Database['public']['Tables']['audits']['Row'], 'id' | 'created_at' | 'updated_at'>
-        Update: Partial<Database['public']['Tables']['audits']['Insert']>
-      }
-      petition_signatures: {
-        Row: {
-          id: string
-          petition_id: string
-          name: string
-          email: string
-          created_at: string
-        }
-        Insert: Omit<Database['public']['Tables']['petition_signatures']['Row'], 'id' | 'created_at'>
-        Update: Partial<Database['public']['Tables']['petition_signatures']['Insert']>
-      }
+      [_ in never]: never
     }
     Views: {
       [_ in never]: never

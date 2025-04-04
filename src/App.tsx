@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
@@ -12,7 +13,7 @@ import { BusinessList } from '@/pages/admin/BusinessList'
 import HomePage from './pages/HomePage'
 import AuditPage from './pages/AuditPage'
 import AuditorPage from './pages/AuditorPage'
-import NotFound from './pages/NotFound'
+import { NotFound } from './pages/NotFound'
 import { ResetPasswordPage } from './pages/admin/ResetPasswordPage'
 import { UpdatePasswordPage } from './pages/admin/UpdatePasswordPage'
 import { BusinessForm } from '@/pages/admin/BusinessForm'
