@@ -62,8 +62,7 @@ export async function processGridSearch(job: Job<GridSearchJobData>) {
           });
           
         if (error) {
-          logger.error(`Error storing raw data for ${place.name}:`, error);
-          continue;
+          throw error;
         }
         
         businessesFound++;
@@ -78,16 +77,24 @@ export async function processGridSearch(job: Job<GridSearchJobData>) {
     }
     
     // Update scraper run stats
-    await supabase.rpc('update_scraper_run_stats', {
+    const { error: statsError } = await supabase.rpc('update_scraper_run_stats', {
       run_id: scraperRunId,
       businesses_found: businessesFound
     });
+
+    if (statsError) {
+      throw statsError;
+    }
     
     // Update grid record with last scraped timestamp
-    await supabase
+    const { error: gridError } = await supabase
       .from('geo_grids')
       .update({ last_scraped: new Date().toISOString() })
       .eq('id', grid.id);
+
+    if (gridError) {
+      throw gridError;
+    }
     
     return { businessesFound };
     

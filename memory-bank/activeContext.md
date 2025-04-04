@@ -1,5 +1,29 @@
 # Active Development Context
 
+# Current Task
+Shift away from full BDD testing. Focus on lean, high-value test coverage.
+
+# Mode
+PLAN mode only unless ACT is typed.
+
+# Testing Focus
+We want fast, reliable tests on **critical components** that power the scraper service:
+
+- `gridSearch.ts` → grid logic, API calls, job creation
+- `websiteAudit.ts` → Lighthouse logic, screenshot handling, Supabase updates
+- `jobsController.ts` → key API endpoints for job creation/status
+- Error handling logic for Supabase and Lighthouse failures
+
+# What to skip
+- Overly verbose BDD-style specs
+- Full mocking boilerplate unless it’s unavoidable
+- UI-focused tests (admin dashboard is already manually verified)
+
+Cursor should:
+- Suggest test plans only for the above files
+- Keep tests focused and fast
+- Prioritize reliability and readability over exhaustive edge case coverage
+
 ## Current Focus
 - Implemented the complete scraper service with business discovery and website auditing capabilities
 - Service is containerized and ready for deployment

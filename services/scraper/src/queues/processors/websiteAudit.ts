@@ -53,7 +53,7 @@ export async function processWebsiteAudit(job: Job<WebsiteAuditJobData>) {
       output: 'json',
       logLevel: 'error',
       onlyCategories: ['performance', 'accessibility', 'best-practices', 'seo']
-    });
+    }, undefined);
     
     if (!result || !result.report || typeof result.report !== 'string') {
       throw new Error('Lighthouse audit failed to return results');
@@ -73,7 +73,7 @@ export async function processWebsiteAudit(job: Job<WebsiteAuditJobData>) {
     const desktopKey = `businesses/${businessId}/desktop-${Date.now()}.png`;
     const mobileKey = `businesses/${businessId}/mobile-${Date.now()}.png`;
     
-    await Promise.all([
+    const [desktopResult, mobileResult] = await Promise.all([
       supabase.storage
         .from('screenshots')
         .upload(desktopKey, desktopScreenshot),
@@ -81,6 +81,14 @@ export async function processWebsiteAudit(job: Job<WebsiteAuditJobData>) {
         .from('screenshots')
         .upload(mobileKey, mobileScreenshot)
     ]);
+
+    if (desktopResult.error) {
+      throw desktopResult.error;
+    }
+
+    if (mobileResult.error) {
+      throw mobileResult.error;
+    }
     
     // Update business record with audit results
     const { error } = await supabase
