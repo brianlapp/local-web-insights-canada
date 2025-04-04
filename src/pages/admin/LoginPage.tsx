@@ -21,8 +21,6 @@ export function LoginPage() {
     
     try {
       await signIn(email, password)
-      const from = location.state?.from?.pathname || '/admin/dashboard'
-      navigate(from)
     } finally {
       setIsLoading(false)
     }
