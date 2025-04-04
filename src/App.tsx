@@ -8,6 +8,7 @@ import { ProtectedRoute } from '@/components/admin/ProtectedRoute'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import { LoginPage } from '@/pages/admin/LoginPage'
 import { DashboardPage } from '@/pages/admin/DashboardPage'
+import { BusinessList } from '@/pages/admin/BusinessList'
 import HomePage from './pages/HomePage'
 import AuditPage from './pages/AuditPage'
 import AuditorPage from './pages/AuditorPage'
@@ -16,7 +17,6 @@ import { ResetPasswordPage } from './pages/admin/ResetPasswordPage'
 import { UpdatePasswordPage } from './pages/admin/UpdatePasswordPage'
 
 // Placeholder components until we implement them
-const BusinessList = () => <div>Business List</div>
 const PetitionList = () => <div>Petition List</div>
 const Settings = () => <div>Settings</div>
 
