@@ -12,6 +12,8 @@ import HomePage from './pages/HomePage'
 import AuditPage from './pages/AuditPage'
 import AuditorPage from './pages/AuditorPage'
 import NotFound from './pages/NotFound'
+import { ResetPasswordPage } from './pages/admin/ResetPasswordPage'
+import { UpdatePasswordPage } from './pages/admin/UpdatePasswordPage'
 
 // Placeholder components until we implement them
 const BusinessList = () => <div>Business List</div>
@@ -28,22 +30,21 @@ function App() {
           <AdminAuthProvider>
             <Routes>
               {/* Admin routes */}
-              <Route path="/admin/login" element={<LoginPage />} />
-              <Route
-                path="/admin/*"
-                element={
-                  <ProtectedRoute>
-                    <AdminLayout>
-                      <Routes>
-                        <Route path="dashboard" element={<DashboardPage />} />
-                        <Route path="businesses" element={<BusinessList />} />
-                        <Route path="petitions" element={<PetitionList />} />
-                        <Route path="settings" element={<Settings />} />
-                      </Routes>
-                    </AdminLayout>
-                  </ProtectedRoute>
-                }
-              />
+              <Route path="/admin">
+                <Route path="login" element={<LoginPage />} />
+                <Route path="reset-password" element={<ResetPasswordPage />} />
+                <Route path="update-password" element={<UpdatePasswordPage />} />
+                <Route element={<ProtectedRoute>
+                  <AdminLayout>
+                    <Routes>
+                      <Route path="dashboard" element={<DashboardPage />} />
+                      <Route path="businesses" element={<BusinessList />} />
+                      <Route path="petitions" element={<PetitionList />} />
+                      <Route path="settings" element={<Settings />} />
+                    </Routes>
+                  </AdminLayout>
+                </ProtectedRoute>} />
+              </Route>
 
               {/* Public routes */}
               <Route path="/" element={<HomePage />} />

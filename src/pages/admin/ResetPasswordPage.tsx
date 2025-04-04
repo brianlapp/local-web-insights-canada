@@ -1,28 +1,38 @@
 import { useState } from 'react'
-import { useLocation, useNavigate, Link } from 'react-router-dom'
-import { useAdminAuth } from '@/providers/AdminAuthProvider'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { supabase } from '@/integrations/supabase/client'
+import { useToast } from '@/components/ui/use-toast'
 import { Loader2 } from 'lucide-react'
 
-export function LoginPage() {
+export function ResetPasswordPage() {
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const { signIn } = useAdminAuth()
-  const location = useLocation()
-  const navigate = useNavigate()
+  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    
+
     try {
-      await signIn(email, password)
-      const from = location.state?.from?.pathname || '/admin/dashboard'
-      navigate(from)
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://local-web-insights-canada.lovable.app/admin/update-password',
+      })
+
+      if (error) throw error
+
+      toast({
+        title: 'Reset link sent',
+        description: 'Check your email for the password reset link',
+      })
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to send reset link',
+      })
     } finally {
       setIsLoading(false)
     }
@@ -32,9 +42,9 @@ export function LoginPage() {
     <div className="flex h-screen w-screen items-center justify-center bg-gray-50">
       <Card className="w-[350px]">
         <CardHeader>
-          <CardTitle>Admin Login</CardTitle>
+          <CardTitle>Reset Password</CardTitle>
           <CardDescription>
-            Sign in to access the admin dashboard
+            Enter your email to receive a password reset link
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -50,21 +60,6 @@ export function LoginPage() {
                 placeholder="admin@example.com"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <div className="text-sm text-right">
-              <Link to="/admin/reset-password" className="text-primary hover:underline">
-                Forgot password?
-              </Link>
-            </div>
             <Button
               type="submit"
               className="w-full"
@@ -73,10 +68,10 @@ export function LoginPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
+                  Sending reset link...
                 </>
               ) : (
-                'Sign In'
+                'Send Reset Link'
               )}
             </Button>
           </form>
