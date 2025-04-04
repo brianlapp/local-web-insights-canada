@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  scraper:
+    build: 
+      context: ./scraper
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - REDIS_URL=redis://redis:6379
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - MADEWITH_API_KEY=${MADEWITH_API_KEY}
+      - GCS_BUCKET_NAME=${GCS_BUCKET_NAME}
+      - GCS_CREDENTIALS=${GCS_CREDENTIALS}
+    volumes:
+      - ./scraper:/usr/src/app
+      - /usr/src/app/node_modules
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:6-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data: 

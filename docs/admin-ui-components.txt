@@ -1,0 +1,510 @@
+// Admin Panel UI Components for Business Scraper Control
+
+import React, { useState, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/components/ui/use-toast";
+import { createClient } from '@supabase/supabase-js';
+
+// Scraper Control Panel Component
+export function ScraperControlPanel() {
+  const [isRunning, setIsRunning] = useState(false);
+  const [recentRuns, setRecentRuns] = useState([]);
+  const [gridAreas, setGridAreas] = useState([]);
+  const [selectedGrids, setSelectedGrids] = useState([]);
+  const [currentRunStats, setCurrentRunStats] = useState(null);
+  const { toast } = useToast();
+  
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+  
+  // Load grid areas and recent runs on component mount
+  useEffect(() => {
+    fetchGridAreas();
+    fetchRecentRuns();
+    
+    // Set up real-time subscription for current run
+    const channel = supabase
+      .channel('scraper-stats')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'scraper_runs',
+        filter: 'status=eq.running'
+      }, payload => {
+        setCurrentRunStats(payload.new);
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+  
+  const fetchGridAreas = async () => {
+    const { data, error } = await supabase
+      .from('geo_grids')
+      .select('*')
+      .order('name');
+      
+    if (error) {
+      toast({
+        title: "Error loading grid areas",
+        description: error.message,
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setGridAreas(data || []);
+  };
+  
+  const fetchRecentRuns = async () => {
+    const { data, error } = await supabase
+      .from('scraper_runs')
+      .select('*')
+      .order('started_at', { ascending: false })
+      .limit(5);
+      
+    if (error) {
+      toast({
+        title: "Error loading recent runs",
+        description: error.message,
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setRecentRuns(data || []);
+    
+    // Check if there's a currently running scraper
+    const runningJob = data?.find(run => run.status === 'running');
+    if (runningJob) {
+      setIsRunning(true);
+      setCurrentRunStats(runningJob);
+    } else {
+      setIsRunning(false);
+      setCurrentRunStats(null);
+    }
+  };
+  
+  const handleGridSelection = (gridId) => {
+    setSelectedGrids(prev => {
+      if (prev.includes(gridId)) {
+        return prev.filter(id => id !== gridId);
+      } else {
+        return [...prev, gridId];
+      }
+    });
+  };
+  
+  const handleSelectAllGrids = () => {
+    if (selectedGrids.length === gridAreas.length) {
+      setSelectedGrids([]);
+    } else {
+      setSelectedGrids(gridAreas.map(grid => grid.id));
+    }
+  };
+  
+  const startScraper = async () => {
+    if (selectedGrids.length === 0) {
+      toast({
+        title: "No areas selected",
+        description: "Please select at least one grid area to scrape",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/admin/scraper/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          gridIds: selectedGrids
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to start scraper');
+      }
+      
+      setIsRunning(true);
+      setCurrentRunStats(data.runInfo);
+      
+      toast({
+        title: "Scraper started",
+        description: `Started scraping ${selectedGrids.length} areas`
+      });
+      
+    } catch (error) {
+      toast({
+        title: "Error starting scraper",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const stopScraper = async () => {
+    try {
+      const response = await fetch('/api/admin/scraper/stop', {
+        method: 'POST'
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to stop scraper');
+      }
+      
+      setIsRunning(false);
+      
+      toast({
+        title: "Scraper stopped",
+        description: "Scraper job has been stopped"
+      });
+      
+      // Refresh the recent runs list
+      fetchRecentRuns();
+      
+    } catch (error) {
+      toast({
+        title: "Error stopping scraper",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+  
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Business Scraper Control</CardTitle>
+          <CardDescription>
+            Manage data collection for business information and website audits
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {currentRunStats && (
+            <div className="mb-6 p-4 border rounded-md bg-muted">
+              <h3 className="text-lg font-medium mb-2">Current Run Progress</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span>Overall Progress:</span>
+                  <span>
+                    {currentRunStats.stats?.businesses_found || 0} businesses found
+                  </span>
+                </div>
+                <Progress value={
+                  currentRunStats.stats?.grids_processed / 
+                  (currentRunStats.stats?.grids_total || 1) * 100
+                } />
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Started: {new Date(currentRunStats.started_at).toLocaleString()}</span>
+                  <span>
+                    {currentRunStats.stats?.grids_processed || 0} / 
+                    {currentRunStats.stats?.grids_total || 0} areas processed
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <Tabs defaultValue="areas">
+            <TabsList className="mb-4">
+              <TabsTrigger value="areas">Grid Areas</TabsTrigger>
+              <TabsTrigger value="history">Run History</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="areas">
+              <div className="mb-4 flex justify-between items-center">
+                <h3 className="text-md font-medium">Select Areas to Scrape</h3>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleSelectAllGrids}
+                >
+                  {selectedGrids.length === gridAreas.length ? "Deselect All" : "Select All"}
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 mb-6">
+                {gridAreas.map(grid => (
+                  <div 
+                    key={grid.id}
+                    className={`
+                      p-3 border rounded-md cursor-pointer flex justify-between items-center
+                      ${selectedGrids.includes(grid.id) ? 'bg-primary/10 border-primary' : ''}
+                    `}
+                    onClick={() => handleGridSelection(grid.id)}
+                  >
+                    <div>
+                      <div className="font-medium">{grid.name}</div>
+                      <div className="text-sm text-muted-foreground">{grid.city}</div>
+                    </div>
+                    <div className="text-xs">
+                      {grid.last_scraped ? (
+                        <span>Last: {new Date(grid.last_scraped).toLocaleDateString()}</span>
+                      ) : (
+                        <Badge variant="outline">Never</Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                
+                {gridAreas.length === 0 && (
+                  <div className="col-span-full text-center py-8 text-muted-foreground">
+                    No grid areas defined. Please add grid areas first.
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="history">
+              <Table>
+                <TableCaption>Recent scraper runs</TableCaption>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Started</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Businesses Found</TableHead>
+                    <TableHead>Duration</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recentRuns.map(run => (
+                    <TableRow key={run.id}>
+                      <TableCell>
+                        {new Date(run.started_at).toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={
+                          run.status === 'completed' ? 'success' : 
+                          run.status === 'running' ? 'default' :
+                          run.status === 'failed' ? 'destructive' : 'outline'
+                        }>
+                          {run.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {run.stats?.businesses_found || 0}
+                      </TableCell>
+                      <TableCell>
+                        {run.completed_at ? (
+                          `${Math.round((new Date(run.completed_at) - new Date(run.started_at)) / 60000)} mins`
+                        ) : (
+                          run.status === 'running' ? 'In progress' : '—'
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  
+                  {recentRuns.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center">
+                        No recent runs found
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+        <CardFooter className="flex justify-between">
+          <Button
+            variant="outline"
+            onClick={() => fetchRecentRuns()}
+          >
+            Refresh Status
+          </Button>
+          
+          {isRunning ? (
+            <Button 
+              variant="destructive"
+              onClick={stopScraper}
+            >
+              Stop Scraper
+            </Button>
+          ) : (
+            <Button 
+              disabled={selectedGrids.length === 0}
+              onClick={startScraper}
+            >
+              Start Scraper
+            </Button>
+          )}
+        </CardFooter>
+      </Card>
+    </div>
+  );
+}
+
+// Website Audit Queue Management Component
+export function AuditQueueManagement() {
+  const [queuedAudits, setQueuedAudits] = useState([]);
+  const [recentAudits, setRecentAudits] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+  
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+  
+  useEffect(() => {
+    fetchAuditData();
+    
+    // Set up real-time subscription for audit updates
+    const channel = supabase
+      .channel('audit-updates')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'website_audits'
+      }, () => {
+        fetchAuditData();
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+  
+  const fetchAuditData = async () => {
+    setIsLoading(true);
+    
+    try {
+      // Fetch queued audits
+      const queueResponse = await fetch('/api/admin/audits/queue');
+      const queueData = await queueResponse.json();
+      
+      if (!queueResponse.ok) {
+        throw new Error(queueData.message || 'Failed to fetch audit queue');
+      }
+      
+      setQueuedAudits(queueData.jobs || []);
+      
+      // Fetch recent audits
+      const { data: audits, error } = await supabase
+        .from('website_audits')
+        .select(`
+          id,
+          audit_date,
+          business_id,
+          scores,
+          recommendations,
+          businesses(name, website)
+        `)
+        .order('audit_date', { ascending: false })
+        .limit(10);
+        
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      setRecentAudits(audits || []);
+      
+    } catch (error) {
+      toast({
+        title: "Error loading audit data",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const triggerAudit = async (businessId) => {
+    try {
+      const response = await fetch('/api/admin/audits/trigger', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ businessId })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to trigger audit');
+      }
+      
+      toast({
+        title: "Audit triggered",
+        description: "The website audit has been queued"
+      });
+      
+      // Refresh the queue
+      fetchAuditData();
+      
+    } catch (error) {
+      toast({
+        title: "Error triggering audit",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const clearQueue = async () => {
+    try {
+      const response = await fetch('/api/admin/audits/clear-queue', {
+        method: 'POST'
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to clear queue');
+      }
+      
+      toast({
+        title: "Queue cleared",
+        description: "The audit queue has been cleared"
+      });
+      
+      // Refresh the queue
+      fetchAuditData();
+      
+    } catch (error) {
+      toast({
+        title: "Error clearing queue",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const scheduleAllAudits = async () => {
+    try {
+      const response = await fetch('/api/admin/audits/schedule-all', {
+        method: 'POST'
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to schedule audits');
+      }
+      
+      toast({
+        title: "Audits scheduled",
+        description: `Scheduled audits for ${data.count

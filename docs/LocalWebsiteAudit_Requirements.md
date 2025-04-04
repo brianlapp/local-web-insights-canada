@@ -80,7 +80,7 @@ No public response or comment features to prevent chaos.
 
 ---
 
-## 🛠 Free Tools (Homepage Feature)
+## 🛠 Free Tools (tools drop down in nav)
 All tools are third-party embedded/wrapped APIs:
 
 - ✅ **Website Speed Tester**

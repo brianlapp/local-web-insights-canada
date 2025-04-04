@@ -3,67 +3,147 @@
 ## Architecture Overview
 
 ### Frontend Architecture
-```mermaid
-flowchart TD
-    App[App.tsx] --> Auth[AdminAuthProvider]
-    Auth --> Routes[Protected Routes]
-    Routes --> Layout[AdminLayout]
-    Layout --> Components[Admin Components]
-    Components --> Dashboard[DashboardPage]
-    Components --> Business[BusinessList]
-    Components --> Petitions[PetitionList]
-    Components --> Settings[Settings]
+```
+┌─ App
+├─── AdminLayout
+│    ├─── Sidebar Navigation
+│    └─── Main Content Area
+│         ├─── Dashboard
+│         ├─── Business Management
+│         ├─── Scraper Control Panel
+│         └─── Petition Management
+└─── Auth Wrapper
+```
+
+### Scraper Architecture
+```
+┌─ Scraper Control Panel (UI)
+├─── Job Management
+│    ├─── Queue Control
+│    ├─── Status Monitoring
+│    └─── Error Handling
+│
+├─ Business Discovery Service
+│    ├─── Geographic Grid System
+│    ├─── API Integration Layer
+│    │    ├─── Google Places
+│    │    ├─── Yelp
+│    │    └─── Yellow Pages
+│    └─── Data Normalization
+│
+├─ Website Audit Service
+│    ├─── URL Validation
+│    ├─── Lighthouse Testing
+│    ├─── Screenshot Capture
+│    ├─── Tech Detection
+│    └─── Score Calculator
+│
+└─ Data Pipeline
+     ├─── Job Queue
+     ├─── Rate Limiter
+     ├─── Error Recovery
+     └─── Results Processing
 ```
 
 ## Key Design Patterns
 
-### 1. Authentication Pattern
+### Authentication Pattern
 - Supabase Auth integration
 - Protected route wrapper
 - Session management
-- Password reset flow
+- Role-based access
 
-### 2. Layout Pattern
-```mermaid
-flowchart LR
-    AdminLayout --> Sidebar[Navigation Sidebar]
-    AdminLayout --> Content[Content Area]
-    Content --> Outlet[Route Outlet]
-```
-
-### 3. Data Management
-- React Query for server state
-- Supabase real-time subscriptions
-- Optimistic updates
-- Error boundary handling
-
-### 4. Component Architecture
-- Shared UI components (shadcn/ui)
-- Form management patterns
-- Modal/dialog patterns
+### Layout Pattern
+- Persistent sidebar
+- Responsive design
+- Content area management
 - Toast notifications
+
+### Data Management Pattern
+- TanStack Query for caching
+- Optimistic updates
+- Real-time sync
+- Error boundaries
+
+### Scraper Patterns
+1. Geographic Grid Pattern
+   - Area subdivision
+   - Coverage tracking
+   - Overlap handling
+
+2. Job Queue Pattern
+   - Distributed processing
+   - Priority queuing
+   - Retry mechanism
+   - Rate limiting
+
+3. Data Collection Pattern
+   - Source abstraction
+   - Normalization pipeline
+   - Deduplication
+   - Validation
+
+4. Audit Pipeline Pattern
+   - Sequential processing
+   - Parallel execution
+   - Error recovery
+   - Result aggregation
 
 ## Technical Decisions
 
 ### State Management
 - React Query for server state
-- React Context for auth state
-- Local state for UI components
+- Context for UI state
+- Local storage for preferences
 
 ### Routing Structure
-- Nested routes for admin section
-- Protected route wrapper
-- Dynamic route parameters
-
-### Form Handling
-- React Hook Form
-- Zod validation
-- File upload management
+- Nested routes
+- Protected routes
+- Dynamic parameters
+- History management
 
 ### API Integration
-- Supabase client
-- TypeScript types
-- Error handling patterns
+- Axios instances
+- Request interceptors
+- Error handling
+- Rate limiting
+
+### Job Processing
+- Bull queue system
+- Redis backend
+- Worker processes
+- Monitoring hooks
+
+### Error Handling
+- Global error boundary
+- Service-level recovery
+- User feedback
+- Logging system
+
+## Data Flow
+
+### Business Discovery Flow
+1. Grid area selection
+2. API query execution
+3. Data normalization
+4. Deduplication check
+5. Storage in raw data
+6. Queue website audit
+
+### Website Audit Flow
+1. URL validation
+2. Lighthouse testing
+3. Screenshot capture
+4. Tech stack detection
+5. Score calculation
+6. Results storage
+
+### User Interaction Flow
+1. Action initiation
+2. Optimistic update
+3. Backend validation
+4. Success/error feedback
+5. State synchronization
 
 ## Component Relationships
 
