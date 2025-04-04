@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PetitionFormProps {
   businessId: string;
@@ -17,28 +17,73 @@ const PetitionForm: React.FC<PetitionFormProps> = ({ businessId, businessName })
   const [isLocal, setIsLocal] = useState(false);
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      console.log('Petition submitted:', { businessId, name, email, isLocal, message });
+    setHasError(false);
+
+    // Trim all input values
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    const trimmedMessage = message.trim();
+
+    try {
+      const { error } = await supabase
+        .from('petition_signatures')
+        .insert({
+          petition_id: businessId,
+          name: trimmedName,
+          email: trimmedEmail,
+          is_local: isLocal,
+          message: trimmedMessage || null,
+        });
+
+      if (error) {
+        setHasError(true);
+        let errorMessage = 'Please try again later.';
+
+        // Handle specific error cases
+        if (error.code === '23505') {
+          errorMessage = 'You have already signed this petition.';
+        } else if (error.code === '429') {
+          errorMessage = 'Too many requests. Please try again in a few minutes.';
+        }
+
+        toast({
+          title: 'Error submitting petition',
+          description: errorMessage,
+          variant: 'destructive',
+        });
+        return;
+      }
+
       toast({
-        title: "Petition submitted",
+        title: 'Petition submitted',
         description: `Your support for improving ${businessName}'s website has been recorded.`,
       });
+
+      // Reset form only on success
       setName('');
       setEmail('');
       setIsLocal(false);
       setMessage('');
+    } catch (error) {
+      setHasError(true);
+      toast({
+        title: 'Error submitting petition',
+        description: 'Please try again later.',
+        variant: 'destructive',
+      });
+      console.error('Petition submission error:', error);
+    } finally {
       setIsSubmitting(false);
-    }, 1000);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label htmlFor="petitionName" className="block text-sm font-medium text-civic-gray-700 mb-1">
@@ -50,7 +95,8 @@ const PetitionForm: React.FC<PetitionFormProps> = ({ businessId, businessName })
             onChange={(e) => setName(e.target.value)}
             placeholder="Your name"
             required
-            className="w-full"
+            aria-invalid={hasError}
+            className={`w-full ${hasError ? 'border-red-500' : ''}`}
           />
         </div>
         <div>
@@ -64,7 +110,9 @@ const PetitionForm: React.FC<PetitionFormProps> = ({ businessId, businessName })
             onChange={(e) => setEmail(e.target.value)}
             placeholder="your.email@example.com"
             required
-            className="w-full"
+            pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
+            aria-invalid={hasError}
+            className={`w-full ${hasError ? 'border-red-500' : ''}`}
           />
         </div>
       </div>
@@ -96,7 +144,7 @@ const PetitionForm: React.FC<PetitionFormProps> = ({ businessId, businessName })
       <Button 
         type="submit" 
         disabled={isSubmitting}
-        className="bg-civic-green hover:bg-civic-green-600 text-white"
+        className={`bg-civic-green hover:bg-civic-green-600 text-white ${isSubmitting ? 'opacity-50' : ''}`}
       >
         {isSubmitting ? 'Submitting...' : 'Sign Petition'}
       </Button>
