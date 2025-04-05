@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -23,12 +22,11 @@ const Header = () => {
     return location.pathname === path;
   };
 
-  // Navigation items with Tools and Auditors restored
+  // Navigation items without Audit
   const navItems = [
     { title: 'Home', path: '/' },
     { title: 'About', path: '/about' },
     { title: 'Auditors', path: '/auditors' },
-    { title: 'Audit', path: '/audit' }, 
     { title: 'Tools', path: '/tools' }
   ];
 
