@@ -1,322 +1,344 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useToast } from '@/components/ui/use-toast'
-import { Loader2, ArrowLeft } from 'lucide-react'
-import { supabase } from '@/integrations/supabase/client'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { Database } from '@/integrations/supabase/schema'
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { toast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { createTableQuery, validateInsertData, validateUpdateData } from '@/integrations/supabase/database-utils';
+import { Database } from '@/integrations/supabase/schema';
 
-const businessFormSchema = z.object({
-  name: z.string().min(1, 'Business name is required'),
-  city: z.string().min(1, 'City is required'),
-  category: z.string().min(1, 'Category is required'),
-  description: z.string().min(1, 'Description is required'),
-  website: z.string().url('Must be a valid URL'),
-  address: z.string().min(1, 'Address is required'),
-  image: z.string().url('Must be a valid URL'),
-  mobileScreenshot: z.string().url('Must be a valid URL'),
-  desktopScreenshot: z.string().url('Must be a valid URL'),
-  scores: z.object({
-    seo: z.number().min(0).max(100),
-    performance: z.number().min(0).max(100),
-    accessibility: z.number().min(0).max(100),
-    design: z.number().min(0).max(100),
-    overall: z.number().min(0).max(100),
-  }),
-  suggestedImprovements: z.array(z.string()),
-  isUpgraded: z.boolean(),
-})
+type Business = Database['public']['Tables']['businesses']['Row'];
+type BusinessInsert = Database['public']['Tables']['businesses']['Insert'];
+type BusinessUpdate = Database['public']['Tables']['businesses']['Update'];
 
-type BusinessFormData = z.infer<typeof businessFormSchema>
-type Business = Database['public']['Tables']['businesses']
+const emptyBusiness: BusinessInsert = {
+  id: '',
+  name: '',
+  city: '',
+  category: '',
+  description: '',
+  website: '',
+  address: '',
+  image: '',
+  mobileScreenshot: '',
+  desktopScreenshot: '',
+  scores: {
+    seo: 0,
+    performance: 0,
+    accessibility: 0,
+    design: 0,
+    overall: 0
+  },
+  suggestedImprovements: [],
+  isUpgraded: false,
+  auditDate: new Date().toISOString()
+};
 
-export function BusinessForm() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const { toast } = useToast()
-  const queryClient = useQueryClient()
-  const [isSubmitting, setIsSubmitting] = useState(false)
+const BusinessForm = () => {
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const isEditing = Boolean(id);
+  
+  const [formData, setFormData] = useState<BusinessInsert | BusinessUpdate>(emptyBusiness);
+  const [loading, setLoading] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(false);
 
-  const form = useForm<BusinessFormData>({
-    resolver: zodResolver(businessFormSchema),
-    defaultValues: {
-      name: '',
-      city: '',
-      category: '',
-      description: '',
-      website: '',
-      address: '',
-      image: '',
-      mobileScreenshot: '',
-      desktopScreenshot: '',
-      scores: {
+  useEffect(() => {
+    if (isEditing && id) {
+      const fetchBusiness = async () => {
+        setFetchLoading(true);
+        try {
+          const { data, error } = await createTableQuery(supabase, 'businesses')
+            .select()
+            .eq('id', id)
+            .single();
+            
+          if (error) throw error;
+          if (data) {
+            setFormData(data);
+          }
+        } catch (error) {
+          console.error('Error fetching business:', error);
+          toast({
+            title: 'Error',
+            description: 'Failed to load business data',
+            variant: 'destructive'
+          });
+        } finally {
+          setFetchLoading(false);
+        }
+      };
+      
+      fetchBusiness();
+    }
+  }, [id, isEditing]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      if (isEditing && id) {
+        // Update existing business
+        const { error } = await createTableQuery(supabase, 'businesses')
+          .update(validateUpdateData('businesses', formData))
+          .eq('id', id);
+          
+        if (error) throw error;
+        
+        toast({
+          title: 'Success',
+          description: 'Business updated successfully'
+        });
+      } else {
+        // Create new business
+        const { error } = await createTableQuery(supabase, 'businesses')
+          .insert(validateInsertData('businesses', formData as BusinessInsert));
+          
+        if (error) throw error;
+        
+        toast({
+          title: 'Success',
+          description: 'Business created successfully'
+        });
+      }
+      
+      // Redirect back to business list
+      navigate('/admin/businesses');
+    } catch (error) {
+      console.error('Error saving business:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save business',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleScoresChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => {
+      // Ensure scores is not undefined
+      const scores = prev.scores || {
         seo: 0,
         performance: 0,
         accessibility: 0,
         design: 0,
-        overall: 0,
-      },
-      suggestedImprovements: [],
-      isUpgraded: false,
-    },
-  })
+        overall: 0
+      };
+  
+      return {
+        ...prev,
+        scores: {
+          ...scores,
+          [name]: Number(value)
+        }
+      };
+    });
+  };
 
-  // Fetch business data if editing
-  const { data: business, isLoading } = useQuery({
-    queryKey: ['business', id],
-    queryFn: async () => {
-      if (!id) return null
-      const { data, error } = await supabase
-        .from('businesses')
-        .select('*')
-        .eq('id', id)
-        .single<Business>()
+  const handleSuggestedImprovementsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const { value } = e.target;
+    // Split the textarea value into an array of strings
+    const improvementsArray = value.split('\n').map(item => item.trim());
+    
+    setFormData(prev => ({
+      ...prev,
+      suggestedImprovements: improvementsArray
+    }));
+  };
 
-      if (error) throw error
-      return data
-    },
-    enabled: !!id,
-  })
+  const handleToggleChange = (checked: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      isUpgraded: checked
+    }));
+  };
 
-  // Update form when business data is loaded
-  useEffect(() => {
-    if (business) {
-      form.reset(business as unknown as BusinessFormData)
-    }
-  }, [business, form])
-
-  // Create/Update mutation
-  const mutation = useMutation({
-    mutationFn: async (data: BusinessFormData) => {
-      const { error } = id
-        ? await supabase
-            .from('businesses')
-            .update(data as unknown as Business)
-            .eq('id', id)
-        : await supabase
-            .from('businesses')
-            .insert([data as unknown as Business])
-
-      if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['businesses'] })
-      toast({
-        title: id ? 'Business updated' : 'Business created',
-        description: id
-          ? 'The business has been updated successfully'
-          : 'The business has been created successfully',
-      })
-      navigate('/admin/businesses')
-    },
-    onError: (error) => {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to save business',
-      })
-    },
-  })
-
-  const onSubmit = async (data: BusinessFormData) => {
-    setIsSubmitting(true)
-    try {
-      await mutation.mutateAsync(data)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
+  if (fetchLoading) return <div>Loading business data...</div>;
 
   return (
-    <div className="space-y-6 p-8">
-      <div className="flex items-center space-x-4">
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/admin/businesses')}
-          className="flex items-center space-x-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span>Back</span>
-        </Button>
-        <h1 className="text-3xl font-bold tracking-tight">
-          {id ? 'Edit Business' : 'Add Business'}
-        </h1>
+    <form onSubmit={handleSubmit} className="max-w-2xl mx-auto space-y-6">
+      <div>
+        <Label htmlFor="name">Name</Label>
+        <Input 
+          type="text" 
+          id="name" 
+          name="name" 
+          value={(formData as Business).name || ''} 
+          onChange={handleInputChange} 
+        />
       </div>
+      <div>
+        <Label htmlFor="city">City</Label>
+        <Input 
+          type="text" 
+          id="city" 
+          name="city" 
+          value={(formData as Business).city || ''} 
+          onChange={handleInputChange} 
+        />
+      </div>
+      <div>
+        <Label htmlFor="category">Category</Label>
+        <Input 
+          type="text" 
+          id="category" 
+          name="category" 
+          value={(formData as Business).category || ''} 
+          onChange={handleInputChange} 
+        />
+      </div>
+      <div>
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
+          name="description"
+          value={(formData as Business).description || ''}
+          onChange={handleInputChange}
+        />
+      </div>
+      <div>
+        <Label htmlFor="website">Website</Label>
+        <Input 
+          type="text" 
+          id="website" 
+          name="website" 
+          value={(formData as Business).website || ''} 
+          onChange={handleInputChange} 
+        />
+      </div>
+      <div>
+        <Label htmlFor="address">Address</Label>
+        <Input 
+          type="text" 
+          id="address" 
+          name="address" 
+          value={(formData as Business).address || ''} 
+          onChange={handleInputChange} 
+        />
+      </div>
+      <div>
+        <Label htmlFor="image">Image URL</Label>
+        <Input 
+          type="text" 
+          id="image" 
+          name="image" 
+          value={(formData as Business).image || ''} 
+          onChange={handleInputChange} 
+        />
+      </div>
+      <div>
+        <Label htmlFor="mobileScreenshot">Mobile Screenshot URL</Label>
+        <Input 
+          type="text" 
+          id="mobileScreenshot" 
+          name="mobileScreenshot" 
+          value={(formData as Business).mobileScreenshot || ''} 
+          onChange={handleInputChange} 
+        />
+      </div>
+      <div>
+        <Label htmlFor="desktopScreenshot">Desktop Screenshot URL</Label>
+        <Input 
+          type="text" 
+          id="desktopScreenshot" 
+          name="desktopScreenshot" 
+          value={(formData as Business).desktopScreenshot || ''} 
+          onChange={handleInputChange} 
+        />
+      </div>
+      <div>
+        <Label>Scores</Label>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="seo">SEO</Label>
+            <Input
+              type="number"
+              id="seo"
+              name="seo"
+              value={String(((formData as Business).scores && (formData as Business).scores.seo) || 0)}
+              onChange={handleScoresChange}
+            />
+          </div>
+          <div>
+            <Label htmlFor="performance">Performance</Label>
+            <Input
+              type="number"
+              id="performance"
+              name="performance"
+              value={String(((formData as Business).scores && (formData as Business).scores.performance) || 0)}
+              onChange={handleScoresChange}
+            />
+          </div>
+          <div>
+            <Label htmlFor="accessibility">Accessibility</Label>
+            <Input
+              type="number"
+              id="accessibility"
+              name="accessibility"
+              value={String(((formData as Business).scores && (formData as Business).scores.accessibility) || 0)}
+              onChange={handleScoresChange}
+            />
+          </div>
+          <div>
+            <Label htmlFor="design">Design</Label>
+            <Input
+              type="number"
+              id="design"
+              name="design"
+              value={String(((formData as Business).scores && (formData as Business).scores.design) || 0)}
+              onChange={handleScoresChange}
+            />
+          </div>
+          <div>
+            <Label htmlFor="overall">Overall</Label>
+            <Input
+              type="number"
+              id="overall"
+              name="overall"
+              value={String(((formData as Business).scores && (formData as Business).scores.overall) || 0)}
+              onChange={handleScoresChange}
+            />
+          </div>
+        </div>
+      </div>
+      <div>
+        <Label htmlFor="suggestedImprovements">Suggested Improvements</Label>
+        <Textarea
+          id="suggestedImprovements"
+          name="suggestedImprovements"
+          value={((formData as Business).suggestedImprovements || []).join('\n')}
+          onChange={handleSuggestedImprovementsChange}
+          placeholder="Enter each improvement on a new line"
+        />
+      </div>
+      <div>
+        <Label htmlFor="isUpgraded">Is Upgraded</Label>
+        <Switch
+          id="isUpgraded"
+          checked={(formData as Business).isUpgraded || false}
+          onCheckedChange={handleToggleChange}
+        />
+      </div>
+      <Button type="submit" disabled={loading}>
+        {loading ? 'Saving...' : 'Save'}
+      </Button>
+    </form>
+  );
+};
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Business Information</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Business Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="city"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>City</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Category</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="website"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Website URL</FormLabel>
-                      <FormControl>
-                        <Input {...field} type="url" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Address</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea {...field} rows={4} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                <FormField
-                  control={form.control}
-                  name="image"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Business Image URL</FormLabel>
-                      <FormControl>
-                        <Input {...field} type="url" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="mobileScreenshot"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Mobile Screenshot URL</FormLabel>
-                      <FormControl>
-                        <Input {...field} type="url" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="desktopScreenshot"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Desktop Screenshot URL</FormLabel>
-                      <FormControl>
-                        <Input {...field} type="url" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {id ? 'Updating...' : 'Creating...'}
-                  </>
-                ) : (
-                  <>{id ? 'Update Business' : 'Create Business'}</>
-                )}
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
+export default BusinessForm;

@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { Database } from '@/integrations/supabase/schema'
 
-type PetitionSignature = Database['public']['Tables']['petition_signatures'] & { id: string; created_at: string }
+type PetitionSignature = Database['public']['Tables']['petition_signatures']['Row']
 
 export function usePetitionSubscription(petitionSlug: string) {
   const [signatures, setSignatures] = useState<PetitionSignature[]>([])
@@ -35,7 +35,7 @@ export function usePetitionSubscription(petitionSlug: string) {
                 const updatedSignatures = [...current, newSignature]
                 // Sort by created_at in descending order (newest first)
                 return updatedSignatures.sort((a, b) => 
-                  new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                  new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
                 )
               })
             }
@@ -73,4 +73,4 @@ export function usePetitionSubscription(petitionSlug: string) {
     isSubscribed,
     error,
   }
-} 
+}

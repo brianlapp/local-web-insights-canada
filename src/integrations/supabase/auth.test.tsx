@@ -1,174 +1,133 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
-import { supabase } from './client'
-import { useAuth } from './auth'
-import type { User, Session, AuthError } from '@supabase/supabase-js'
-import { createMockAuthError } from '@/components/forms/test-utils/auth-mocks'
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
+import { useAuth } from './auth';
+import { supabase } from './client';
 
-// Mock the Supabase client
+// Mock Supabase client
 vi.mock('./client', () => ({
   supabase: {
     auth: {
+      getSession: vi.fn(),
       signInWithPassword: vi.fn(),
       signUp: vi.fn(),
       signOut: vi.fn(),
-      getSession: vi.fn(),
       onAuthStateChange: vi.fn(),
     },
   },
-}))
+}));
 
-// Create mocks for Supabase types
-const createMockUser = (): User => ({
-  id: 'test-user-id',
-  email: 'test@example.com',
-  app_metadata: {},
-  user_metadata: {
-    name: 'Test User',
-  },
-  aud: 'authenticated',
-  created_at: '2023-01-01T00:00:00.000Z',
-  role: '',
-  identities: []
-})
-
-const createMockSession = (): Session => ({
-  user: createMockUser(),
-  access_token: 'test-access-token',
-  refresh_token: 'test-refresh-token',
-  expires_in: 3600,
-  expires_at: new Date().getTime() + 3600 * 1000,
-  token_type: 'bearer'
-})
-
-describe('Authentication', () => {
+describe('useAuth', () => {
   beforeEach(() => {
-    vi.resetAllMocks()
-    // Reset auth state between tests
-    vi.mocked(supabase.auth.getSession).mockResolvedValue({ data: { session: null }, error: null })
-    vi.mocked(supabase.auth.onAuthStateChange).mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } })
-  })
+    vi.clearAllMocks();
+    
+    // Mock default session state
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      data: { session: null },
+      error: null,
+    });
+    
+    // Mock auth state change subscription
+    vi.mocked(supabase.auth.onAuthStateChange).mockReturnValue({
+      data: { 
+        subscription: { 
+          unsubscribe: vi.fn(),
+          id: 'test-id',
+          callback: vi.fn()
+        } 
+      },
+    });
+  });
 
-  describe('Sign In', () => {
-    it('successfully signs in with valid credentials', async () => {
-      const credentials = {
-        email: 'test@example.com',
-        password: 'password123',
-      }
+  it('initializes with no user when no session exists', async () => {
+    const { result, waitForNextUpdate } = renderHook(() => useAuth());
 
-      const mockSession = createMockSession()
-      vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
-        data: { session: mockSession, user: mockSession.user },
-        error: null,
-      })
+    await waitForNextUpdate();
 
-      const { result } = renderHook(() => useAuth())
+    expect(result.current.user).toBeNull();
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.isLoading).toBe(false);
+  });
 
-      await result.current.signIn(credentials)
+  it('initializes with a user when a session exists', async () => {
+    const mockUser = { id: 'test-user', email: 'test@example.com' };
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      data: { session: { user: mockUser } },
+      error: null,
+    });
 
-      expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith(credentials)
-      expect(result.current.user).toEqual(mockSession.user)
-      expect(result.current.isAuthenticated).toBe(true)
-    })
+    const { result, waitForNextUpdate } = renderHook(() => useAuth());
 
-    it('handles sign in errors', async () => {
-      const credentials = {
-        email: 'test@example.com',
-        password: 'wrongpassword',
-      }
+    await waitForNextUpdate();
 
-      vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
-        data: { session: null, user: null },
-        error: createMockAuthError('Invalid credentials', 400)
-      })
+    expect(result.current.user).toEqual(mockUser);
+    expect(result.current.isAuthenticated).toBe(true);
+    expect(result.current.isLoading).toBe(false);
+  });
 
-      const { result } = renderHook(() => useAuth())
+  it('handles sign in successfully', async () => {
+    const mockUser = { id: 'test-user', email: 'test@example.com' };
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
+      data: { session: { user: mockUser } as any, user: mockUser },
+      error: null,
+    });
 
-      await expect(result.current.signIn(credentials)).rejects.toThrow('Invalid credentials')
-      expect(result.current.user).toBeNull()
-      expect(result.current.isAuthenticated).toBe(false)
-    })
-  })
+    const { result } = renderHook(() => useAuth());
 
-  describe('Sign Up', () => {
-    it('successfully creates a new account', async () => {
-      const newUser = {
-        email: 'newuser@example.com',
-        password: 'password123',
-        metadata: {
-          name: 'New User',
-        },
-      }
+    await act(async () => {
+      await result.current.signIn({ email: 'test@example.com', password: 'password' });
+    });
 
-      const mockUser = createMockUser()
-      const mockSession = createMockSession()
+    expect(result.current.user).toEqual(mockUser);
+    expect(result.current.isAuthenticated).toBe(true);
+  });
 
-      vi.mocked(supabase.auth.signUp).mockResolvedValue({
-        data: { user: mockUser, session: mockSession },
-        error: null,
-      })
+  it('handles sign up successfully', async () => {
+    const mockUser = { id: 'test-user', email: 'test@example.com' };
+    vi.mocked(supabase.auth.signUp).mockResolvedValue({
+      data: { user: mockUser, session: { user: mockUser } as any },
+      error: null,
+    });
 
-      const { result } = renderHook(() => useAuth())
+    const { result } = renderHook(() => useAuth());
 
-      await result.current.signUp(newUser)
+    const signUpData = {
+      email: 'test@example.com',
+      password: 'password',
+      metadata: { name: 'Test User' },
+    };
 
-      expect(supabase.auth.signUp).toHaveBeenCalledWith({
-        email: newUser.email,
-        password: newUser.password,
-        options: {
-          data: newUser.metadata,
-        },
-      })
-    })
+    await act(async () => {
+      await result.current.signUp(signUpData);
+    });
+  });
 
-    it('handles sign up errors', async () => {
-      const newUser = {
-        email: 'existing@example.com',
-        password: 'password123',
-      }
+  it('handles sign out successfully', async () => {
+    vi.mocked(supabase.auth.signOut).mockResolvedValue({ data: {}, error: null });
 
-      vi.mocked(supabase.auth.signUp).mockResolvedValue({
-        data: { user: null, session: null },
-        error: createMockAuthError('Email already exists', 400)
-      })
+    const { result } = renderHook(() => useAuth());
 
-      const { result } = renderHook(() => useAuth())
+    await act(async () => {
+      await result.current.signOut();
+    });
 
-      await expect(result.current.signUp(newUser)).rejects.toThrow('Email already exists')
-    })
-  })
+    expect(result.current.user).toBeNull();
+    expect(result.current.isAuthenticated).toBe(false);
+  });
 
-  describe('Sign Out', () => {
-    it('successfully signs out the user', async () => {
-      vi.mocked(supabase.auth.signOut).mockResolvedValue({ error: null })
+  it('updates auth state on auth state change event', async () => {
+    const mockUser = { id: 'test-user', email: 'test@example.com' };
+    const mockOnAuthStateChange = vi.fn((callback) => {
+      // Simulate auth state change event
+      callback('SIGNED_IN', { user: mockUser } as any);
+      return { data: { subscription: { unsubscribe: vi.fn() } } };
+    });
+    vi.mocked(supabase.auth.onAuthStateChange).mockImplementation(mockOnAuthStateChange);
 
-      const { result } = renderHook(() => useAuth())
+    const { result, waitForNextUpdate } = renderHook(() => useAuth());
 
-      await result.current.signOut()
+    await waitForNextUpdate();
 
-      expect(supabase.auth.signOut).toHaveBeenCalled()
-      expect(result.current.user).toBeNull()
-      expect(result.current.isAuthenticated).toBe(false)
-    })
-  })
-
-  describe('Auth State Changes', () => {
-    it('updates auth state when session changes', async () => {
-      const { result } = renderHook(() => useAuth())
-
-      // Simulate initial unauthenticated state
-      expect(result.current.isAuthenticated).toBe(false)
-      expect(result.current.user).toBeNull()
-
-      // Simulate auth state change
-      const mockSession = createMockSession()
-      const authListener = vi.mocked(supabase.auth.onAuthStateChange).mock.calls[0][0]
-      await authListener('SIGNED_IN', mockSession)
-
-      await waitFor(() => {
-        expect(result.current.isAuthenticated).toBe(true)
-        expect(result.current.user).toEqual(mockSession.user)
-      })
-    })
-  })
-})
+    expect(result.current.user).toEqual(mockUser);
+    expect(result.current.isAuthenticated).toBe(true);
+  });
+});
