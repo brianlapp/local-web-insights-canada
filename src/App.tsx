@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AdminAuthProvider } from '@/providers/AdminAuthProvider'
 import { AppRoutes } from '@/routes/AppRoutes'
+import './index.css'
 
 const queryClient = new QueryClient()
 
