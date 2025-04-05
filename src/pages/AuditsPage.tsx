@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
-import { Filter, MapPin, Search } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Filter, MapPin, Search, Building, MapIcon } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import PageLayout from '@/components/layout/PageLayout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,7 @@ const AuditsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [cityFilter, setCityFilter] = useState('');
+  const navigate = useNavigate();
   
   const filteredBusinesses = businessesWithScore.filter(business => {
     const matchesSearch = business.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -35,6 +37,15 @@ const AuditsPage = () => {
     
     return matchesSearch && matchesCategory && matchesCity;
   });
+
+  // Handle navigation to city page
+  const handleCitySelect = (city: string) => {
+    if (city) {
+      navigate(`/cities/${city.toLowerCase()}`);
+    } else {
+      setCityFilter('');
+    }
+  };
 
   return (
     <PageLayout>
@@ -90,10 +101,21 @@ const AuditsPage = () => {
               </Select>
             </div>
             
-            <Button variant="outline" className="md:w-auto">
-              <Filter className="w-4 h-4 mr-2" />
-              More Filters
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" className="md:w-auto">
+                <Filter className="w-4 h-4 mr-2" />
+                Filters
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                className="md:w-auto"
+                onClick={() => navigate('/cities')}
+              >
+                <MapIcon className="w-4 h-4 mr-2" />
+                Cities
+              </Button>
+            </div>
           </div>
         </div>
         
@@ -136,6 +158,21 @@ const AuditsPage = () => {
             </Link>
           ))}
         </div>
+        
+        {filteredBusinesses.length === 0 && (
+          <div className="text-center py-12">
+            <h3 className="text-xl font-medium mb-2">No businesses found</h3>
+            <p className="text-civic-gray-600 mb-4">
+              Try adjusting your search filters or browse by city instead.
+            </p>
+            <Button 
+              onClick={() => navigate('/cities')}
+              className="bg-civic-blue text-white"
+            >
+              Browse by City
+            </Button>
+          </div>
+        )}
       </div>
     </PageLayout>
   );

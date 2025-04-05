@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MapPin, ArrowLeft } from 'lucide-react';
+import { MapPin, ArrowLeft, Building, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import PageLayout from '@/components/layout/PageLayout';
 import AuditCard from '@/components/ui/AuditCard';
@@ -58,7 +58,21 @@ const CityPage = () => {
       
       <div className="container py-8">
         <div className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4">Latest Website Audits</h2>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+            <h2 className="text-2xl font-semibold">Latest Website Audits</h2>
+            
+            <div className="flex gap-4 mt-4 md:mt-0">
+              <Button variant="outline" onClick={() => navigate('/audits')} className="flex items-center gap-2">
+                <Building className="w-4 h-4" />
+                <span>All Businesses</span>
+              </Button>
+              <Button variant="outline" onClick={() => navigate('/auditors')} className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                <span>Find Auditors</span>
+              </Button>
+            </div>
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {businessesWithScore.map((business) => (
               <AuditCard key={business.id || business.slug} business={business} />
