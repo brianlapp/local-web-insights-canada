@@ -14,6 +14,7 @@ import HomePage from './pages/HomePage'
 import AuditPage from './pages/AuditPage'
 import AuditorPage from './pages/AuditorPage'
 import NotFound from './pages/NotFound'
+import AboutPage from './pages/AboutPage'
 import { ResetPasswordPage } from './pages/admin/ResetPasswordPage'
 import { UpdatePasswordPage } from './pages/admin/UpdatePasswordPage'
 import { BusinessForm } from '@/pages/admin/BusinessForm'
@@ -54,6 +55,7 @@ function App() {
 
               {/* Public routes */}
               <Route path="/" element={<HomePage />} />
+              <Route path="/about" element={<AboutPage />} />
               <Route path="/:city/:slug" element={<AuditPage />} />
               <Route path="/auditor/:slug" element={<AuditorPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
