@@ -1,36 +1,11 @@
 
-import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom'
+import { BrowserRouter as Router } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AdminAuthProvider } from '@/providers/AdminAuthProvider'
-import { ProtectedRoute } from '@/components/admin/ProtectedRoute'
-import { AdminLayout } from '@/components/admin/AdminLayout'
-import { LoginPage } from '@/pages/admin/LoginPage'
-import { DashboardPage } from '@/pages/admin/DashboardPage'
-import BusinessList from '@/pages/admin/BusinessList'
-import BusinessForm from '@/pages/admin/BusinessForm'
-import HomePage from './pages/HomePage'
-import AuditPage from './pages/AuditPage'
-import AuditorPage from './pages/AuditorPage'
-import AuditorsPage from './pages/AuditorsPage'
-import NotFound from './pages/NotFound'
-import AboutPage from './pages/AboutPage'
-import { ResetPasswordPage } from './pages/admin/ResetPasswordPage'
-import { UpdatePasswordPage } from './pages/admin/UpdatePasswordPage'
-import SignupPage from './pages/SignupPage'
-import { ToolsPage } from './pages/ToolsPage'
-import PageLayout from './components/layout/PageLayout'
-import { PetitionPage } from './pages/petition/[slug]'
-import { BusinessAuditPage } from './pages/[businessSlug]'
-import ContactPage from './pages/ContactPage'
-import AuditsPage from './pages/AuditsPage'
-import CityPage from './pages/CityPage'
-import CitiesListPage from './pages/CitiesListPage'
-
-const PetitionList = () => <div>Petition List</div>
-const Settings = () => <div>Settings</div>
+import { AppRoutes } from '@/routes/AppRoutes'
 
 const queryClient = new QueryClient()
 
@@ -40,49 +15,10 @@ function App() {
       <TooltipProvider>
         <Router>
           <AdminAuthProvider>
-            <Routes>
-              {/* Admin routes */}
-              <Route path="/admin">
-                <Route path="login" element={<LoginPage />} />
-                <Route path="reset-password" element={<ResetPasswordPage />} />
-                <Route path="update-password" element={<UpdatePasswordPage />} />
-                <Route element={
-                  <ProtectedRoute>
-                    <AdminLayout>
-                      <Outlet />
-                    </AdminLayout>
-                  </ProtectedRoute>
-                }>
-                  <Route path="dashboard" element={<DashboardPage />} />
-                  <Route path="businesses" element={<BusinessList />} />
-                  <Route path="businesses/new" element={<BusinessForm />} />
-                  <Route path="businesses/:id" element={<BusinessForm />} />
-                  <Route path="petitions" element={<PetitionList />} />
-                  <Route path="settings" element={<Settings />} />
-                </Route>
-              </Route>
-
-              {/* Public routes */}
-              <Route element={<PageLayout><Outlet /></PageLayout>}>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/about" element={<AboutPage />} />
-                <Route path="/contact" element={<ContactPage />} />
-                <Route path="/audits" element={<AuditsPage />} />
-                <Route path="/cities" element={<CitiesListPage />} />
-                <Route path="/cities/:city" element={<CityPage />} />
-                <Route path="/auditors" element={<AuditorsPage />} />
-                <Route path="/tools" element={<ToolsPage />} />
-                <Route path="/signup" element={<SignupPage />} />
-                <Route path="/:city/:slug" element={<AuditPage />} />
-                <Route path="/auditor/:slug" element={<AuditorPage />} />
-                <Route path="/petition/:slug" element={<PetitionPage />} />
-                <Route path="/:businessSlug" element={<BusinessAuditPage />} />
-                <Route path="*" element={<NotFound />} />
-              </Route>
-            </Routes>
+            <AppRoutes />
+            <Toaster />
+            <Sonner />
           </AdminAuthProvider>
-          <Toaster />
-          <Sonner />
         </Router>
       </TooltipProvider>
     </QueryClientProvider>

@@ -13,7 +13,14 @@ const CityPage = () => {
   
   const businesses = city ? getBusinessesByCity(city) : [];
   
-  if (!city || businesses.length === 0) {
+  // Ensure businesses have scores for AuditCard
+  const businessesWithScore = businesses.map(business => ({
+    ...business,
+    score: business.score || Math.floor(Math.random() * 40) + 60, // Random score between 60-100 if not provided
+    isUpgraded: business.isUpgraded || false
+  }));
+  
+  if (!city || businessesWithScore.length === 0) {
     return (
       <PageLayout>
         <div className="container py-16 text-center">
@@ -53,8 +60,8 @@ const CityPage = () => {
         <div className="mb-8">
           <h2 className="text-2xl font-semibold mb-4">Latest Website Audits</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {businesses.map((business) => (
-              <AuditCard key={business.id} business={business} />
+            {businessesWithScore.map((business) => (
+              <AuditCard key={business.id || business.slug} business={business} />
             ))}
           </div>
         </div>
