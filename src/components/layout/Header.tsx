@@ -1,139 +1,135 @@
 
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Button } from "@/components/ui/button";
-import { Menu, X, Search, Wrench, Users, Info, MessageSquare } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Menu, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const Header = () => {
-  const location = useLocation();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isMobile = useIsMobile();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const location = useLocation();
   
-  const isActive = (path: string) => {
-    return location.pathname === path ? 'text-civic-blue font-medium' : 'text-civic-gray-700 hover:text-civic-blue';
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
   };
 
-  const toggleMobileMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen);
+  const closeMenu = () => {
+    setIsMenuOpen(false);
   };
+
+  const isActive = (path: string) => {
+    return location.pathname === path;
+  };
+
+  // Navigation items without Audit
+  const navItems = [
+    { title: 'Home', path: '/' },
+    { title: 'About', path: '/about' },
+    { title: 'Auditors', path: '/auditors' },
+    { title: 'Tools', path: '/tools' }
+  ];
 
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div className="container mx-auto px-4 py-4">
+    <header className="bg-white border-b border-gray-200 py-4">
+      <div className="container mx-auto px-4">
         <div className="flex justify-between items-center">
-          {/* Logo */}
-          <div className="flex items-center">
-            <Link to="/" className="font-bold text-2xl text-civic-blue">LocalWebsiteAudit.ca</Link>
-          </div>
-          
-          {/* Desktop Navigation */}
+          <Link to="/" className="flex items-center">
+            <img 
+              src="/lovable-uploads/af7f3d5a-06a1-4f42-8ffb-d9129686f86b.png" 
+              alt="LocalWebsiteAudit.ca Logo" 
+              className="h-12"
+            />
+          </Link>
+
+          {/* Desktop Nav */}
           <nav className="hidden md:flex items-center space-x-6">
-            <Link to="/audits" className={`${isActive('/audits')} transition-colors flex items-center gap-1`}>
-              <Search className="w-4 h-4" />
-              <span>Browse Audits</span>
-            </Link>
-            <Link to="/cities" className={`${isActive('/cities')} transition-colors flex items-center gap-1`}>
-              <span>City Pages</span>
-            </Link>
-            <Link to="/tools" className={`${isActive('/tools')} transition-colors flex items-center gap-1`}>
-              <Wrench className="w-4 h-4" />
-              <span>Free Tools</span>
-            </Link>
-            <Link to="/auditors" className={`${isActive('/auditors')} transition-colors flex items-center gap-1`}>
-              <Users className="w-4 h-4" />
-              <span>Our Auditors</span>
-            </Link>
-            <Link to="/about" className={`${isActive('/about')} transition-colors flex items-center gap-1`}>
-              <Info className="w-4 h-4" />
-              <span>About Us</span>
-            </Link>
-            <Link to="/contact" className={`${isActive('/contact')} transition-colors flex items-center gap-1`}>
-              <MessageSquare className="w-4 h-4" />
-              <span>Contact</span>
-            </Link>
+            <ul className="flex space-x-6">
+              {navItems.map((item) => (
+                <li key={item.path}>
+                  <Link
+                    to={item.path}
+                    className={cn(
+                      "text-civic-gray-700 hover:text-civic-blue-600 transition-colors",
+                      isActive(item.path) && "text-civic-blue-600 font-medium"
+                    )}
+                  >
+                    {item.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <div className="flex items-center space-x-4 ml-6">
+              <Button
+                variant="outline"
+                className="border-civic-blue text-civic-blue hover:bg-civic-blue-50"
+                asChild
+              >
+                <Link to="/audit">Request an Audit</Link>
+              </Button>
+              <Button className="bg-civic-green hover:bg-civic-green-600" asChild>
+                <Link to="/signup">Sign Up</Link>
+              </Button>
+            </div>
           </nav>
-          
-          {/* Action Buttons */}
-          <div className="flex items-center space-x-3">
-            {!isMobile && (
-              <Button variant="outline" className="hidden md:flex border-civic-blue text-civic-blue">
-                Request an Audit
-              </Button>
+
+          {/* Mobile menu button */}
+          <button
+            className="block md:hidden text-civic-gray-600 focus:outline-none"
+            onClick={toggleMenu}
+            aria-expanded={isMenuOpen}
+            aria-controls="mobile-menu"
+          >
+            {isMenuOpen ? (
+              <X className="h-6 w-6" />
+            ) : (
+              <Menu className="h-6 w-6" />
             )}
-            <Button className="bg-civic-blue hover:bg-civic-blue-600 text-white">
-              Sign In
-            </Button>
-            
-            {/* Mobile Menu Toggle */}
-            <button 
-              className="md:hidden ml-2 text-gray-600" 
-              onClick={toggleMobileMenu}
-              aria-label="Toggle mobile menu"
-            >
-              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-          </div>
+          </button>
         </div>
-        
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden mt-4 border-t pt-4 pb-2">
-            <nav className="flex flex-col space-y-4">
-              <Link 
-                to="/audits" 
-                className="flex items-center gap-2 py-2 px-3 rounded-md hover:bg-gray-100" 
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <Search className="w-5 h-5 text-civic-blue" />
-                <span>Browse Audits</span>
-              </Link>
-              <Link 
-                to="/cities" 
-                className="flex items-center gap-2 py-2 px-3 rounded-md hover:bg-gray-100" 
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <span>City Pages</span>
-              </Link>
-              <Link 
-                to="/tools" 
-                className="flex items-center gap-2 py-2 px-3 rounded-md hover:bg-gray-100" 
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <Wrench className="w-5 h-5 text-civic-blue" />
-                <span>Free Tools</span>
-              </Link>
-              <Link 
-                to="/auditors" 
-                className="flex items-center gap-2 py-2 px-3 rounded-md hover:bg-gray-100" 
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <Users className="w-5 h-5 text-civic-blue" />
-                <span>Our Auditors</span>
-              </Link>
-              <Link 
-                to="/about" 
-                className="flex items-center gap-2 py-2 px-3 rounded-md hover:bg-gray-100" 
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <Info className="w-5 h-5 text-civic-blue" />
-                <span>About Us</span>
-              </Link>
-              <Link 
-                to="/contact" 
-                className="flex items-center gap-2 py-2 px-3 rounded-md hover:bg-gray-100" 
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <MessageSquare className="w-5 h-5 text-civic-blue" />
-                <span>Contact</span>
-              </Link>
-              <Button 
-                className="w-full mt-2 bg-civic-blue text-white"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Request an Audit
-              </Button>
+
+        {/* Mobile Navigation */}
+        {isMobile && isMenuOpen && (
+          <div
+            id="mobile-menu"
+            className="md:hidden pt-4 pb-2 animate-in slide-in-from-top-5"
+          >
+            <nav>
+              <ul className="flex flex-col space-y-3">
+                {navItems.map((item) => (
+                  <li key={item.path}>
+                    <Link
+                      to={item.path}
+                      className={cn(
+                        "block py-2 text-civic-gray-700 hover:text-civic-blue-600 transition-colors",
+                        isActive(item.path) && "text-civic-blue-600 font-medium"
+                      )}
+                      onClick={closeMenu}
+                    >
+                      {item.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </nav>
+            <div className="flex flex-col space-y-3 mt-4 pt-4 border-t border-gray-200">
+              <Button
+                variant="outline"
+                className="border-civic-blue text-civic-blue hover:bg-civic-blue-50 w-full justify-center"
+                asChild
+                onClick={closeMenu}
+              >
+                <Link to="/audit">Request an Audit</Link>
+              </Button>
+              <Button
+                className="bg-civic-green hover:bg-civic-green-600 w-full justify-center"
+                asChild
+                onClick={closeMenu}
+              >
+                <Link to="/signup">Sign Up</Link>
+              </Button>
+            </div>
           </div>
         )}
       </div>
