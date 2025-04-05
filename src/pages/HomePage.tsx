@@ -10,7 +10,7 @@ const HomePage = () => {
   const recentAudits = getRecentBusinesses(6);
   return <PageLayout>
       {/* Hero Section */}
-      <section className="relative bg-cover bg-center py-16 md:py-24" style={{
+      <section className="relative bg-cover bg-center py-32 md:py-24" style={{
       backgroundImage: 'url("/lovable-uploads/bddb191c-4706-40b6-a8b3-e83ca94b3816.png")'
     }}>
         {/* Blue gradient overlay */}
