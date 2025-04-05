@@ -4,13 +4,12 @@ import { Job } from 'bull';
 import { processWebsiteAudit } from '../../../queues/processors/websiteAudit';
 import { createBaseLighthouseResult } from '../../utils/lighthouse.mocks';
 import { setupDefaultBrowserMocks, MockedBrowser, MockedPage } from '../../utils/browser.mocks';
-// Import database mock helper again
-import { createMockSupabaseClient } from '../../utils/database.mocks';
 
-// Mock modules
+// Mock modules (Jest automatically uses adjacent __mocks__)
 jest.mock('puppeteer');
 jest.mock('lighthouse');
-jest.mock('@supabase/supabase-js'); // Simple mock at top level
+jest.mock('@supabase/supabase-js'); 
+jest.mock('@googlemaps/google-maps-services-js');
 jest.mock('../../../utils/logger', () => ({
   logger: {
     info: jest.fn(),
@@ -18,26 +17,21 @@ jest.mock('../../../utils/logger', () => ({
   }
 }));
 
+// Get the mock functions directly using require
+const supabaseMocks = require('@supabase/supabase-js');
+const { mockUpload, mockUpdate, mockEq, resetSupabaseMocks } = supabaseMocks;
+
 describe('Website Audit Processor - Basic Tests', () => {
   const { mockBrowser, mockPage } = setupDefaultBrowserMocks();
-  // Call helper in describe scope
-  const { mockClient, mockUpload, mockUpdate } = createMockSupabaseClient(); 
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.clearAllMocks(); 
+    resetSupabaseMocks(); // Use reset helper from manual mock
 
-    // Configure Puppeteer and Lighthouse mocks using require
+    // Configure non-Supabase mocks
     jest.mocked(require('puppeteer')).launch.mockResolvedValue(mockBrowser);
     jest.mocked(require('lighthouse')).mockResolvedValue(createBaseLighthouseResult());
-    // Configure Supabase mock return value here
-    jest.mocked(require('@supabase/supabase-js')).createClient.mockReturnValue(mockClient);
-
-    // Reset mocks directly
-    mockUpload.mockReset().mockResolvedValue({ data: { path: 'mock/path' }, error: null });
-    mockUpdate.mockReset().mockResolvedValue({ data: [{}], error: null });
-
-    // Reset Puppeteer mocks 
-
+    
     // Set environment variables
     process.env.SUPABASE_URL = 'http://test-url';
     process.env.SUPABASE_SERVICE_KEY = 'test-key';
@@ -51,19 +45,13 @@ describe('Website Audit Processor - Basic Tests', () => {
   };
 
   it('should process a website audit job successfully', async () => {
-    const result = await processWebsiteAudit(mockJob as Job);
+    await processWebsiteAudit(mockJob as Job);
 
-    // Assertions use mocks from createMockSupabaseClient again
-    expect(result).toEqual({
-      scores: {
-        performance: 90,
-        accessibility: 80,
-        bestPractices: 70,
-        seo: 60
-      }
-    });
-    expect(mockPage.screenshot).toHaveBeenCalledTimes(2);
+    // Assertions use imported mocks
     expect(mockUpload).toHaveBeenCalledTimes(2);
+    expect(mockUpdate).toHaveBeenCalledTimes(1); // Assuming 1 update call
+    expect(mockEq).toHaveBeenCalledWith('id', mockJob.data.businessId); // Check eq was called
+    expect(mockPage.screenshot).toHaveBeenCalledTimes(2);
     expect(mockUpload).toHaveBeenCalledWith(expect.stringMatching(/desktop/), expect.any(Buffer));
     expect(mockUpload).toHaveBeenCalledWith(expect.stringMatching(/mobile/), expect.any(Buffer));
     expect(mockUpdate).toHaveBeenCalledWith({

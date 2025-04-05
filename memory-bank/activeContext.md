@@ -1,7 +1,7 @@
 # Active Development Context
 
 # Current Task
-Shift away from full BDD testing. Focus on lean, high-value test coverage.
+Implementing a standardized, consistent testing approach for the scraper service.
 
 # Mode
 PLAN mode only unless ACT is typed.
@@ -14,9 +14,22 @@ We want fast, reliable tests on **critical components** that power the scraper s
 - `jobsController.ts` → key API endpoints for job creation/status
 - Error handling logic for Supabase and Lighthouse failures
 
+# Testing Strategy
+We've established a standardized testing approach with the following principles:
+
+1. **Consistent Mocking Strategy**: Use Jest's automatic mocking with a `__mocks__` directory structure
+2. **Single Source of Truth**: All mock implementations are defined in the `__mocks__` directory
+3. **ESM Support**: Jest configuration supports ES Modules for dynamic imports (Lighthouse)
+4. **Clean Separation**: No competing mock implementations between global setup and test files
+
+## Key Mock Files:
+- `__mocks__/@googlemaps/google-maps-services-js.ts` - Google Maps API mocks
+- `__mocks__/@supabase/supabase-js.ts` - Supabase client mocks
+- `__mocks__/lighthouse.ts` - Lighthouse module mocks
+
 # What to skip
 - Overly verbose BDD-style specs
-- Full mocking boilerplate unless it’s unavoidable
+- Full mocking boilerplate unless it's unavoidable
 - UI-focused tests (admin dashboard is already manually verified)
 
 Cursor should:
@@ -27,6 +40,7 @@ Cursor should:
 ## Current Focus
 - Implemented the complete scraper service with business discovery and website auditing capabilities
 - Service is containerized and ready for deployment
+- Standardized testing approach to ensure reliable test execution
 
 ## Recent Changes
 - Created the scraper service with the following components:
@@ -39,6 +53,7 @@ Cursor should:
 - Set up Docker configuration for both the scraper and Redis services
 - Configured logging and error handling
 - Added comprehensive API documentation
+- Standardized mocking approach for consistent, reliable tests
 
 ## Current Architecture
 - Microservices:
@@ -54,13 +69,18 @@ Cursor should:
   - Lighthouse for website auditing
 
 ## Next Steps
-1. Test the scraper service:
+1. Implement standardized testing approach:
+   - Create proper `__mocks__` directory structure
+   - Implement consistent mock files for external dependencies
+   - Update Jest configuration for ESM support
+   - Clean up test setup and individual test files
+2. Test the scraper service:
    - Unit tests for processors
    - Integration tests for API endpoints
    - Load testing for queue processing
-2. Set up monitoring and alerting
-3. Deploy to staging environment
-4. Integrate with the main application
+3. Set up monitoring and alerting
+4. Deploy to staging environment
+5. Integrate with the main application
 
 ## Dependencies
 - Node.js 18
@@ -98,6 +118,12 @@ Required environment variables:
    - Scaling approach
    - Monitoring solution
    - Backup strategy
+
+4. Testing Approach
+   - Standardized mocking with `__mocks__` directory
+   - Jest configuration for ESM support
+   - Focus on critical component testing
+   - Clear separation of mock implementations
 
 ## Current Challenges
 1. Technical

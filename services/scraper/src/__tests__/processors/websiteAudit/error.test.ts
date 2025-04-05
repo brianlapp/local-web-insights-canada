@@ -5,13 +5,18 @@ import { Job } from 'bull';
 import { processWebsiteAudit } from '../../../queues/processors/websiteAudit';
 import { createBaseLighthouseResult } from '../../utils/lighthouse.mocks';
 import { setupDefaultBrowserMocks, MockedBrowser, MockedPage } from '../../utils/browser.mocks';
-// Import database mock helper again
-import { createMockSupabaseClient } from '../../utils/database.mocks';
+// Import using original module name - expect Jest to find adjacent __mocks__
+import { 
+  mockUpload, 
+  mockUpdate, 
+  resetSupabaseMocks 
+} from '@supabase/supabase-js';
 
-// Mock modules
+// Mock modules (Jest automatically uses adjacent __mocks__)
 jest.mock('puppeteer');
 jest.mock('lighthouse');
-jest.mock('@supabase/supabase-js'); // Simple mock at top level
+jest.mock('@supabase/supabase-js'); 
+jest.mock('@googlemaps/google-maps-services-js');
 jest.mock('../../../utils/logger', () => ({
   logger: {
     info: jest.fn(),
@@ -21,24 +26,15 @@ jest.mock('../../../utils/logger', () => ({
 
 describe('Website Audit Processor - Error Handling', () => {
   const { mockBrowser, mockPage } = setupDefaultBrowserMocks();
-  // Call helper in describe scope
-  const { mockClient, mockUpload, mockUpdate } = createMockSupabaseClient();
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.clearAllMocks(); 
+    resetSupabaseMocks(); // Use reset helper from manual mock
 
-    // Configure Puppeteer and Lighthouse mocks using require
+    // Configure non-Supabase mocks
     jest.mocked(require('puppeteer')).launch.mockResolvedValue(mockBrowser);
     jest.mocked(require('lighthouse')).mockResolvedValue(createBaseLighthouseResult());
-    // Configure Supabase mock return value here
-    jest.mocked(require('@supabase/supabase-js')).createClient.mockReturnValue(mockClient);
-
-    // Reset mocks directly
-    mockUpload.mockReset().mockResolvedValue({ data: { path: 'mock/path' }, error: null });
-    mockUpdate.mockReset().mockResolvedValue({ data: [{}], error: null });
-
-    // Reset Puppeteer mocks
-
+    
     // Set environment variables
     process.env.SUPABASE_URL = 'http://test-url';
     process.env.SUPABASE_SERVICE_KEY = 'test-key';

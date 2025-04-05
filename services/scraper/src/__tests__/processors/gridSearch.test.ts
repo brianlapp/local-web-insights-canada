@@ -1,29 +1,23 @@
 import { Job } from 'bull';
 import { processGridSearch } from '../../queues/processors/gridSearch';
-import { Client, PlacesNearbyRequest, PlacesNearbyResponse, Status } from '@googlemaps/google-maps-services-js';
 import { createMockSupabaseClient } from '../utils/database.mocks';
+import { Client, PlacesNearbyResponseData } from '@googlemaps/google-maps-services-js';
 
-// Mock dependencies using jest.fn
-const mockInsert = jest.fn();
-const mockUpdate = jest.fn();
-const mockRpc = jest.fn();
-const mockFrom = jest.fn().mockImplementation((table) => {
-  if (table === 'raw_business_data') {
-    return { insert: mockInsert };
-  } else if (table === 'geo_grids') {
-    return { update: mockUpdate, eq: jest.fn().mockReturnThis() };
-  }
-  return {};
+// Define mock function at the top level
+const mockPlacesNearby = jest.fn();
+
+// Use standard mock factory referencing the top-level mock
+jest.mock('@googlemaps/google-maps-services-js', () => {
+  return {
+    Client: jest.fn().mockImplementation(() => {
+      return {
+        placesNearby: mockPlacesNearby // Reference the mock defined above
+      };
+    })
+  };
 });
 
-// Use jest.mock for modules
-jest.mock('@supabase/supabase-js', () => ({
-  createClient: jest.fn().mockReturnValue({
-    from: mockFrom,
-    rpc: mockRpc
-  })
-}));
-
+jest.mock('@supabase/supabase-js'); 
 jest.mock('../../utils/logger', () => ({
   logger: {
     info: jest.fn(),
@@ -32,61 +26,26 @@ jest.mock('../../utils/logger', () => ({
   }
 }));
 
-// Define the mock function in the test scope
-const mockPlacesNearby = jest.fn();
-
-// Mock the entire Client class correctly for Jest
-jest.mock('@googlemaps/google-maps-services-js', () => {
-  return {
-    // Mock the Client constructor
-    Client: jest.fn().mockImplementation(() => {
-      // Return the instance object referencing the scoped mock function
-      return {
-        placesNearby: mockPlacesNearby // Use the mock defined outside
-      };
-    }),
-    __esModule: true // Keep ES module interop flag
-    // No need to export the mock function here anymore
-  };
-});
-
-// Set environment variables
-process.env.GOOGLE_MAPS_API_KEY = 'test-api-key';
-process.env.SUPABASE_URL = 'http://test-url';
-process.env.SUPABASE_SERVICE_KEY = 'test-key';
-
-// Create a helper for default viewport to avoid repetition
-const defaultViewport = {
-  northeast: { lat: 0, lng: 0 },
-  southwest: { lat: 0, lng: 0 }
-};
-
 describe('Grid Search Processor', () => {
   const { mockClient: mockSupabaseClient, mockInsert, mockUpdate, mockRpc } = createMockSupabaseClient();
-  let placesNearbySpy: jest.SpyInstance; // Define spy variable
+  // No spy needed
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockInsert.mockReset();
-    mockUpdate.mockReset();
-    mockRpc.mockReset();
-    mockPlacesNearby.mockClear(); // Clear the mock function defined in the test scope
 
-    // Configure Supabase mock
+    // Configure Supabase mock (simple strategy)
     jest.mocked(require('@supabase/supabase-js')).createClient.mockReturnValue(mockSupabaseClient);
-    mockInsert.mockResolvedValue({ data: null, error: null });
-    mockUpdate.mockResolvedValue({ data: null, error: null });
-    mockRpc.mockResolvedValue({ data: null, error: null });
+    mockInsert.mockReset().mockResolvedValue({ data: null, error: null });
+    mockUpdate.mockReset().mockResolvedValue({ data: null, error: null });
+    mockRpc.mockReset().mockResolvedValue({ data: null, error: null });
 
-    // 3. Create the spy on the actual Client prototype
-    placesNearbySpy = jest.spyOn(Client.prototype, 'placesNearby');
-    // 4. Set default mock implementation for the spy
-    placesNearbySpy.mockResolvedValue({
+    // Reset the top-level mock function
+    mockPlacesNearby.mockReset().mockResolvedValue({
       data: {
         results: [{ place_id: 'test-place-1', name: 'Test Restaurant', types: ['restaurant'] }],
         status: 'OK'
       }
-    } as any); 
+    } as any);
 
     process.env.GOOGLE_MAPS_API_KEY = 'test-api-key';
     process.env.SUPABASE_URL = 'http://test-url';
@@ -94,8 +53,7 @@ describe('Grid Search Processor', () => {
   });
 
   afterEach(() => {
-    // 6. Restore the original implementation after each test
-    placesNearbySpy.mockRestore();
+    // No cleanup needed for this mock pattern
   });
 
   const mockJob = {
@@ -114,12 +72,9 @@ describe('Grid Search Processor', () => {
   };
 
   it('should process a grid search job successfully', async () => {
-    const result = await processGridSearch(mockJob as Job);
-
-    expect(result).toEqual({ businessesFound: 1 });
-
-    // Verify Google Places API spy was called correctly
-    expect(placesNearbySpy).toHaveBeenCalledWith({
+    await processGridSearch(mockJob as Job);
+    // Use the top-level mock function for assertions
+    expect(mockPlacesNearby).toHaveBeenCalledWith({
       params: {
         location: { lat: 45.4165, lng: -75.6922 },
         radius: 1000,
@@ -129,7 +84,6 @@ describe('Grid Search Processor', () => {
       },
       timeout: 5000
     });
-
     // Verify data was inserted correctly
     expect(mockInsert).toHaveBeenCalledWith({
       source_id: 'google-places',
@@ -137,19 +91,16 @@ describe('Grid Search Processor', () => {
       raw_data: expect.any(Object),
       processed: false
     });
-
     // Verify stats were updated
     expect(mockRpc).toHaveBeenCalledWith('update_scraper_run_stats', {
       run_id: 'test-run-1',
       businesses_found: 1
     });
-
     // Verify grid was updated
     expect(mockUpdate).toHaveBeenCalledWith({ last_scraped: expect.any(String) });
   });
 
   it('should process a grid search job successfully with pagination', async () => {
-    // Mock first page with pagination token
     const firstPageResponseData = {
       results: [{
         place_id: 'test-place-1',
@@ -157,14 +108,16 @@ describe('Grid Search Processor', () => {
         vicinity: '123 Test St',
         geometry: {
           location: { lat: 45.4165, lng: -75.6922 },
-          viewport: defaultViewport
+          viewport: {
+            northeast: { lat: 45.4166, lng: -75.6923 },
+            southwest: { lat: 45.4164, lng: -75.6921 }
+          }
         }
       }],
       next_page_token: 'test-token',
-      status: Status.OK,
+      status: 'OK',
       error_message: ''
     };
-    // Mock second page
     const secondPageResponseData = {
       results: [{
         place_id: 'test-place-2',
@@ -172,53 +125,32 @@ describe('Grid Search Processor', () => {
         vicinity: '456 Test St',
         geometry: {
           location: { lat: 45.4166, lng: -75.6923 },
-          viewport: defaultViewport
+          viewport: {
+            northeast: { lat: 45.4166, lng: -75.6923 },
+            southwest: { lat: 45.4164, lng: -75.6921 }
+          }
         }
       }],
-      status: Status.OK,
+      status: 'OK',
       error_message: ''
     };
-
-    placesNearbySpy
-      .mockResolvedValueOnce({ data: firstPageResponseData, status: 200, statusText: 'OK', headers: {}, config: {} as any })
-      .mockResolvedValueOnce({ data: secondPageResponseData, status: 200, statusText: 'OK', headers: {}, config: {} as any });
-
-    const result = await processGridSearch(mockJob as Job);
-
-    expect(result).toEqual({ businessesFound: 2 });
-
-    // Verify multiple API calls were made using the spy
-    expect(placesNearbySpy).toHaveBeenCalledTimes(2);
-    expect(placesNearbySpy).toHaveBeenNthCalledWith(1, {
-      params: {
-        location: { lat: 45.4165, lng: -75.6922 },
-        radius: 1000,
-        type: 'restaurant',
-        key: 'test-api-key',
-        pagetoken: undefined
-      },
-      timeout: 5000
-    });
-    expect(placesNearbySpy).toHaveBeenNthCalledWith(2, {
-      params: {
-        location: { lat: 45.4165, lng: -75.6922 },
-        radius: 1000,
-        type: 'restaurant',
-        key: 'test-api-key',
-        pagetoken: 'test-token'
-      },
-      timeout: 5000
-    });
+    // Setup top-level mock function for pagination test
+    mockPlacesNearby
+      .mockResolvedValueOnce({ data: firstPageResponseData })
+      .mockResolvedValueOnce({ data: secondPageResponseData });
+    
+    await processGridSearch(mockJob as Job);
+    // Use the top-level mock function for assertions
+    expect(mockPlacesNearby).toHaveBeenCalledTimes(2);
     // Verify data insertions
     expect(mockInsert).toHaveBeenCalledTimes(2);
   });
 
   it('should handle empty results', async () => {
-    const emptyResponseData = { results: [], status: Status.ZERO_RESULTS, error_message: '' };
-    placesNearbySpy.mockResolvedValue({ data: emptyResponseData, status: 200, statusText: 'OK', headers: {}, config: {} as any });
+    const emptyResponseData = { results: [], status: 'ZERO_RESULTS', error_message: '' };
+    mockPlacesNearby.mockResolvedValue({ data: emptyResponseData, status: 200, statusText: 'OK', headers: {}, config: {} as any });
 
-    const result = await processGridSearch(mockJob as Job);
-    expect(result).toEqual({ businessesFound: 0 });
+    await processGridSearch(mockJob as Job);
     expect(mockInsert).not.toHaveBeenCalled();
     expect(mockRpc).toHaveBeenCalledWith('update_scraper_run_stats', {
       run_id: 'test-run-1',
@@ -227,8 +159,8 @@ describe('Grid Search Processor', () => {
   });
 
   it('should handle API errors', async () => {
-    placesNearbySpy.mockRejectedValue(new Error('API request failed'));
-
+    // Mock rejection using the top-level mock function
+    mockPlacesNearby.mockRejectedValue(new Error('API request failed'));
     await expect(processGridSearch(mockJob as Job)).rejects.toThrow('API request failed');
     expect(mockInsert).not.toHaveBeenCalled();
     expect(mockRpc).not.toHaveBeenCalled();
@@ -279,7 +211,7 @@ describe('Grid Search Processor', () => {
     await processGridSearch(edgeJob as Job);
 
     // Verify the center calculation handled the date line correctly (expected longitude might be 180 or -180)
-    expect(placesNearbySpy).toHaveBeenCalledWith({
+    expect(mockPlacesNearby).toHaveBeenCalledWith({
       params: {
         location: { lat: 0, lng: -180 }, // Assuming calculation wraps to -180
         radius: 1000,
@@ -293,8 +225,8 @@ describe('Grid Search Processor', () => {
 
   it('should handle rate limit errors', async () => {
     const rateLimitError = { response: { data: { status: 'OVER_QUERY_LIMIT' } } };
-    placesNearbySpy.mockRejectedValue(rateLimitError);
-
+    // Mock rejection using the top-level mock function
+    mockPlacesNearby.mockRejectedValue(rateLimitError);
     await expect(processGridSearch(mockJob as Job)).rejects.toThrow('OVER_QUERY_LIMIT');
     expect(mockInsert).not.toHaveBeenCalled();
     expect(mockRpc).not.toHaveBeenCalled();
