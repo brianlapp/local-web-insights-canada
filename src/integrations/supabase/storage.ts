@@ -10,13 +10,16 @@ const DEFAULT_BUCKET = 'public';
  */
 export const uploadFile = async (
   file: File,
-  path: string,
+  path?: string,
   bucket = DEFAULT_BUCKET
 ) => {
   try {
+    // Generate a path if not provided
+    const filePath = path || `${Date.now()}_${file.name}`;
+    
     const { data, error } = await supabase.storage
       .from(bucket)
-      .upload(path, file);
+      .upload(filePath, file);
 
     if (error) throw error;
     return { data, error: null };
@@ -34,11 +37,10 @@ export const getFileUrl = async (
   bucket = DEFAULT_BUCKET
 ) => {
   try {
-    const { data, error } = await supabase.storage
+    const { data } = supabase.storage
       .from(bucket)
       .getPublicUrl(path);
 
-    if (error) throw error;
     return { publicUrl: data.publicUrl, error: null };
   } catch (error) {
     console.error('Error getting file URL:', error);

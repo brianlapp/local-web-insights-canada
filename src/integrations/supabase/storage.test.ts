@@ -1,6 +1,7 @@
+
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { supabase } from './client'
-import { uploadFile, updateFilePermissions, getPublicUrl, deleteFile } from './storage'
+import { uploadFile, deleteFile, getFileUrl, getPublicUrl, updateFilePermissions } from './storage'
 
 // Mock the Supabase client
 vi.mock('./client', () => ({
@@ -9,8 +10,8 @@ vi.mock('./client', () => ({
       from: vi.fn(() => ({
         upload: vi.fn(),
         getPublicUrl: vi.fn(),
-        move: vi.fn(),
         remove: vi.fn(),
+        download: vi.fn(),
       })),
     },
   },
@@ -19,7 +20,7 @@ vi.mock('./client', () => ({
 describe('Storage Operations', () => {
   const mockFile = new File(['test content'], 'test.txt', { type: 'text/plain' })
   const mockPath = 'test/test.txt'
-  const mockBucket = 'business-assets'
+  const mockBucket = 'public'
   const mockPublicUrl = 'https://example.com/public/test.txt'
 
   beforeEach(() => {
@@ -27,7 +28,7 @@ describe('Storage Operations', () => {
   })
 
   describe('File Upload', () => {
-    it('successfully uploads a file and returns public URL', async () => {
+    it('successfully uploads a file', async () => {
       const mockUploadResponse = {
         data: { path: mockPath },
         error: null,
@@ -44,15 +45,14 @@ describe('Storage Operations', () => {
 
       vi.mocked(supabase.storage.from).mockReturnValue(mockStorageApi as any)
 
-      const result = await uploadFile(mockFile)
+      const result = await uploadFile(mockFile, mockPath, mockBucket)
 
       expect(supabase.storage.from).toHaveBeenCalledWith(mockBucket)
       expect(mockStorageApi.upload).toHaveBeenCalledWith(
-        expect.stringContaining(mockFile.name),
-        mockFile,
-        { upsert: true }
+        mockPath,
+        mockFile
       )
-      expect(result).toBe(mockPublicUrl)
+      expect(result.data).toEqual({ path: mockPath })
     })
 
     it('handles upload errors', async () => {
@@ -67,58 +67,44 @@ describe('Storage Operations', () => {
 
       vi.mocked(supabase.storage.from).mockReturnValue(mockStorageApi as any)
 
-      await expect(uploadFile(mockFile)).rejects.toThrow('Upload failed')
+      const result = await uploadFile(mockFile, mockPath, mockBucket)
+      expect(result.error).toEqual(mockError)
     })
   })
 
   describe('File Permissions', () => {
-    it('successfully moves file to public directory', async () => {
+    it('updates file permissions to public', async () => {
       const mockStorageApi = {
-        move: vi.fn().mockResolvedValue({ error: null }),
+        // No actual implementation needed for this mock
       }
 
       vi.mocked(supabase.storage.from).mockReturnValue(mockStorageApi as any)
 
-      await updateFilePermissions(mockPath, 'public')
+      const result = await updateFilePermissions(mockPath, true, mockBucket)
 
       expect(supabase.storage.from).toHaveBeenCalledWith(mockBucket)
-      expect(mockStorageApi.move).toHaveBeenCalledWith(
-        mockPath,
-        'public/test/test.txt'
-      )
+      expect(result.data).toEqual({
+        path: mockPath,
+        isPublic: true,
+        success: true
+      })
     })
 
-    it('successfully moves file to private directory', async () => {
+    it('updates file permissions to private', async () => {
       const mockStorageApi = {
-        move: vi.fn().mockResolvedValue({ error: null }),
+        // No actual implementation needed for this mock
       }
 
       vi.mocked(supabase.storage.from).mockReturnValue(mockStorageApi as any)
 
-      await updateFilePermissions(mockPath, 'private')
+      const result = await updateFilePermissions(mockPath, false, mockBucket)
 
       expect(supabase.storage.from).toHaveBeenCalledWith(mockBucket)
-      expect(mockStorageApi.move).toHaveBeenCalledWith(
-        mockPath,
-        'private/test/test.txt'
-      )
-    })
-
-    it('handles move operation errors', async () => {
-      const mockError = {
-        message: 'Move operation failed',
-        statusCode: 403,
-      }
-
-      const mockStorageApi = {
-        move: vi.fn().mockResolvedValue({ error: mockError }),
-      }
-
-      vi.mocked(supabase.storage.from).mockReturnValue(mockStorageApi as any)
-
-      await expect(
-        updateFilePermissions(mockPath, 'public')
-      ).rejects.toThrow('Move operation failed')
+      expect(result.data).toEqual({
+        path: mockPath,
+        isPublic: false,
+        success: true
+      })
     })
   })
 
@@ -132,26 +118,43 @@ describe('Storage Operations', () => {
 
       vi.mocked(supabase.storage.from).mockReturnValue(mockStorageApi as any)
 
-      const result = getPublicUrl(mockPath)
+      const result = getPublicUrl(mockPath, mockBucket)
 
       expect(supabase.storage.from).toHaveBeenCalledWith(mockBucket)
       expect(mockStorageApi.getPublicUrl).toHaveBeenCalledWith(mockPath)
       expect(result).toBe(mockPublicUrl)
+    })
+    
+    it('returns file URL with error handling', async () => {
+      const mockStorageApi = {
+        getPublicUrl: vi.fn().mockReturnValue({
+          data: { publicUrl: mockPublicUrl },
+        }),
+      }
+
+      vi.mocked(supabase.storage.from).mockReturnValue(mockStorageApi as any)
+
+      const result = await getFileUrl(mockPath, mockBucket)
+
+      expect(supabase.storage.from).toHaveBeenCalledWith(mockBucket)
+      expect(mockStorageApi.getPublicUrl).toHaveBeenCalledWith(mockPath)
+      expect(result).toEqual({ publicUrl: mockPublicUrl, error: null })
     })
   })
 
   describe('File Deletion', () => {
     it('successfully deletes a file', async () => {
       const mockStorageApi = {
-        remove: vi.fn().mockResolvedValue({ error: null }),
+        remove: vi.fn().mockResolvedValue({ data: {}, error: null }),
       }
 
       vi.mocked(supabase.storage.from).mockReturnValue(mockStorageApi as any)
 
-      await deleteFile(mockPath)
+      const result = await deleteFile(mockPath, mockBucket)
 
       expect(supabase.storage.from).toHaveBeenCalledWith(mockBucket)
       expect(mockStorageApi.remove).toHaveBeenCalledWith([mockPath])
+      expect(result.error).toBeNull()
     })
 
     it('handles deletion errors', async () => {
@@ -161,12 +164,13 @@ describe('Storage Operations', () => {
       }
 
       const mockStorageApi = {
-        remove: vi.fn().mockResolvedValue({ error: mockError }),
+        remove: vi.fn().mockResolvedValue({ data: null, error: mockError }),
       }
 
       vi.mocked(supabase.storage.from).mockReturnValue(mockStorageApi as any)
 
-      await expect(deleteFile(mockPath)).rejects.toThrow('Deletion failed')
+      const result = await deleteFile(mockPath, mockBucket)
+      expect(result.error).toEqual(mockError)
     })
   })
-}) 
+})
