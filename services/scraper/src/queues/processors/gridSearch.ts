@@ -284,12 +284,11 @@ async function processSubGrid(
         raw_data: place
       };
     });
-
     // Filter out duplicates across sub-grids
-    const newBusinesses = businessBatch.filter(business => !processedPlaceIds.has(business.place_id));
+    const newBusinesses = businessBatch.filter(business => !processedPlaceIds.has(business.place_id!));
     
     // Mark as processed
-    newBusinesses.forEach(business => processedPlaceIds.add(business.place_id));
+    newBusinesses.forEach(business => processedPlaceIds.add(business.place_id!));
     businessesSkipped += businessBatch.length - newBusinesses.length;
     
     // Skip the insert if there are no new businesses

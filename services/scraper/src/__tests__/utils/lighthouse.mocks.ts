@@ -1,4 +1,4 @@
-import { RunnerResult, Artifacts } from 'lighthouse';
+import type { RunnerResult, Artifacts } from 'lighthouse';
 import type { Result } from 'lighthouse';
 import type { ConfigSettings, ThrottlingSettings, ScreenEmulationSettings } from 'lighthouse/types/lhr/settings';
 

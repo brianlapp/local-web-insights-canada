@@ -5,6 +5,7 @@ Key implementation examples are available in:
 - `memory-bank/google-grid-scrape-example.md`: Example implementation of the Google Places grid-based scraper
 - `docs/complete-lighthouse-audit-example.js`: Example implementation of the website audit service
 - `docs/admin-ui-components.txt`: Example UI components for the scraper control panel
+- `services/analysis/IMPLEMENTATION.md`: Summary of the data analysis service implementation
 
 ## Technology Stack
 
@@ -20,7 +21,9 @@ Key implementation examples are available in:
 ### Backend
 - Supabase for database and authentication
 - Node.js scraper services
+- Node.js analysis services
 - Bull for job queue management
+- Express for API endpoints
 - Redis for caching and job state
 - Docker for containerization
 
@@ -29,6 +32,7 @@ Key implementation examples are available in:
 - Google Lighthouse API for website auditing
 - "Made With" API for tech stack detection
 - Puppeteer for screenshot capture
+- Turf.js for geographic calculations
 - Yelp Business API (planned)
 - Yellow Pages API (planned)
 
@@ -55,6 +59,14 @@ Key implementation examples are available in:
 - Error handling and retry logic
 - Modular service architecture
 
+### Analysis Engine
+- Data aggregation modules
+- Report generation pipeline
+- Scheduled processing system
+- Geographic analysis with Turf.js
+- Business comparison metrics
+- RESTful API endpoints with Express
+
 ### Data Pipeline
 1. Business Discovery
    - Grid-based API queries
@@ -69,12 +81,20 @@ Key implementation examples are available in:
    - Screenshot generation
    - Score calculation
 
-3. Data Storage
+3. Data Analysis
+   - Geographic insights aggregation
+   - Category performance analysis
+   - Business comparison metrics
+   - Report generation
+   - Visualization configuration
+
+4. Data Storage
    - Supabase tables
    - Job history tracking
    - Error logging
    - Audit records
-   - Raw data storage
+   - Analysis results
+   - Report storage
 
 ## Development Setup
 
@@ -82,12 +102,27 @@ Key implementation examples are available in:
 - Node.js 18+
 - npm/yarn/pnpm
 - Git
+- Redis
 - Supabase CLI (optional)
 
 ### Environment Variables
 ```env
+# Frontend
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Scraper Service
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_KEY=your_supabase_service_key
+GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+REDIS_URL=redis://localhost:6379
+PORT=3000
+
+# Analysis Service
+SUPABASE_URL=your_supabase_url
+SUPABASE_API_KEY=your_supabase_service_key
+REDIS_URL=redis://localhost:6379
+PORT=3001
 ```
 
 ### Local Development
@@ -103,7 +138,25 @@ npm test
 
 # Build for production
 npm run build
+
+# Run database migrations for analysis service
+cd services/analysis
+npm run migrations
 ```
+
+## Service Architecture
+
+### Scraper Service
+- `services/scraper/src/queues/processors/gridSearch.ts`: Business discovery
+- `services/scraper/src/queues/processors/websiteAudit.ts`: Website auditing
+- `services/scraper/src/routes/jobs.ts`: Job management API
+
+### Analysis Service
+- `services/analysis/src/aggregators/`: Data aggregation modules
+- `services/analysis/src/reports/`: Report generation system
+- `services/analysis/src/processors/`: Job processing for analysis
+- `services/analysis/src/utils/`: Database and utility functions
+- `services/analysis/src/models/`: Type definitions and interfaces
 
 ## Technical Constraints
 
@@ -115,12 +168,15 @@ npm run build
 - First contentful paint < 2s
 - Time to interactive < 3s
 - Bundle size < 500KB (main)
+- Analysis job processing < 30s
+- Report generation < 10s
 
 ### Security
 - Supabase RLS policies
 - Protected admin routes
 - Secure file uploads
 - XSS prevention
+- API authentication
 
 ### Accessibility
 - WCAG 2.1 AA compliance
@@ -137,10 +193,16 @@ npm run build
 - zod
 - lucide-react
 - date-fns
+- bull
+- express
+- node-cron
+- @turf/turf
+- lodash
 
 ### Development Dependencies
 - @types/react
 - @types/node
+- @types/express
 - typescript
 - tailwindcss
 - postcss
@@ -148,17 +210,20 @@ npm run build
 - vitest
 - @testing-library/react
 - @playwright/test
+- jest
+- ts-jest
 
 ## Build & Deployment
 
 ### Build Process
 1. TypeScript compilation
-2. Vite bundling
+2. Vite bundling for frontend
 3. Asset optimization
 4. Environment variable injection
 
 ### Deployment
-- Hosted on Lovable
+- Frontend hosted on Lovable
+- Services deployed via Docker
 - Automatic deployments
 - Environment configuration
 - Build caching 
@@ -169,3 +234,4 @@ npm run build
 - Access control
 - Data validation
 - Error handling 
+- Service authentication 
