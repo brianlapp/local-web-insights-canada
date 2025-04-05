@@ -22,6 +22,8 @@ import { UpdatePasswordPage } from './pages/admin/UpdatePasswordPage'
 import SignupPage from './pages/SignupPage'
 import { ToolsPage } from './pages/ToolsPage'
 import PageLayout from './components/layout/PageLayout'
+import { PetitionPage } from './pages/petition/[slug]'
+import { BusinessAuditPage } from './pages/[businessSlug]'
 
 const PetitionList = () => <div>Petition List</div>
 const Settings = () => <div>Settings</div>
@@ -64,9 +66,10 @@ function App() {
                 <Route path="/signup" element={<SignupPage />} />
                 <Route path="/:city/:slug" element={<AuditPage />} />
                 <Route path="/auditor/:slug" element={<AuditorPage />} />
+                <Route path="/petition/:slug" element={<PetitionPage />} />
+                <Route path="/:businessSlug" element={<BusinessAuditPage />} />
+                <Route path="*" element={<NotFound />} />
               </Route>
-              
-              <Route path="*" element={<NotFound />} />
             </Routes>
           </AdminAuthProvider>
           <Toaster />
