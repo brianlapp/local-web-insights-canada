@@ -17,9 +17,14 @@ const mockFrom = jest.fn().mockImplementation((table) => {
   return {};
 });
 
-jest.mock('@googlemaps/google-maps-services-js', () => ({
-  Client: jest.fn().mockImplementation(() => mockGoogleMapsClient)
-}));
+// Mock the entire Client class
+jest.mock('@googlemaps/google-maps-services-js', () => {
+  return {
+    Client: jest.fn().mockImplementation(() => ({
+      placesNearby: mockPlacesNearby
+    }))
+  };
+});
 
 jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn().mockReturnValue({
@@ -202,7 +207,7 @@ describe('Grid Search Processor', () => {
   it('should handle database errors', async () => {
     mockInsert.mockResolvedValue({ data: null, error: { message: 'Database error' } });
 
-    await expect(processGridSearch(mockJob as Job)).rejects.toThrow('Database error');
+    await expect(processGridSearch(mockJob as Job)).rejects.toThrow('Failed to insert business data: Database error');
     expect(mockRpc).not.toHaveBeenCalled();
     expect(mockUpdate).not.toHaveBeenCalled();
   });
@@ -210,33 +215,33 @@ describe('Grid Search Processor', () => {
   it('should handle stats update errors', async () => {
     mockRpc.mockResolvedValue({ data: null, error: { message: 'Stats update failed' } });
 
-    await expect(processGridSearch(mockJob as Job)).rejects.toThrow('Stats update failed');
+    await expect(processGridSearch(mockJob as Job)).rejects.toThrow('Failed to update scraper run stats: Stats update failed');
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it('should handle grid update errors', async () => {
     mockUpdate.mockResolvedValue({ data: null, error: { message: 'Grid update failed' } });
 
-    await expect(processGridSearch(mockJob as Job)).rejects.toThrow('Grid update failed');
+    await expect(processGridSearch(mockJob as Job)).rejects.toThrow('Failed to update grid record: Grid update failed');
   });
 
   it('should handle edge case grid coordinates', async () => {
-    const edgeCaseJob = {
+    const edgeJob = {
       data: {
         grid: {
           id: 'test-grid-2',
-          name: 'Test Grid',
+          name: 'Edge Grid',
           bounds: {
-            northeast: { lat: 0.0001, lng: 180 },
-            southwest: { lat: -0.0001, lng: 179.9999 }
+            northeast: { lat: 0.001, lng: 180 },
+            southwest: { lat: -0.001, lng: 179.998 }
           }
         },
         category: 'restaurant',
-        scraperRunId: 'test-run-1'
+        scraperRunId: 'test-run-2'
       }
     };
 
-    await processGridSearch(edgeCaseJob as Job);
+    await processGridSearch(edgeJob as Job);
 
     // Verify the center calculation handled the date line correctly
     expect(mockPlacesNearby).toHaveBeenCalledWith({

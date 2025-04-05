@@ -4,7 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 import { logger } from '../../utils/logger';
 
 // Initialize clients
-const googleMapsClient = new Client({});
 const supabase = createClient(
   process.env.SUPABASE_URL as string,
   process.env.SUPABASE_SERVICE_KEY as string
@@ -27,55 +26,66 @@ export async function processGridSearch(job: Job<GridSearchJobData>) {
   const { grid, category, scraperRunId } = job.data;
   logger.info(`Searching ${grid.name} for category: ${category}`);
   
-  let pageToken: string | undefined;
   let businessesFound = 0;
-  
+
+  // Calculate the center point of the grid
+  const center = {
+    lat: (grid.bounds.northeast.lat + grid.bounds.southwest.lat) / 2,
+    lng: (grid.bounds.northeast.lng + grid.bounds.southwest.lng) / 2
+  };
+
+  // Initialize Google Maps client
+  const googleMapsClient = new Client({});
+  let pageToken: string | undefined;
+
   try {
-    // We'll make up to 3 paginated requests (max 60 results)
-    for (let page = 0; page < 3; page++) {
-      const response = await googleMapsClient.placesNearby({
-        params: {
-          location: {
-            lat: (grid.bounds.northeast.lat + grid.bounds.southwest.lat) / 2,
-            lng: (grid.bounds.northeast.lng + grid.bounds.southwest.lng) / 2
+    do {
+      // Make the Places API request
+      let response;
+      try {
+        response = await googleMapsClient.placesNearby({
+          params: {
+            location: center,
+            radius: 1000,
+            type: category,
+            key: process.env.GOOGLE_MAPS_API_KEY as string,
+            pagetoken: pageToken
           },
-          radius: 1000, // 1km radius
-          type: category,
-          key: process.env.GOOGLE_MAPS_API_KEY as string,
-          pagetoken: pageToken
-        },
-        timeout: 5000
-      });
-      
-      const places = response.data.results;
-      
-      // Process each place
-      for (const place of places) {
-        // Store raw data first
-        const { error } = await supabase
-          .from('raw_business_data')
-          .insert({
-            source_id: 'google-places',
-            external_id: place.place_id,
-            raw_data: place,
-            processed: false
-          });
-          
-        if (error) {
-          throw error;
+          timeout: 5000
+        });
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('OVER_QUERY_LIMIT')) {
+          throw new Error('OVER_QUERY_LIMIT');
         }
-        
+        throw error;
+      }
+
+      // Process each place in the response
+      const places = response.data.results || [];
+      for (const place of places) {
+        const { error } = await supabase.from('raw_business_data').insert({
+          source_id: 'google-places',
+          external_id: place.place_id,
+          raw_data: place,
+          processed: false
+        });
+
+        if (error) {
+          throw new Error(`Failed to insert business data: ${error.message}`);
+        }
+
         businessesFound++;
       }
-      
-      // Check if there are more pages
+
+      // Update page token for next request
       pageToken = response.data.next_page_token;
-      if (!pageToken) break;
-      
-      // Need to wait a bit before using next_page_token
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    }
-    
+
+      // Wait a bit if we have a next page to avoid rate limiting
+      if (pageToken) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    } while (pageToken);
+
     // Update scraper run stats
     const { error: statsError } = await supabase.rpc('update_scraper_run_stats', {
       run_id: scraperRunId,
@@ -83,23 +93,22 @@ export async function processGridSearch(job: Job<GridSearchJobData>) {
     });
 
     if (statsError) {
-      throw statsError;
+      throw new Error(`Failed to update scraper run stats: ${statsError.message}`);
     }
-    
-    // Update grid record with last scraped timestamp
+
+    // Update grid record
     const { error: gridError } = await supabase
       .from('geo_grids')
       .update({ last_scraped: new Date().toISOString() })
       .eq('id', grid.id);
 
     if (gridError) {
-      throw gridError;
+      throw new Error(`Failed to update grid record: ${gridError.message}`);
     }
-    
+
     return { businessesFound };
-    
   } catch (error) {
-    logger.error(`Error scraping grid ${grid.name} for ${category}:`, error);
+    // Rethrow any errors that were caught
     throw error;
   }
 } 

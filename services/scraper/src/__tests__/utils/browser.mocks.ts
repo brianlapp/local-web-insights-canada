@@ -19,9 +19,20 @@ export const setupDefaultBrowserMocks = () => {
   // Set default successful responses
   mockBrowser.wsEndpoint = jest.fn().mockReturnValue('ws://localhost:1234');
   mockBrowser.newPage = jest.fn().mockResolvedValue(mockPage);
+  mockBrowser.close = jest.fn().mockResolvedValue(undefined);
   mockPage.setViewport = jest.fn().mockResolvedValue(undefined);
   mockPage.goto = jest.fn().mockResolvedValue(undefined);
   mockPage.screenshot = jest.fn().mockResolvedValue(Buffer.from('test-screenshot'));
 
   return { mockBrowser, mockPage };
-}; 
+};
+
+describe('Browser Mocks', () => {
+  it('should setup default browser mocks', () => {
+    const { mockBrowser, mockPage } = setupDefaultBrowserMocks();
+    expect(mockBrowser).toBeDefined();
+    expect(mockPage).toBeDefined();
+    expect(mockBrowser.wsEndpoint).toBeDefined();
+    expect(mockBrowser.newPage).toBeDefined();
+  });
+}); 

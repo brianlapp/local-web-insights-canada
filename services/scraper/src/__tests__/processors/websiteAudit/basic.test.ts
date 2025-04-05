@@ -1,7 +1,7 @@
 // Mock modules first
 jest.mock('puppeteer');
-jest.mock('lighthouse', () => ({
-  default: jest.fn(() => Promise.resolve({
+jest.mock('lighthouse', () => {
+  return jest.fn(() => Promise.resolve({
     lhr: {
       categories: {
         performance: { score: 0.9 },
@@ -11,7 +11,15 @@ jest.mock('lighthouse', () => ({
       },
       audits: {}
     },
-    report: '{}',
+    report: JSON.stringify({
+      categories: {
+        performance: { score: 0.9 },
+        accessibility: { score: 0.8 },
+        'best-practices': { score: 0.7 },
+        seo: { score: 0.6 }
+      },
+      audits: {}
+    }),
     artifacts: {
       fetchTime: new Date().toISOString(),
       settings: {},
@@ -21,8 +29,8 @@ jest.mock('lighthouse', () => ({
         mainDocumentUrl: 'https://example.com'
       }
     }
-  }))
-}));
+  }));
+});
 jest.mock('@supabase/supabase-js');
 jest.mock('../../../utils/logger', () => ({
   logger: {
@@ -49,7 +57,7 @@ describe('Website Audit Processor - Basic Tests', () => {
     jest.mocked(require('puppeteer')).launch.mockResolvedValue(mockBrowser);
 
     // Setup Lighthouse mock
-    jest.mocked(require('lighthouse')).default.mockImplementation(() => {
+    jest.mocked(require('lighthouse')).mockImplementation(() => {
       return Promise.resolve(createBaseLighthouseResult());
     });
 

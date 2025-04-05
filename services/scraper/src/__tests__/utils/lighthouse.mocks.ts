@@ -304,18 +304,76 @@ const createBaseLighthouseResult = (): RunnerResult => ({
     },
     stackPacks: []
   },
-  report: '{}',
+  report: JSON.stringify({
+    categories: {
+      performance: {
+        score: 0.9
+      },
+      accessibility: {
+        score: 0.8
+      },
+      'best-practices': {
+        score: 0.7
+      },
+      seo: {
+        score: 0.6
+      }
+    },
+    audits: {}
+  }),
   artifacts: defaultArtifacts
 });
 
 // Factory function for creating empty lighthouse results
 const createEmptyLighthouseResult = (): RunnerResult => ({
-  ...createBaseLighthouseResult(),
   lhr: {
-    ...createBaseLighthouseResult().lhr,
+    requestedUrl: 'https://example.com',
+    finalDisplayedUrl: 'https://example.com',
+    mainDocumentUrl: 'https://example.com',
+    finalUrl: 'https://example.com',
+    fetchTime: new Date().toISOString(),
+    gatherMode: 'navigation',
+    lighthouseVersion: '10.0.0',
+    userAgent: 'Chrome/91.0.4472.124',
+    environment: {
+      networkUserAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+      hostUserAgent: 'Chrome/91.0.4472.124',
+      benchmarkIndex: 1000
+    },
+    runWarnings: [],
+    configSettings: defaultConfigSettings,
+    categories: {},
+    audits: {},
+    timing: {
+      total: 5000,
+      entries: []
+    },
+    i18n: {
+      rendererFormattedStrings: {}
+    },
+    stackPacks: []
+  },
+  report: JSON.stringify({
     categories: {},
     audits: {}
-  }
+  }),
+  artifacts: defaultArtifacts
+});
+
+describe('Lighthouse Mocks', () => {
+  it('should create base Lighthouse result', () => {
+    const result = createBaseLighthouseResult();
+    expect(result).toBeDefined();
+    expect(result.lhr.categories).toBeDefined();
+    expect(result.lhr.categories.performance).toBeDefined();
+  });
+
+  it('should create empty Lighthouse result', () => {
+    const result = createEmptyLighthouseResult();
+    expect(result).toBeDefined();
+    expect(result.lhr.categories).toBeDefined();
+    expect(Object.keys(result.lhr.categories)).toHaveLength(0);
+  });
 });
 
 export {

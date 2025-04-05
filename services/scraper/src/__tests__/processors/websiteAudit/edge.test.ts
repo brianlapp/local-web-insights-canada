@@ -1,14 +1,16 @@
 // Mock modules first
 jest.mock('puppeteer');
-jest.mock('lighthouse', () => ({
-  default: jest.fn(() => Promise.resolve({
+jest.mock('lighthouse', () => {
+  return jest.fn(() => Promise.resolve({
     lhr: {
       categories: {},
       audits: {}
     },
-    report: '{}',
+    report: JSON.stringify({
+      categories: {},
+      audits: {}
+    }),
     artifacts: {
-      // Add minimal required artifacts
       fetchTime: new Date().toISOString(),
       settings: {},
       URL: {
@@ -17,8 +19,8 @@ jest.mock('lighthouse', () => ({
         mainDocumentUrl: 'https://example.com'
       }
     }
-  }))
-}));
+  }));
+});
 jest.mock('@supabase/supabase-js');
 jest.mock('../../../utils/logger', () => ({
   logger: {
@@ -45,7 +47,7 @@ describe('Website Audit Processor - Edge Cases', () => {
     jest.mocked(require('puppeteer')).launch.mockResolvedValue(mockBrowser);
 
     // Setup Lighthouse mock with empty results
-    jest.mocked(require('lighthouse')).default.mockImplementation(() => {
+    jest.mocked(require('lighthouse')).mockImplementation(() => {
       return Promise.resolve(createEmptyLighthouseResult());
     });
 
