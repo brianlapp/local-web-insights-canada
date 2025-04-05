@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -37,7 +38,7 @@ const emptyBusiness: BusinessInsert = {
   auditDate: new Date().toISOString()
 };
 
-const BusinessForm = () => {
+export const BusinessForm = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const isEditing = Boolean(id);
