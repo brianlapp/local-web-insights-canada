@@ -19,6 +19,9 @@ import AboutPage from './pages/AboutPage'
 import { ResetPasswordPage } from './pages/admin/ResetPasswordPage'
 import { UpdatePasswordPage } from './pages/admin/UpdatePasswordPage'
 import { BusinessForm } from '@/pages/admin/BusinessForm'
+import SignupPage from './pages/SignupPage'
+import ToolsPage from './pages/ToolsPage'
+import PageLayout from './components/layout/PageLayout'
 
 // Placeholder components until we implement them
 const PetitionList = () => <div>Petition List</div>
@@ -54,12 +57,18 @@ function App() {
                 </Route>
               </Route>
 
-              {/* Public routes */}
-              <Route path="/" element={<HomePage />} />
-              <Route path="/about" element={<AboutPage />} />
-              <Route path="/auditors" element={<AuditorsPage />} />
-              <Route path="/:city/:slug" element={<AuditPage />} />
-              <Route path="/auditor/:slug" element={<AuditorPage />} />
+              {/* Public routes with layout */}
+              <Route element={<PageLayout><Outlet /></PageLayout>}>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/auditors" element={<AuditorsPage />} />
+                <Route path="/audit" element={<AuditPage />} />
+                <Route path="/tools" element={<ToolsPage />} />
+                <Route path="/signup" element={<SignupPage />} />
+                <Route path="/:city/:slug" element={<AuditPage />} />
+                <Route path="/auditor/:slug" element={<AuditorPage />} />
+              </Route>
+              
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

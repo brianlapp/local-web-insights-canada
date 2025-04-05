@@ -52,10 +52,35 @@ export interface Tables {
 
 export interface Database {
   public: {
-    Tables: Tables;
+    Tables: {
+      businesses: {
+        Row: Tables['businesses'];
+        Insert: Tables['businesses'];
+        Update: Partial<Tables['businesses']>;
+      };
+      audits: {
+        Row: Tables['audits'];
+        Insert: Tables['audits'];
+        Update: Partial<Tables['audits']>;
+      };
+      petition_signatures: {
+        Row: Tables['petition_signatures'];
+        Insert: Tables['petition_signatures'];
+        Update: Partial<Tables['petition_signatures']>;
+      };
+    };
     Views: {};
     Functions: {};
     Enums: {};
     CompositeTypes: {};
   };
+}
+
+// Types for mocking storage errors
+export interface StorageErrorMock {
+  name: string;
+  message: string;
+  status?: number;
+  statusCode?: number;
+  error?: string;
 }
