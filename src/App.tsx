@@ -15,12 +15,14 @@ import HomePage from './pages/HomePage'
 import AuditPage from './pages/AuditPage'
 import AuditorPage from './pages/AuditorPage'
 import AuditorsPage from './pages/AuditorsPage'
+import AuditsPage from './pages/AuditsPage'
 import NotFound from './pages/NotFound'
 import AboutPage from './pages/AboutPage'
 import { ResetPasswordPage } from './pages/admin/ResetPasswordPage'
 import { UpdatePasswordPage } from './pages/admin/UpdatePasswordPage'
 import SignupPage from './pages/SignupPage'
 import { ToolsPage } from './pages/ToolsPage'
+import ContactPage from './pages/ContactPage'
 import PageLayout from './components/layout/PageLayout'
 import { PetitionPage } from './pages/petition/[slug]'
 import { BusinessAuditPage } from './pages/[businessSlug]'
@@ -61,9 +63,11 @@ function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/about" element={<AboutPage />} />
                 <Route path="/auditors" element={<AuditorsPage />} />
+                <Route path="/audits" element={<AuditsPage />} />
                 <Route path="/audit" element={<AuditPage />} />
                 <Route path="/tools" element={<ToolsPage />} />
                 <Route path="/signup" element={<SignupPage />} />
+                <Route path="/contact" element={<ContactPage />} />
                 <Route path="/:city/:slug" element={<AuditPage />} />
                 <Route path="/auditor/:slug" element={<AuditorPage />} />
                 <Route path="/petition/:slug" element={<PetitionPage />} />
