@@ -27,19 +27,21 @@ const Header = () => {
     { title: 'Home', path: '/' },
     { title: 'About', path: '/about' },
     { title: 'Auditors', path: '/auditors' },
+    { title: 'Audit', path: '/audit' }, 
+    { title: 'Tools', path: '/tools' }
   ];
 
   return (
-    <header className="bg-white border-b border-gray-200">
-      <div className="container mx-auto px-4 py-4">
+    <header className="bg-white border-b border-gray-200 py-4">
+      <div className="container mx-auto px-4">
         <div className="flex justify-between items-center">
           <Link to="/" className="text-2xl font-bold text-civic-blue-600">
             LocalWebsiteAudit
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden md:block">
-            <ul className="flex space-x-8">
+          <nav className="hidden md:flex items-center space-x-6">
+            <ul className="flex space-x-6">
               {navItems.map((item) => (
                 <li key={item.path}>
                   <Link
@@ -54,20 +56,19 @@ const Header = () => {
                 </li>
               ))}
             </ul>
+            <div className="flex items-center space-x-4 ml-6">
+              <Button
+                variant="outline"
+                className="border-civic-blue text-civic-blue hover:bg-civic-blue-50"
+                asChild
+              >
+                <Link to="/audit">Request an Audit</Link>
+              </Button>
+              <Button className="bg-civic-blue hover:bg-civic-blue-600" asChild>
+                <Link to="/signup">Sign Up</Link>
+              </Button>
+            </div>
           </nav>
-
-          <div className="hidden md:flex items-center space-x-4">
-            <Button
-              variant="outline"
-              className="border-civic-blue text-civic-blue hover:bg-civic-blue-50"
-              asChild
-            >
-              <Link to="/audit">Request an Audit</Link>
-            </Button>
-            <Button className="bg-civic-blue hover:bg-civic-blue-600" asChild>
-              <Link to="/signup">Sign Up</Link>
-            </Button>
-          </div>
 
           {/* Mobile menu button */}
           <button
