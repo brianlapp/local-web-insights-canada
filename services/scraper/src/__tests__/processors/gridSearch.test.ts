@@ -1,12 +1,11 @@
 import { Job } from 'bull';
 import { processGridSearch } from '../../queues/processors/gridSearch';
-import { createMockSupabaseClient } from '../utils/database.mocks';
-import { Client, PlacesNearbyResponseData } from '@googlemaps/google-maps-services-js';
+import { supabaseMocks } from '../../test/setup';
 
 // Define mock function at the top level
 const mockPlacesNearby = jest.fn();
 
-// Use standard mock factory referencing the top-level mock
+// Mock modules
 jest.mock('@googlemaps/google-maps-services-js', () => {
   return {
     Client: jest.fn().mockImplementation(() => {
@@ -17,7 +16,7 @@ jest.mock('@googlemaps/google-maps-services-js', () => {
   };
 });
 
-jest.mock('@supabase/supabase-js'); 
+// Mock logger
 jest.mock('../../utils/logger', () => ({
   logger: {
     info: jest.fn(),
@@ -27,33 +26,23 @@ jest.mock('../../utils/logger', () => ({
 }));
 
 describe('Grid Search Processor', () => {
-  const { mockClient: mockSupabaseClient, mockInsert, mockUpdate, mockRpc } = createMockSupabaseClient();
-  // No spy needed
+  // Access global mocks from setup
+  const { mockInsert, mockUpdate, mockRpc } = supabaseMocks;
 
   beforeEach(() => {
     jest.clearAllMocks();
-
-    // Configure Supabase mock (simple strategy)
-    jest.mocked(require('@supabase/supabase-js')).createClient.mockReturnValue(mockSupabaseClient);
-    mockInsert.mockReset().mockResolvedValue({ data: null, error: null });
-    mockUpdate.mockReset().mockResolvedValue({ data: null, error: null });
-    mockRpc.mockReset().mockResolvedValue({ data: null, error: null });
-
+    
     // Reset the top-level mock function
     mockPlacesNearby.mockReset().mockResolvedValue({
       data: {
         results: [{ place_id: 'test-place-1', name: 'Test Restaurant', types: ['restaurant'] }],
         status: 'OK'
       }
-    } as any);
+    });
 
     process.env.GOOGLE_MAPS_API_KEY = 'test-api-key';
     process.env.SUPABASE_URL = 'http://test-url';
     process.env.SUPABASE_SERVICE_KEY = 'test-key';
-  });
-
-  afterEach(() => {
-    // No cleanup needed for this mock pattern
   });
 
   const mockJob = {

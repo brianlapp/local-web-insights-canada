@@ -1,21 +1,13 @@
-// import { vi, describe, beforeEach, expect, it } from 'vitest'; // Import Vitest globals
-import { Page } from 'puppeteer'; // Keep this if needed for spies
+// Import necessary types and modules
 import { Job } from 'bull';
 import { processWebsiteAudit } from '../../../queues/processors/websiteAudit';
-import { createEdgeLighthouseResult } from '../../utils/lighthouse.mocks';
-import { setupDefaultBrowserMocks, MockedBrowser, MockedPage } from '../../utils/browser.mocks'; // This might need internal vi.fn updates
-// Import using original module name - expect Jest to find adjacent __mocks__
-import { 
-  mockUpload, 
-  mockUpdate, 
-  resetSupabaseMocks, 
-  mockEq 
-} from '@supabase/supabase-js';
+import { createBaseLighthouseResult } from '../../utils/lighthouse.mocks';
+import { setupDefaultBrowserMocks } from '../../utils/browser.mocks';
+import { supabaseMocks } from '../../../test/setup';
 
-// Mock modules (Jest automatically uses adjacent __mocks__)
+// Mock modules
 jest.mock('puppeteer');
 jest.mock('lighthouse');
-jest.mock('@supabase/supabase-js'); 
 jest.mock('@googlemaps/google-maps-services-js');
 jest.mock('../../../utils/logger', () => ({
   logger: {
@@ -24,21 +16,15 @@ jest.mock('../../../utils/logger', () => ({
   }
 }));
 
-// Get the mock functions directly using require
-const supabaseMocks = require('@supabase/supabase-js');
-const { mockUpload, mockUpdate, mockEq, resetSupabaseMocks } = supabaseMocks;
-
 describe('Website Audit Processor - Edge Cases', () => {
   const { mockBrowser, mockPage } = setupDefaultBrowserMocks();
-  // No helper call needed
-
+  const { mockUpload, mockUpdate } = supabaseMocks;
+  
   beforeEach(() => {
     jest.clearAllMocks();
-    resetSupabaseMocks(); // Use reset helper from manual mock
-
-    // Configure non-Supabase mocks
+    
+    // Configure lighthouse and puppeteer mocks
     jest.mocked(require('puppeteer')).launch.mockResolvedValue(mockBrowser);
-    jest.mocked(require('lighthouse')).mockResolvedValue(createEdgeLighthouseResult());
     
     // Set environment variables
     process.env.SUPABASE_URL = 'http://test-url';
@@ -53,39 +39,65 @@ describe('Website Audit Processor - Edge Cases', () => {
   };
 
   it('should handle missing Lighthouse categories', async () => {
-    const partialLighthouseResult = createEdgeLighthouseResult();
-    partialLighthouseResult.lhr.categories = {};
-    partialLighthouseResult.lhr.audits = {};
-    jest.mocked(require('lighthouse')).mockResolvedValue(partialLighthouseResult);
+    const lighthouseModule = require('lighthouse');
+    lighthouseModule.default = jest.fn().mockResolvedValue({
+      lhr: { 
+        ...createBaseLighthouseResult(),
+        categories: {} // Empty categories
+      },
+      report: ['report']
+    });
 
-    await processWebsiteAudit(mockJob as Job);
-    // Use mock from createMockSupabaseClient
-    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ scores: { performance: 0, accessibility: 0, bestPractices: 0, seo: 0 } })); 
+    await expect(processWebsiteAudit(mockJob as Job)).resolves.toBeDefined();
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      scores: {
+        performance: 0,
+        accessibility: 0,
+        bestPractices: 0,
+        seo: 0
+      }
+    }));
   });
 
   it('should handle empty Lighthouse results (null scores)', async () => {
-    const nullScoreResult = createEdgeLighthouseResult();
-    nullScoreResult.lhr.categories = {
-      performance: { score: null, id:'performance', title:'', auditRefs: [] },
-      accessibility: { score: null, id:'accessibility', title:'', auditRefs: [] },
-      'best-practices': { score: null, id:'best-practices', title:'', auditRefs: [] },
-      seo: { score: null, id:'seo', title:'', auditRefs: [] }
-    };
-    nullScoreResult.lhr.audits = {};
-    jest.mocked(require('lighthouse')).mockResolvedValue(nullScoreResult);
+    const lighthouseModule = require('lighthouse');
+    lighthouseModule.default = jest.fn().mockResolvedValue({
+      lhr: { 
+        ...createBaseLighthouseResult(),
+        categories: {
+          performance: { score: null },
+          accessibility: { score: null },
+          'best-practices': { score: null },
+          seo: { score: null }
+        }
+      },
+      report: ['report']
+    });
 
-    await processWebsiteAudit(mockJob as Job);
-    // Use mock from createMockSupabaseClient
-    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ scores: { performance: 0, accessibility: 0, bestPractices: 0, seo: 0 } }));
+    await expect(processWebsiteAudit(mockJob as Job)).resolves.toBeDefined();
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      scores: {
+        performance: 0,
+        accessibility: 0,
+        bestPractices: 0,
+        seo: 0
+      }
+    }));
   });
-  
-  it('should handle Lighthouse result with no audits property', async () => {
-    const noAuditsResult = createEdgeLighthouseResult();
-    delete (noAuditsResult.lhr as any).audits;
-    jest.mocked(require('lighthouse')).mockResolvedValue(noAuditsResult);
 
-    await processWebsiteAudit(mockJob as Job);
-    // Use mock from createMockSupabaseClient
-    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ suggestedImprovements: [] }));
+  it('should handle Lighthouse result with no audits property', async () => {
+    const lighthouseModule = require('lighthouse');
+    lighthouseModule.default = jest.fn().mockResolvedValue({
+      lhr: { 
+        ...createBaseLighthouseResult(),
+        audits: undefined
+      },
+      report: ['report']
+    });
+
+    await expect(processWebsiteAudit(mockJob as Job)).resolves.toBeDefined();
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      suggestedImprovements: []
+    }));
   });
 }); 
