@@ -1,13 +1,11 @@
 // Import necessary types and modules
 import { Job } from 'bull';
-import { processWebsiteAudit } from '../../../queues/processors/websiteAudit';
-import { createBaseLighthouseResult } from '../../utils/lighthouse.mocks';
 import { setupDefaultBrowserMocks } from '../../utils/browser.mocks';
+import { createBaseLighthouseResult } from '../../utils/lighthouse.mocks';
 import { supabaseMocks } from '../../../test/setup';
 
 // Mock modules
 jest.mock('puppeteer');
-jest.mock('lighthouse');
 jest.mock('@googlemaps/google-maps-services-js');
 jest.mock('../../../utils/logger', () => ({
   logger: {
@@ -18,12 +16,13 @@ jest.mock('../../../utils/logger', () => ({
 
 describe('Website Audit Processor - Edge Cases', () => {
   const { mockBrowser, mockPage } = setupDefaultBrowserMocks();
-  const { mockUpload, mockUpdate } = supabaseMocks;
+  const { mockUpdate, updateChainMethods } = supabaseMocks;
   
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.resetModules();
     
-    // Configure lighthouse and puppeteer mocks
+    // Configure puppeteer mocks
     jest.mocked(require('puppeteer')).launch.mockResolvedValue(mockBrowser);
     
     // Set environment variables
@@ -39,29 +38,42 @@ describe('Website Audit Processor - Edge Cases', () => {
   };
 
   it('should handle missing Lighthouse categories', async () => {
-    const lighthouseModule = require('lighthouse');
-    lighthouseModule.default = jest.fn().mockResolvedValue({
+    // Mock Lighthouse with empty categories
+    const emptyLighthouseResult = {
       lhr: { 
         ...createBaseLighthouseResult(),
         categories: {} // Empty categories
       },
       report: ['report']
+    };
+    
+    jest.doMock('lighthouse', () => {
+      return jest.fn().mockResolvedValue(emptyLighthouseResult);
     });
+    
+    // Require the processor after mocking
+    const { processWebsiteAudit } = require('../../../queues/processors/websiteAudit');
 
     await expect(processWebsiteAudit(mockJob as Job)).resolves.toBeDefined();
-    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
-      scores: {
-        performance: 0,
-        accessibility: 0,
-        bestPractices: 0,
-        seo: 0
-      }
-    }));
+    
+    // First, verify update was called
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    
+    // Extract the first argument of the first call
+    const updateArg = mockUpdate.mock.calls[0][0];
+    
+    // Now verify the scores in that argument are all zeros
+    expect(updateArg.scores).toEqual({
+      performance: 0,
+      accessibility: 0,
+      bestPractices: 0,
+      seo: 0
+    });
   });
 
   it('should handle empty Lighthouse results (null scores)', async () => {
-    const lighthouseModule = require('lighthouse');
-    lighthouseModule.default = jest.fn().mockResolvedValue({
+    // Mock Lighthouse with null scores
+    const nullScoresResult = {
       lhr: { 
         ...createBaseLighthouseResult(),
         categories: {
@@ -72,32 +84,58 @@ describe('Website Audit Processor - Edge Cases', () => {
         }
       },
       report: ['report']
+    };
+    
+    jest.doMock('lighthouse', () => {
+      return jest.fn().mockResolvedValue(nullScoresResult);
     });
+    
+    // Require the processor after mocking
+    const { processWebsiteAudit } = require('../../../queues/processors/websiteAudit');
 
     await expect(processWebsiteAudit(mockJob as Job)).resolves.toBeDefined();
-    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
-      scores: {
-        performance: 0,
-        accessibility: 0,
-        bestPractices: 0,
-        seo: 0
-      }
-    }));
+    
+    // First, verify update was called
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    
+    // Extract the first argument of the first call
+    const updateArg = mockUpdate.mock.calls[0][0];
+    
+    // Now verify the scores in that argument are all zeros
+    expect(updateArg.scores).toEqual({
+      performance: 0,
+      accessibility: 0,
+      bestPractices: 0,
+      seo: 0
+    });
   });
 
   it('should handle Lighthouse result with no audits property', async () => {
-    const lighthouseModule = require('lighthouse');
-    lighthouseModule.default = jest.fn().mockResolvedValue({
+    // Mock Lighthouse with no audits property
+    const noAuditsResult = {
       lhr: { 
         ...createBaseLighthouseResult(),
         audits: undefined
       },
       report: ['report']
+    };
+    
+    jest.doMock('lighthouse', () => {
+      return jest.fn().mockResolvedValue(noAuditsResult);
     });
+    
+    // Require the processor after mocking
+    const { processWebsiteAudit } = require('../../../queues/processors/websiteAudit');
 
     await expect(processWebsiteAudit(mockJob as Job)).resolves.toBeDefined();
-    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
-      suggestedImprovements: []
-    }));
+    
+    // First, verify update was called
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    
+    // Extract the first argument of the first call
+    const updateArg = mockUpdate.mock.calls[0][0];
+    
+    // Now verify the suggestedImprovements in that argument is an empty array
+    expect(updateArg.suggestedImprovements).toEqual([]);
   });
 }); 
