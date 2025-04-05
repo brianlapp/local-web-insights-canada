@@ -1,9 +1,11 @@
+
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from '@/components/ui/use-toast'
 import { supabase } from '@/integrations/supabase/client'
 import SignupForm from './SignupForm'
+import { AuthError } from '@supabase/supabase-js'
 
 // Mock toast
 vi.mock('@/components/ui/use-toast', () => ({
@@ -19,6 +21,15 @@ vi.mock('@/integrations/supabase/client', () => ({
     },
   },
 }))
+
+// Create a proper AuthError mock helper
+const createAuthError = (message: string, status: number): AuthError => ({
+  name: 'AuthApiError',
+  message,
+  status,
+  code: `${status}`,
+  __isAuthError: true
+})
 
 describe('SignupForm OTP Verification', () => {
   const user = userEvent.setup()
@@ -38,11 +49,7 @@ describe('SignupForm OTP Verification', () => {
       // Mock invalid OTP verification
       vi.mocked(supabase.auth.verifyOtp).mockResolvedValue({
         data: { user: null, session: null },
-        error: {
-          name: 'AuthApiError',
-          message: 'Invalid OTP code',
-          status: 400,
-        },
+        error: createAuthError('Invalid OTP code', 400),
       })
 
       render(<SignupForm />)
@@ -76,11 +83,7 @@ describe('SignupForm OTP Verification', () => {
       // Mock expired OTP verification
       vi.mocked(supabase.auth.verifyOtp).mockResolvedValue({
         data: { user: null, session: null },
-        error: {
-          name: 'AuthApiError',
-          message: 'Code has expired',
-          status: 400,
-        },
+        error: createAuthError('Code has expired', 400),
       })
 
       render(<SignupForm />)
@@ -114,11 +117,7 @@ describe('SignupForm OTP Verification', () => {
       // Mock rate limit error
       vi.mocked(supabase.auth.verifyOtp).mockResolvedValue({
         data: { user: null, session: null },
-        error: {
-          name: 'AuthApiError',
-          message: 'Too many verification attempts',
-          status: 429,
-        },
+        error: createAuthError('Too many verification attempts', 429),
       })
 
       render(<SignupForm />)
@@ -142,4 +141,4 @@ describe('SignupForm OTP Verification', () => {
       })
     })
   })
-}) 
+})

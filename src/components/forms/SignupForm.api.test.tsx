@@ -1,9 +1,10 @@
+
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from '@/components/ui/use-toast'
 import { supabase } from '@/integrations/supabase/client'
-import { AuthApiError } from '@supabase/supabase-js'
+import { AuthError } from '@supabase/supabase-js'
 import SignupForm from './SignupForm'
 
 // Mock toast
@@ -20,6 +21,15 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }))
 
+// Create a proper AuthError mock helper
+const createAuthError = (message: string, status: number, code?: string): AuthError => ({
+  name: 'AuthApiError',
+  message,
+  status,
+  code: code || `${status}`,
+  __isAuthError: true
+})
+
 describe('SignupForm API Errors', () => {
   const user = userEvent.setup()
 
@@ -28,10 +38,9 @@ describe('SignupForm API Errors', () => {
   })
 
   it('handles email already registered error', async () => {
-    const mockError = new AuthApiError('Email already registered', 400, 'email_taken')
     vi.mocked(supabase.auth.signInWithOtp).mockResolvedValue({
       data: { user: null, session: null },
-      error: mockError,
+      error: createAuthError('Email already registered', 400, 'email_taken'),
     })
 
     render(<SignupForm />)
@@ -54,10 +63,9 @@ describe('SignupForm API Errors', () => {
   })
 
   it('handles phone number already registered error', async () => {
-    const mockError = new AuthApiError('Phone number already registered', 400, 'phone_taken')
     vi.mocked(supabase.auth.signInWithOtp).mockResolvedValue({
       data: { user: null, session: null },
-      error: mockError,
+      error: createAuthError('Phone number already registered', 400, 'phone_taken'),
     })
 
     render(<SignupForm />)
@@ -81,10 +89,9 @@ describe('SignupForm API Errors', () => {
   })
 
   it('handles rate limiting error', async () => {
-    const mockError = new AuthApiError('Too many requests', 429, 'rate_limit_exceeded')
     vi.mocked(supabase.auth.signInWithOtp).mockResolvedValue({
       data: { user: null, session: null },
-      error: mockError,
+      error: createAuthError('Too many requests', 429, 'rate_limit_exceeded'),
     })
 
     render(<SignupForm />)
@@ -119,4 +126,4 @@ describe('SignupForm API Errors', () => {
       variant: 'destructive',
     })
   })
-}) 
+})

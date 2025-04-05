@@ -1,7 +1,9 @@
+
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { supabase } from './client'
 import { useAuth } from './auth'
+import { User, Session, AuthError } from '@supabase/supabase-js'
 
 // Mock the Supabase client
 vi.mock('./client', () => ({
@@ -16,21 +18,38 @@ vi.mock('./client', () => ({
   },
 }))
 
+// Create mocks for Supabase types
+const createMockUser = (): User => ({
+  id: 'test-user-id',
+  email: 'test@example.com',
+  app_metadata: {},
+  user_metadata: {
+    name: 'Test User',
+  },
+  aud: 'authenticated',
+  created_at: '2023-01-01T00:00:00.000Z',
+  role: '',
+  identities: []
+})
+
+const createMockSession = (): Session => ({
+  user: createMockUser(),
+  access_token: 'test-access-token',
+  refresh_token: 'test-refresh-token',
+  expires_in: 3600,
+  expires_at: new Date().getTime() + 3600 * 1000,
+  token_type: 'bearer'
+})
+
+const createAuthError = (message: string): AuthError => ({
+  name: 'AuthApiError',
+  message,
+  status: 400,
+  code: '400',
+  __isAuthError: true
+})
+
 describe('Authentication', () => {
-  const mockUser = {
-    id: 'test-user-id',
-    email: 'test@example.com',
-    user_metadata: {
-      name: 'Test User',
-    },
-  }
-
-  const mockSession = {
-    user: mockUser,
-    access_token: 'test-access-token',
-    refresh_token: 'test-refresh-token',
-  }
-
   beforeEach(() => {
     vi.resetAllMocks()
     // Reset auth state between tests
@@ -44,8 +63,9 @@ describe('Authentication', () => {
         password: 'password123',
       }
 
+      const mockSession = createMockSession()
       vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
-        data: { session: mockSession },
+        data: { session: mockSession, user: mockSession.user },
         error: null,
       })
 
@@ -54,7 +74,7 @@ describe('Authentication', () => {
       await result.current.signIn(credentials)
 
       expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith(credentials)
-      expect(result.current.user).toEqual(mockUser)
+      expect(result.current.user).toEqual(mockSession.user)
       expect(result.current.isAuthenticated).toBe(true)
     })
 
@@ -65,8 +85,8 @@ describe('Authentication', () => {
       }
 
       vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
-        data: { session: null },
-        error: new Error('Invalid credentials'),
+        data: { session: null, user: null },
+        error: createAuthError('Invalid credentials')
       })
 
       const { result } = renderHook(() => useAuth())
@@ -86,6 +106,9 @@ describe('Authentication', () => {
           name: 'New User',
         },
       }
+
+      const mockUser = createMockUser()
+      const mockSession = createMockSession()
 
       vi.mocked(supabase.auth.signUp).mockResolvedValue({
         data: { user: mockUser, session: mockSession },
@@ -113,7 +136,7 @@ describe('Authentication', () => {
 
       vi.mocked(supabase.auth.signUp).mockResolvedValue({
         data: { user: null, session: null },
-        error: new Error('Email already exists'),
+        error: createAuthError('Email already exists')
       })
 
       const { result } = renderHook(() => useAuth())
@@ -145,13 +168,14 @@ describe('Authentication', () => {
       expect(result.current.user).toBeNull()
 
       // Simulate auth state change
+      const mockSession = createMockSession()
       const authListener = vi.mocked(supabase.auth.onAuthStateChange).mock.calls[0][0]
-      await authListener('SIGNED_IN', { session: mockSession })
+      await authListener('SIGNED_IN', mockSession)
 
       await waitFor(() => {
         expect(result.current.isAuthenticated).toBe(true)
-        expect(result.current.user).toEqual(mockUser)
+        expect(result.current.user).toEqual(mockSession.user)
       })
     })
   })
-}) 
+})
