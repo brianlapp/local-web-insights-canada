@@ -3,14 +3,12 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Search, Filter, MapPin } from 'lucide-react';
 import AuditCard from '@/components/ui/AuditCard';
-import { getBusinesses } from '@/data/businesses';
+import { businesses } from '@/data/businesses';
 
 const AuditsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
-  
-  const businesses = getBusinesses();
   
   // Get unique cities
   const cities = [...new Set(businesses.map(business => business.city))].sort();
@@ -70,7 +68,7 @@ const AuditsPage = () => {
                 onChange={(e) => setSelectedCategory(e.target.value)}
               >
                 <option value="">All Categories</option>
-                {categories.map(category => (
+                {categories.map((category: string) => (
                   <option key={category} value={category}>{category}</option>
                 ))}
               </select>
@@ -87,7 +85,7 @@ const AuditsPage = () => {
                 onChange={(e) => setSelectedCity(e.target.value)}
               >
                 <option value="">All Cities</option>
-                {cities.map(city => (
+                {cities.map((city: string) => (
                   <option key={city} value={city}>{city}</option>
                 ))}
               </select>
