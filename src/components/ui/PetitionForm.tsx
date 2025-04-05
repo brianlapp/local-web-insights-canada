@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -5,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import type { Database } from '@/integrations/supabase/schema';
+import { Database } from '@/integrations/supabase/schema';
+import { createTableQuery, validateInsertData } from '@/integrations/supabase/database-utils';
 
 interface PetitionFormProps {
   businessId: string;
@@ -13,7 +15,7 @@ interface PetitionFormProps {
 }
 
 // Define types for our petition signature using the database schema
-type PetitionSignature = Database['public']['Tables']['petition_signatures'];
+type PetitionSignature = Database['public']['Tables']['petition_signatures']['Insert'];
 
 const PetitionForm: React.FC<PetitionFormProps> = ({ businessId, businessName }) => {
   const [name, setName] = useState('');
@@ -34,18 +36,17 @@ const PetitionForm: React.FC<PetitionFormProps> = ({ businessId, businessName })
     const trimmedMessage = message.trim();
 
     // Create petition data
-    const petitionData: PetitionSignature = {
+    const petitionData = validateInsertData('petition_signatures', {
       petition_id: businessId,
       name: trimmedName,
       email: trimmedEmail,
       is_local: isLocal,
       message: trimmedMessage || null,
-    };
+    });
 
     try {
-      const { error } = await supabase
-        .from('petition_signatures')
-        .insert(petitionData as any); // Type assertion as a workaround
+      const { error } = await createTableQuery(supabase, 'petition_signatures')
+        .insert(petitionData);
 
       if (error) {
         setHasError(true);

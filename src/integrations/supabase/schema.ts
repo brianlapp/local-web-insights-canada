@@ -1,4 +1,5 @@
 
+
 // Define Supabase database schema types
 
 export interface Tables {
@@ -25,6 +26,8 @@ export interface Tables {
     auditDate: string;
   };
   audits: {
+    id?: string;
+    business_slug: string;
     score: number;
     metrics: {
       performance: number;

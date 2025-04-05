@@ -1,101 +1,98 @@
 
 import { supabase } from './client';
-import { getStorageErrorStatus } from './storage-utils';
+import type { StorageErrorMock } from './schema';
 
 /**
- * Upload a file to Supabase Storage
- * @param bucket - Storage bucket name
- * @param path - File path within the bucket
- * @param file - File to upload
- * @returns Uploaded file URL
+ * Uploads a file to the specified bucket
+ * @param bucketName - The name of the storage bucket
+ * @param filePath - The path where the file will be stored in the bucket
+ * @param file - The file to upload
+ * @returns The public URL of the uploaded file or null if error
  */
-export async function uploadFile(
-  bucket: string,
-  path: string,
-  file: File
-): Promise<string> {
+export async function uploadFile(bucketName: string, filePath: string, file: File) {
   try {
-    // Ensure bucket exists
-    const { data: buckets } = await supabase.storage.listBuckets();
-    const bucketExists = buckets?.some((b) => b.name === bucket);
-
-    if (!bucketExists) {
-      await supabase.storage.createBucket(bucket, {
-        public: true,
-      });
-    }
-
-    // Upload file
     const { data, error } = await supabase.storage
-      .from(bucket)
-      .upload(path, file, {
-        upsert: true,
+      .from(bucketName)
+      .upload(filePath, file, {
         cacheControl: '3600',
+        upsert: true
       });
 
-    if (error) {
-      console.error('Error uploading file:', error);
-      throw new Error(
-        `Failed to upload file: ${error.message} (${getStorageErrorStatus(error)})`
-      );
-    }
-
-    // Get public URL
-    const { data: publicUrlData } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(data.path);
-
-    return publicUrlData.publicUrl;
+    if (error) throw error;
+    
+    return getPublicUrl(bucketName, data.path);
   } catch (error) {
-    console.error('Upload file error:', error);
-    throw error;
+    console.error('Error uploading file:', error);
+    return null;
   }
 }
 
 /**
- * Delete a file from Supabase Storage
- * @param bucket - Storage bucket name
- * @param path - File path within the bucket
+ * Gets the public URL for a file
+ * @param bucketName - The name of the storage bucket
+ * @param filePath - The path of the file in the bucket
+ * @returns The public URL of the file
  */
-export async function deleteFile(bucket: string, path: string): Promise<void> {
-  try {
-    const { error } = await supabase.storage.from(bucket).remove([path]);
+export function getPublicUrl(bucketName: string, filePath: string) {
+  const { data } = supabase.storage.from(bucketName).getPublicUrl(filePath);
+  return data.publicUrl;
+}
 
-    if (error) {
-      console.error('Error deleting file:', error);
-      throw new Error(
-        `Failed to delete file: ${error.message} (${getStorageErrorStatus(error)})`
-      );
+/**
+ * Updates file permissions to make it publicly accessible or private
+ * @param bucketName - The name of the storage bucket
+ * @param filePath - The path of the file in the bucket
+ * @param isPublic - Whether the file should be publicly accessible
+ */
+export async function updateFilePermissions(bucketName: string, filePath: string, isPublic: boolean) {
+  try {
+    // Update permissions based on isPublic flag
+    if (isPublic) {
+      await supabase.storage.from(bucketName).makePublic(filePath);
+    } else {
+      await supabase.storage.from(bucketName).makePrivate(filePath);
     }
+    return true;
   } catch (error) {
-    console.error('Delete file error:', error);
-    throw error;
+    console.error('Error updating file permissions:', error);
+    return false;
   }
 }
 
 /**
- * List all files in a bucket directory
- * @param bucket - Storage bucket name
- * @param path - Directory path within the bucket
- * @returns Array of file paths
+ * Deletes a file from storage
+ * @param bucketName - The name of the storage bucket
+ * @param filePath - The path of the file to delete
  */
-export async function listFiles(
-  bucket: string,
-  path: string
-): Promise<string[]> {
+export async function deleteFile(bucketName: string, filePath: string) {
   try {
-    const { data, error } = await supabase.storage.from(bucket).list(path);
-
-    if (error) {
-      console.error('Error listing files:', error);
-      throw new Error(
-        `Failed to list files: ${error.message} (${getStorageErrorStatus(error)})`
-      );
-    }
-
-    return data.map((file) => file.name);
+    const { error } = await supabase.storage
+      .from(bucketName)
+      .remove([filePath]);
+      
+    if (error) throw error;
+    return true;
   } catch (error) {
-    console.error('List files error:', error);
-    throw error;
+    console.error('Error deleting file:', error);
+    return false;
+  }
+}
+
+/**
+ * Lists all files in a bucket or folder
+ * @param bucketName - The name of the storage bucket
+ * @param folderPath - Optional folder path to list files from
+ */
+export async function listFiles(bucketName: string, folderPath?: string) {
+  try {
+    const { data, error } = await supabase.storage
+      .from(bucketName)
+      .list(folderPath || '');
+      
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error listing files:', error);
+    return [];
   }
 }

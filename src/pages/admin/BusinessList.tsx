@@ -1,129 +1,100 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/integrations/supabase/client'
-import { Loader2, Plus, Search } from 'lucide-react'
-import type { Database } from '@/integrations/supabase/schema'
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { 
+  Table, TableBody, TableCaption, TableCell, 
+  TableHead, TableHeader, TableRow 
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { createTableQuery } from '@/integrations/supabase/database-utils';
+import { supabase } from '@/integrations/supabase/client';
+import { Database } from '@/integrations/supabase/schema';
 
-type Business = Database['public']['Tables']['businesses']
+type Business = Database['public']['Tables']['businesses']['Row'];
 
-export function BusinessList() {
-  const navigate = useNavigate()
-  const [searchQuery, setSearchQuery] = useState('')
+const BusinessList = () => {
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const { data: businesses, isLoading } = useQuery({
-    queryKey: ['businesses'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('businesses')
-        .select('*')
-        .order('auditDate', { ascending: false })
+  useEffect(() => {
+    const fetchBusinesses = async () => {
+      try {
+        const { data, error } = await createTableQuery(supabase, 'businesses')
+          .select();
 
-      if (error) throw error
-      return data as Business[]
-    },
-  })
+        if (error) throw error;
+        setBusinesses(data || []);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load businesses';
+        setError(errorMessage);
+        console.error('Error fetching businesses:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const filteredBusinesses = businesses?.filter(business =>
-    business.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    business.city.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+    fetchBusinesses();
+  }, []);
+
+  if (loading) return <div>Loading businesses...</div>;
+  if (error) return <div>Error: {error}</div>;
 
   return (
-    <div className="space-y-4 p-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Businesses</h1>
-        <Button onClick={() => navigate('/admin/businesses/new')}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Business
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Businesses</h1>
+        <Button asChild>
+          <Link to="/admin/businesses/new">Add Business</Link>
         </Button>
       </div>
-
-      <div className="flex items-center space-x-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search businesses..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8"
-          />
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="flex justify-center p-8">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>City</TableHead>
-                <TableHead>Website</TableHead>
-                <TableHead>Score</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Last Audit</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredBusinesses?.map((business) => (
-                <TableRow key={business.id}>
-                  <TableCell className="font-medium">{business.name}</TableCell>
-                  <TableCell>{business.city}</TableCell>
-                  <TableCell>
-                    <a
-                      href={business.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                    >
-                      {business.website.replace(/^https?:\/\//, '')}
-                    </a>
-                  </TableCell>
-                  <TableCell>{business.score}</TableCell>
-                  <TableCell>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                        business.isUpgraded
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-yellow-100 text-yellow-700'
-                      }`}
-                    >
-                      {business.isUpgraded ? 'Upgraded' : 'Needs Improvement'}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(business.auditDate).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => navigate(`/admin/businesses/${business.id}`)}
-                    >
-                      Edit
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      <Table>
+        <TableCaption>A list of businesses in the system.</TableCaption>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[50px]">ID</TableHead>
+            <TableHead>Name</TableHead>
+            <TableHead>City</TableHead>
+            <TableHead>Website</TableHead>
+            <TableHead>Score</TableHead>
+            <TableHead>Upgraded</TableHead>
+            <TableHead>Audit Date</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {businesses.map((business) => (
+            <TableRow key={business.id}>
+              <TableCell className="font-medium">{business.id}</TableCell>
+              <TableCell>{business.name}</TableCell>
+              <TableCell>{business.city}</TableCell>
+              <TableCell>
+                <a href={business.website} target="_blank" rel="noopener noreferrer">
+                  {business.website}
+                </a>
+              </TableCell>
+              <TableCell>
+                <Badge variant="secondary">{business.scores?.overall}</Badge>
+              </TableCell>
+              <TableCell>
+                {business.isUpgraded ? (
+                  <Badge>Yes</Badge>
+                ) : (
+                  <Badge variant="outline">No</Badge>
+                )}
+              </TableCell>
+              <TableCell>{business.auditDate}</TableCell>
+              <TableCell className="text-right">
+                <Button asChild variant="link">
+                  <Link to={`/admin/businesses/edit/${business.id}`}>Edit</Link>
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
-  )
-}
+  );
+};
+
+export default BusinessList;
