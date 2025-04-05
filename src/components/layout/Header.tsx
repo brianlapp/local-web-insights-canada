@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Menu, X, Search, Tools, Users, Info, MessageSquare } from 'lucide-react';
+import { Menu, X, Search, Wrench, Users, Info, MessageSquare } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const Header = () => {
@@ -37,7 +37,7 @@ const Header = () => {
               <span>City Pages</span>
             </Link>
             <Link to="/tools" className={`${isActive('/tools')} transition-colors flex items-center gap-1`}>
-              <Tools className="w-4 h-4" />
+              <Wrench className="w-4 h-4" />
               <span>Free Tools</span>
             </Link>
             <Link to="/auditors" className={`${isActive('/auditors')} transition-colors flex items-center gap-1`}>
@@ -100,7 +100,7 @@ const Header = () => {
                 className="flex items-center gap-2 py-2 px-3 rounded-md hover:bg-gray-100" 
                 onClick={() => setMobileMenuOpen(false)}
               >
-                <Tools className="w-5 h-5 text-civic-blue" />
+                <Wrench className="w-5 h-5 text-civic-blue" />
                 <span>Free Tools</span>
               </Link>
               <Link 
