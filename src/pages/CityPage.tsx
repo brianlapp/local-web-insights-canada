@@ -16,7 +16,7 @@ const CityPage = () => {
   // Ensure businesses have scores for AuditCard
   const businessesWithScore = businesses.map(business => ({
     ...business,
-    score: business.score || Math.floor(Math.random() * 40) + 60, // Random score between 60-100 if not provided
+    score: business.scores?.overall || Math.floor(Math.random() * 40) + 60, // Use overall score or generate random
     isUpgraded: business.isUpgraded || false
   }));
   

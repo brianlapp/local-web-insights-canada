@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Filter, MapPin, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -20,7 +19,7 @@ const cities = [...new Set(businesses.map(b => b.city).filter(Boolean))];
 // Add default score to business type if it's missing
 const businessesWithScore = businesses.map(business => ({
   ...business,
-  score: business.score || Math.floor(Math.random() * 40) + 60, // Random score between 60-100 if not provided
+  score: business.scores?.overall || Math.floor(Math.random() * 40) + 60, // Use overall score or generate random
   isUpgraded: business.isUpgraded || false
 }));
 
