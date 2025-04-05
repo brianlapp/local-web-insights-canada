@@ -23,11 +23,13 @@ const Header = () => {
     return location.pathname === path;
   };
 
-  // Simplified navigation items
+  // Navigation items with Tools and Auditors restored
   const navItems = [
     { title: 'Home', path: '/' },
     { title: 'About', path: '/about' },
+    { title: 'Auditors', path: '/auditors' },
     { title: 'Audit', path: '/audit' }, 
+    { title: 'Tools', path: '/tools' }
   ];
 
   return (
