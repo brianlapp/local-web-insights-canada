@@ -1,9 +1,10 @@
+
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { toast } from '@/components/ui/use-toast'
 import { supabase } from '@/integrations/supabase/client'
-import { AuthApiError } from '@supabase/supabase-js'
+import { AuthError } from '@supabase/supabase-js'
 import SignupForm from './SignupForm'
 
 // Mock toast
@@ -23,6 +24,15 @@ vi.mock('@/integrations/supabase/client', () => ({
     },
   },
 }))
+
+// Create a proper AuthError mock helper
+const createAuthError = (message: string, status: number, code?: string): AuthError => ({
+  name: 'AuthApiError',
+  message,
+  status,
+  code: code || `${status}`,
+  __isAuthError: true
+})
 
 describe('SignupForm', () => {
   const user = userEvent.setup()
@@ -217,7 +227,7 @@ describe('SignupForm', () => {
 
     it('handles OTP verification successfully', async () => {
       const mockVerifyOtp = vi.fn().mockResolvedValue({
-        data: { user: { id: 'test-user' } },
+        data: { user: { id: 'test-user' }, session: {} },
         error: null,
       })
       vi.mocked(supabase.auth.verifyOtp).mockImplementation(mockVerifyOtp)
@@ -238,6 +248,7 @@ describe('SignupForm', () => {
       expect(mockVerifyOtp).toHaveBeenCalledWith({
         phone: '+1234567890',
         token: '123456',
+        type: 'sms'
       })
 
       // Check success message
@@ -307,10 +318,9 @@ describe('SignupForm', () => {
 
     describe('API Errors', () => {
       it('handles email already registered error', async () => {
-        const mockError = new AuthApiError('Email already registered', 400)
         vi.mocked(supabase.auth.signInWithOtp).mockResolvedValue({
           data: { user: null, session: null },
-          error: mockError,
+          error: createAuthError('Email already registered', 400, 'email_taken'),
         })
 
         render(<SignupForm />)
@@ -333,10 +343,9 @@ describe('SignupForm', () => {
       })
 
       it('handles phone number already registered error', async () => {
-        const mockError = new AuthApiError('Phone number already registered', 400)
         vi.mocked(supabase.auth.signInWithOtp).mockResolvedValue({
           data: { user: null, session: null },
-          error: mockError,
+          error: createAuthError('Phone number already registered', 400, 'phone_taken'),
         })
 
         render(<SignupForm />)
@@ -360,10 +369,9 @@ describe('SignupForm', () => {
       })
 
       it('handles rate limiting error', async () => {
-        const mockError = new AuthApiError('Too many requests', 429)
         vi.mocked(supabase.auth.signInWithOtp).mockResolvedValue({
           data: { user: null, session: null },
-          error: mockError,
+          error: createAuthError('Too many requests', 429, 'rate_limit_exceeded'),
         })
 
         render(<SignupForm />)
@@ -403,18 +411,14 @@ describe('SignupForm', () => {
         it('handles invalid OTP code', async () => {
           // Mock successful OTP send
           vi.mocked(supabase.auth.signInWithOtp).mockResolvedValue({
-            data: { user: null },
+            data: { user: null, session: null },
             error: null,
           })
 
           // Mock invalid OTP verification
-          const mockError = {
-            message: 'Invalid OTP code',
-            status: 400,
-          }
           vi.mocked(supabase.auth.verifyOtp).mockResolvedValue({
-            data: null,
-            error: mockError,
+            data: { user: null, session: null },
+            error: createAuthError('Invalid OTP code', 400),
           })
 
           render(<SignupForm />)
@@ -439,18 +443,14 @@ describe('SignupForm', () => {
         it('handles expired OTP code', async () => {
           // Mock successful OTP send
           vi.mocked(supabase.auth.signInWithOtp).mockResolvedValue({
-            data: { user: null },
+            data: { user: null, session: null },
             error: null,
           })
 
           // Mock expired OTP verification
-          const mockError = {
-            message: 'Code has expired',
-            status: 400,
-          }
           vi.mocked(supabase.auth.verifyOtp).mockResolvedValue({
-            data: null,
-            error: mockError,
+            data: { user: null, session: null },
+            error: createAuthError('Code has expired', 400),
           })
 
           render(<SignupForm />)
@@ -474,4 +474,4 @@ describe('SignupForm', () => {
       })
     })
   })
-}) 
+})

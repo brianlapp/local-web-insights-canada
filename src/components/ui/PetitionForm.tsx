@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,6 +10,15 @@ import { supabase } from '@/integrations/supabase/client';
 interface PetitionFormProps {
   businessId: string;
   businessName: string;
+}
+
+// Define types for our petition signature
+interface PetitionSignature {
+  petition_id: string;
+  name: string;
+  email: string;
+  is_local: boolean;
+  message: string | null;
 }
 
 const PetitionForm: React.FC<PetitionFormProps> = ({ businessId, businessName }) => {
@@ -29,16 +39,19 @@ const PetitionForm: React.FC<PetitionFormProps> = ({ businessId, businessName })
     const trimmedEmail = email.trim();
     const trimmedMessage = message.trim();
 
+    // Create petition data
+    const petitionData: PetitionSignature = {
+      petition_id: businessId,
+      name: trimmedName,
+      email: trimmedEmail,
+      is_local: isLocal,
+      message: trimmedMessage || null,
+    };
+
     try {
       const { error } = await supabase
         .from('petition_signatures')
-        .insert({
-          petition_id: businessId,
-          name: trimmedName,
-          email: trimmedEmail,
-          is_local: isLocal,
-          message: trimmedMessage || null,
-        });
+        .insert(petitionData);
 
       if (error) {
         setHasError(true);
