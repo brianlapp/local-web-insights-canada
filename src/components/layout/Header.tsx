@@ -8,7 +8,7 @@ const Header = () => {
   return <header className="bg-white border-b border-civic-gray-200 sticky top-0 z-50">
       <div className="container py-4 flex justify-between items-center">
         <NavLink to="/" className="flex items-center">
-          <img src="/lovable-uploads/bd20067a-032a-44d4-b1f9-36d88719430f.png" alt="LocalWebsiteAudit.ca Logo" className="h-16 mr-2" />
+          <img src="/lovable-uploads/bd20067a-032a-44d4-b1f9-36d88719430f.png" alt="LocalWebsiteAudit.ca Logo" className="md:h-16 mr-2 h-11" />
         </NavLink>
         
         {isMobile ? <>
