@@ -225,4 +225,6 @@ export function ToolsPage() {
       </Dialog>
     </div>
   )
-} 
+}
+
+export default ToolsPage;

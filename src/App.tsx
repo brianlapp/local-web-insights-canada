@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
@@ -20,10 +19,9 @@ import { ResetPasswordPage } from './pages/admin/ResetPasswordPage'
 import { UpdatePasswordPage } from './pages/admin/UpdatePasswordPage'
 import { BusinessForm } from '@/pages/admin/BusinessForm'
 import SignupPage from './pages/SignupPage'
-import ToolsPage from './pages/ToolsPage'
+import { ToolsPage } from './pages/ToolsPage'
 import PageLayout from './components/layout/PageLayout'
 
-// Placeholder components until we implement them
 const PetitionList = () => <div>Petition List</div>
 const Settings = () => <div>Settings</div>
 
@@ -36,7 +34,6 @@ function App() {
         <Router>
           <AdminAuthProvider>
             <Routes>
-              {/* Admin routes */}
               <Route path="/admin">
                 <Route path="login" element={<LoginPage />} />
                 <Route path="reset-password" element={<ResetPasswordPage />} />
@@ -57,7 +54,6 @@ function App() {
                 </Route>
               </Route>
 
-              {/* Public routes with layout */}
               <Route element={<PageLayout><Outlet /></PageLayout>}>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/about" element={<AboutPage />} />
@@ -69,7 +65,6 @@ function App() {
                 <Route path="/auditor/:slug" element={<AuditorPage />} />
               </Route>
               
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AdminAuthProvider>
