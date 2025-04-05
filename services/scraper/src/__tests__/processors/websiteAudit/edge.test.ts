@@ -2,7 +2,7 @@
 import { Page } from 'puppeteer'; // Keep this if needed for spies
 import { Job } from 'bull';
 import { processWebsiteAudit } from '../../../queues/processors/websiteAudit';
-import { createBaseLighthouseResult } from '../../utils/lighthouse.mocks';
+import { createEdgeLighthouseResult } from '../../utils/lighthouse.mocks';
 import { setupDefaultBrowserMocks, MockedBrowser, MockedPage } from '../../utils/browser.mocks'; // This might need internal vi.fn updates
 // Import using original module name - expect Jest to find adjacent __mocks__
 import { 
@@ -24,10 +24,9 @@ jest.mock('../../../utils/logger', () => ({
   }
 }));
 
-// REMOVE mock factory and describe-scoped variables
-// let mockUpload: jest.Mock;
-// ... etc ...
-// jest.mock('@supabase/supabase-js', () => { /* factory */ });
+// Get the mock functions directly using require
+const supabaseMocks = require('@supabase/supabase-js');
+const { mockUpload, mockUpdate, mockEq, resetSupabaseMocks } = supabaseMocks;
 
 describe('Website Audit Processor - Edge Cases', () => {
   const { mockBrowser, mockPage } = setupDefaultBrowserMocks();
@@ -39,7 +38,7 @@ describe('Website Audit Processor - Edge Cases', () => {
 
     // Configure non-Supabase mocks
     jest.mocked(require('puppeteer')).launch.mockResolvedValue(mockBrowser);
-    jest.mocked(require('lighthouse')).mockResolvedValue(createBaseLighthouseResult());
+    jest.mocked(require('lighthouse')).mockResolvedValue(createEdgeLighthouseResult());
     
     // Set environment variables
     process.env.SUPABASE_URL = 'http://test-url';
@@ -54,7 +53,7 @@ describe('Website Audit Processor - Edge Cases', () => {
   };
 
   it('should handle missing Lighthouse categories', async () => {
-    const partialLighthouseResult = createBaseLighthouseResult();
+    const partialLighthouseResult = createEdgeLighthouseResult();
     partialLighthouseResult.lhr.categories = {};
     partialLighthouseResult.lhr.audits = {};
     jest.mocked(require('lighthouse')).mockResolvedValue(partialLighthouseResult);
@@ -65,7 +64,7 @@ describe('Website Audit Processor - Edge Cases', () => {
   });
 
   it('should handle empty Lighthouse results (null scores)', async () => {
-    const nullScoreResult = createBaseLighthouseResult();
+    const nullScoreResult = createEdgeLighthouseResult();
     nullScoreResult.lhr.categories = {
       performance: { score: null, id:'performance', title:'', auditRefs: [] },
       accessibility: { score: null, id:'accessibility', title:'', auditRefs: [] },
@@ -81,7 +80,7 @@ describe('Website Audit Processor - Edge Cases', () => {
   });
   
   it('should handle Lighthouse result with no audits property', async () => {
-    const noAuditsResult = createBaseLighthouseResult();
+    const noAuditsResult = createEdgeLighthouseResult();
     delete (noAuditsResult.lhr as any).audits;
     jest.mocked(require('lighthouse')).mockResolvedValue(noAuditsResult);
 
