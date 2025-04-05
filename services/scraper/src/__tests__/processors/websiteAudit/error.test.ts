@@ -1,37 +1,17 @@
-// Mock modules first
+// Revert imports and API calls to Jest
+// import { vi, describe, beforeEach, expect, it } from 'vitest';
+import { Page } from 'puppeteer';
+import { Job } from 'bull';
+import { processWebsiteAudit } from '../../../queues/processors/websiteAudit';
+import { createBaseLighthouseResult } from '../../utils/lighthouse.mocks';
+import { setupDefaultBrowserMocks, MockedBrowser, MockedPage } from '../../utils/browser.mocks';
+// Import database mock helper again
+import { createMockSupabaseClient } from '../../utils/database.mocks';
+
+// Mock modules
 jest.mock('puppeteer');
-jest.mock('lighthouse', () => {
-  return jest.fn(() => Promise.resolve({
-    lhr: {
-      categories: {
-        performance: { score: 0.9 },
-        accessibility: { score: 0.8 },
-        'best-practices': { score: 0.7 },
-        seo: { score: 0.6 }
-      },
-      audits: {}
-    },
-    report: JSON.stringify({
-      categories: {
-        performance: { score: 0.9 },
-        accessibility: { score: 0.8 },
-        'best-practices': { score: 0.7 },
-        seo: { score: 0.6 }
-      },
-      audits: {}
-    }),
-    artifacts: {
-      fetchTime: new Date().toISOString(),
-      settings: {},
-      URL: {
-        requestedUrl: 'https://example.com',
-        finalDisplayedUrl: 'https://example.com',
-        mainDocumentUrl: 'https://example.com'
-      }
-    }
-  }));
-});
-jest.mock('@supabase/supabase-js');
+jest.mock('lighthouse');
+jest.mock('@supabase/supabase-js'); // Simple mock at top level
 jest.mock('../../../utils/logger', () => ({
   logger: {
     info: jest.fn(),
@@ -39,31 +19,25 @@ jest.mock('../../../utils/logger', () => ({
   }
 }));
 
-import { Page } from 'puppeteer';
-import { Job } from 'bull';
-import { processWebsiteAudit } from '../../../queues/processors/websiteAudit';
-import { createBaseLighthouseResult } from '../../utils/lighthouse.mocks';
-import { setupDefaultBrowserMocks } from '../../utils/browser.mocks';
-import { createMockSupabaseClient } from '../../utils/database.mocks';
-
 describe('Website Audit Processor - Error Handling', () => {
   const { mockBrowser, mockPage } = setupDefaultBrowserMocks();
+  // Call helper in describe scope
   const { mockClient, mockUpload, mockUpdate } = createMockSupabaseClient();
 
   beforeEach(() => {
-    // Clear all mocks before each test
     jest.clearAllMocks();
 
-    // Setup Puppeteer mock
+    // Configure Puppeteer and Lighthouse mocks using require
     jest.mocked(require('puppeteer')).launch.mockResolvedValue(mockBrowser);
-
-    // Setup Lighthouse mock
-    jest.mocked(require('lighthouse')).mockImplementation(() => {
-      return Promise.resolve(createBaseLighthouseResult());
-    });
-
-    // Setup Supabase mock
+    jest.mocked(require('lighthouse')).mockResolvedValue(createBaseLighthouseResult());
+    // Configure Supabase mock return value here
     jest.mocked(require('@supabase/supabase-js')).createClient.mockReturnValue(mockClient);
+
+    // Reset mocks directly
+    mockUpload.mockReset().mockResolvedValue({ data: { path: 'mock/path' }, error: null });
+    mockUpdate.mockReset().mockResolvedValue({ data: [{}], error: null });
+
+    // Reset Puppeteer mocks
 
     // Set environment variables
     process.env.SUPABASE_URL = 'http://test-url';
@@ -78,32 +52,33 @@ describe('Website Audit Processor - Error Handling', () => {
   };
 
   it('should handle navigation timeouts', async () => {
-    const gotoSpy = jest.spyOn(mockPage as Page, 'goto');
-    gotoSpy.mockRejectedValueOnce(new Error('Navigation timeout'));
-    await expect(processWebsiteAudit(mockJob as Job)).rejects.toThrow('Navigation timeout');
+    const navigationError = new Error('Navigation timeout');
+    (mockPage.goto as jest.Mock).mockRejectedValueOnce(navigationError);
+    await expect(processWebsiteAudit(mockJob as Job)).rejects.toThrow(navigationError);
   });
 
   it('should handle Lighthouse errors', async () => {
-    jest.mocked(require('lighthouse')).mockImplementationOnce(() => {
-      throw new Error('Lighthouse error');
-    });
-    await expect(processWebsiteAudit(mockJob as Job)).rejects.toThrow('Lighthouse error');
+    const lighthouseError = new Error('Lighthouse error');
+    jest.mocked(require('lighthouse')).mockRejectedValueOnce(lighthouseError);
+    await expect(processWebsiteAudit(mockJob as Job)).rejects.toThrow(lighthouseError);
   });
 
   it('should handle screenshot errors', async () => {
-    const screenshotSpy = jest.spyOn(mockPage as Page, 'screenshot');
-    screenshotSpy.mockRejectedValueOnce(new Error('Screenshot error'));
-    await expect(processWebsiteAudit(mockJob as Job)).rejects.toThrow('Screenshot error');
+    const screenshotError = new Error('Screenshot error');
+    (mockPage.screenshot as jest.Mock).mockRejectedValueOnce(screenshotError);
+    await expect(processWebsiteAudit(mockJob as Job)).rejects.toThrow(screenshotError);
   });
 
   it('should handle storage errors', async () => {
-    mockUpload.mockResolvedValueOnce({ data: null, error: { message: 'Storage error' } });
-    await expect(processWebsiteAudit(mockJob as Job)).rejects.toThrow('Storage error');
+    const storageError = { message: 'Storage error' };
+    mockUpload.mockResolvedValueOnce({ data: null, error: storageError }); 
+    await expect(processWebsiteAudit(mockJob as Job)).rejects.toThrow(`Storage Error: ${storageError.message}`);
   });
 
   it('should handle database errors', async () => {
-    mockUpdate.mockResolvedValueOnce({ data: null, error: { message: 'Database error' } });
-    await expect(processWebsiteAudit(mockJob as Job)).rejects.toThrow('Failed to update business record: Database error');
+    const dbError = { message: 'Database error' };
+    mockUpdate.mockResolvedValueOnce({ data: null, error: dbError }); 
+    await expect(processWebsiteAudit(mockJob as Job)).rejects.toThrow(`Database Error: ${dbError.message}`);
   });
 
   it('should handle invalid URLs', async () => {
@@ -113,8 +88,8 @@ describe('Website Audit Processor - Error Handling', () => {
         url: 'not-a-url'
       }
     };
-    const gotoSpy = jest.spyOn(mockPage as Page, 'goto');
-    gotoSpy.mockRejectedValueOnce(new Error('Navigation timeout'));
-    await expect(processWebsiteAudit(invalidJob as Job)).rejects.toThrow('Navigation timeout');
+    const navigationError = new Error('net::ERR_INVALID_URL');
+    (mockPage.goto as jest.Mock).mockRejectedValueOnce(navigationError);
+    await expect(processWebsiteAudit(invalidJob as Job)).rejects.toThrow(navigationError);
   });
 }); 

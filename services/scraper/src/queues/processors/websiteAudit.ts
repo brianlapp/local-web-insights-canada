@@ -1,11 +1,12 @@
 import { Job } from 'bull';
 import puppeteer from 'puppeteer';
-import { Result } from 'lighthouse';
+// @ts-ignore - Suppress CJS/ESM module conflict for type import
+import type { RunnerResult } from 'lighthouse'; // Use RunnerResult type
 import { createClient } from '@supabase/supabase-js';
 import { logger } from '../../utils/logger';
 
-// Import lighthouse using require since we're mocking it that way in tests
-const lighthouse = require('lighthouse');
+// Keep CJS require
+const lighthouse = require('lighthouse'); 
 
 const supabase = createClient(
   process.env.SUPABASE_URL as string,
@@ -41,88 +42,129 @@ export async function processWebsiteAudit(job: Job<WebsiteAuditJobData>) {
         timeout: 30000
       });
     } catch (error) {
-      throw new Error(`Navigation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      logger.error('Navigation failed:', error);
+      throw error;
     }
 
     // Take desktop screenshot
-    const desktopScreenshot = await page.screenshot({ fullPage: true });
+    let desktopScreenshot;
+    try {
+      desktopScreenshot = await page.screenshot({ fullPage: true });
+    } catch (error) {
+      logger.error('Failed to take desktop screenshot:', error);
+      throw error;
+    }
     const desktopScreenshotPath = `businesses/${businessId}/desktop-${Date.now()}.png`;
 
     // Take mobile screenshot
     await page.setViewport({ width: 375, height: 667 });
-    const mobileScreenshot = await page.screenshot({ fullPage: true });
+    let mobileScreenshot;
+    try {
+      mobileScreenshot = await page.screenshot({ fullPage: true });
+    } catch (error) {
+      logger.error('Failed to take mobile screenshot:', error);
+      throw error;
+    }
     const mobileScreenshotPath = `businesses/${businessId}/mobile-${Date.now()}.png`;
 
-    // Run Lighthouse audit
-    const lighthouseResult = await lighthouse(url, {
-      port: (new URL(browser.wsEndpoint())).port,
-      output: 'json',
-      logLevel: 'error',
-      onlyCategories: ['performance', 'accessibility', 'best-practices', 'seo']
-    });
-
-    // Upload desktop screenshot
-    const { error: desktopError } = await supabase.storage
-      .from('screenshots')
-      .upload(desktopScreenshotPath, desktopScreenshot);
-
-    if (desktopError) {
-      throw new Error(`Storage error: ${desktopError.message}`);
+    // Use RunnerResult for type annotation
+    let lighthouseResult: RunnerResult | undefined; 
+    try {
+      // Keep require call
+      lighthouseResult = await lighthouse(url, {
+        port: Number((new URL(browser.wsEndpoint())).port),
+        output: 'json',
+        logLevel: 'error',
+        onlyCategories: ['performance', 'accessibility', 'best-practices', 'seo']
+      });
+    } catch (error) {
+      logger.error('Lighthouse audit failed:', error);
+      throw error;
     }
 
-    // Upload mobile screenshot
-    const { error: mobileError } = await supabase.storage
-      .from('screenshots')
-      .upload(mobileScreenshotPath, mobileScreenshot);
+    // Access lhr from RunnerResult
+    const lhr = lighthouseResult?.lhr; 
 
-    if (mobileError) {
-      throw new Error(`Storage error: ${mobileError.message}`);
-    }
+    // Wrap Supabase operations in an async IIFE to ensure errors are caught
+    await (async () => {
+      // Upload desktop screenshot
+      const { error: desktopError } = await supabase.storage
+        .from('public')
+        .upload(desktopScreenshotPath, desktopScreenshot);
 
-    // Extract scores and suggested improvements
-    const scores = {
-      performance: Math.round((lighthouseResult.lhr.categories.performance?.score || 0) * 100),
-      accessibility: Math.round((lighthouseResult.lhr.categories.accessibility?.score || 0) * 100),
-      bestPractices: Math.round((lighthouseResult.lhr.categories['best-practices']?.score || 0) * 100),
-      seo: Math.round((lighthouseResult.lhr.categories.seo?.score || 0) * 100)
-    };
+      if (desktopError) {
+        logger.error('Failed to upload desktop screenshot:', desktopError);
+        throw new Error(`Storage Error: ${desktopError.message}`);
+      }
 
-    const suggestedImprovements = extractSuggestedImprovements(lighthouseResult.lhr);
+      // Upload mobile screenshot
+      const { error: mobileError } = await supabase.storage
+        .from('public')
+        .upload(mobileScreenshotPath, mobileScreenshot);
 
-    // Update business record
-    const { error: updateError } = await supabase
-      .from('businesses')
-      .update({
-        scores,
-        desktopScreenshot: desktopScreenshotPath,
-        mobileScreenshot: mobileScreenshotPath,
-        auditDate: new Date().toISOString(),
-        suggestedImprovements
-      })
-      .eq('id', businessId);
+      if (mobileError) {
+        logger.error('Failed to upload mobile screenshot:', mobileError);
+        throw new Error(`Storage Error: ${mobileError.message}`);
+      }
 
-    if (updateError) {
-      throw new Error(`Failed to update business record: ${updateError.message}`);
-    }
+      // Extract scores using lhr
+      const scores = {
+        performance: Math.round((lhr?.categories?.performance?.score || 0) * 100),
+        accessibility: Math.round((lhr?.categories?.accessibility?.score || 0) * 100),
+        bestPractices: Math.round((lhr?.categories?.['best-practices']?.score || 0) * 100),
+        seo: Math.round((lhr?.categories?.seo?.score || 0) * 100)
+      };
 
-    return { scores };
+      // Extract improvements using lhr
+      const suggestedImprovements = extractSuggestedImprovements(lhr);
+
+      // Update business record
+      const { error: updateError } = await supabase
+        .from('businesses')
+        .update({
+          scores,
+          desktopScreenshot: desktopScreenshotPath,
+          mobileScreenshot: mobileScreenshotPath,
+          auditDate: new Date().toISOString(),
+          suggestedImprovements
+        })
+        .eq('id', businessId);
+
+      if (updateError) {
+        logger.error('Failed to update business record:', updateError);
+        throw new Error(`Database Error: ${updateError.message}`);
+      }
+
+      // If all succeeds, return the scores from the main function scope
+      (job.data as any).finalScores = scores; // Temporary store scores on job data
+    })();
+
+    // Retrieve scores stored on job data
+    const finalScores = (job.data as any).finalScores;
+    delete (job.data as any).finalScores; // Clean up temporary data
+
+    return { scores: finalScores }; // Return the final scores
+
+  } catch (error) {
+    logger.error('Website audit failed:', error);
+    return Promise.reject(error);
   } finally {
     await browser.close();
   }
 }
 
-function extractSuggestedImprovements(report: Result) {
+function extractSuggestedImprovements(lhr: RunnerResult['lhr'] | undefined) {
   const improvements: string[] = [];
-  
-  // Extract opportunities and diagnostics from audit
-  const audits = report.audits || {};
-  
-  // Add performance improvements
-  Object.values(audits).forEach((audit: LighthouseAudit) => {
-    if (audit.score !== null && audit.score < 0.9 && audit.title) {
-      improvements.push(audit.title);
+  if (!lhr) return improvements;
+
+  const audits = lhr.audits || {};
+
+  Object.values(audits).forEach((audit) => {
+    const typedAudit = audit as LighthouseAudit;
+    if (typedAudit.score !== null && typedAudit.score < 0.9 && typedAudit.title) {
+      improvements.push(typedAudit.title);
     }
   });
-  
-  return improvements.slice(0, 10); // Limit to top 10 improvements
+
+  return improvements.slice(0, 10);
 } 

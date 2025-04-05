@@ -54,8 +54,12 @@ export async function processGridSearch(job: Job<GridSearchJobData>) {
           timeout: 5000
         });
       } catch (error) {
-        if (error instanceof Error && error.message.includes('OVER_QUERY_LIMIT')) {
-          throw new Error('OVER_QUERY_LIMIT');
+        logger.error('Google Places API request failed:', error);
+        if (error instanceof Error) {
+          if (error.message.includes('OVER_QUERY_LIMIT')) {
+            throw new Error('OVER_QUERY_LIMIT');
+          }
+          throw new Error(`API request failed: ${error.message}`);
         }
         throw error;
       }
@@ -71,6 +75,7 @@ export async function processGridSearch(job: Job<GridSearchJobData>) {
         });
 
         if (error) {
+          logger.error('Failed to insert business data:', error);
           throw new Error(`Failed to insert business data: ${error.message}`);
         }
 
@@ -93,6 +98,7 @@ export async function processGridSearch(job: Job<GridSearchJobData>) {
     });
 
     if (statsError) {
+      logger.error('Failed to update scraper run stats:', statsError);
       throw new Error(`Failed to update scraper run stats: ${statsError.message}`);
     }
 
@@ -103,12 +109,14 @@ export async function processGridSearch(job: Job<GridSearchJobData>) {
       .eq('id', grid.id);
 
     if (gridError) {
+      logger.error('Failed to update grid record:', gridError);
       throw new Error(`Failed to update grid record: ${gridError.message}`);
     }
 
     return { businessesFound };
   } catch (error) {
-    // Rethrow any errors that were caught
+    // Reset business count on error
+    businessesFound = 0;
     throw error;
   }
 } 
