@@ -169,7 +169,7 @@ const AuditorPage = () => {
               
               <h3 className="text-lg font-semibold mb-4">Social Profiles</h3>
               <div className="space-y-4">
-                {auditor.social.twitter && (
+                {auditor.social?.twitter && (
                   <a 
                     href={auditor.social.twitter} 
                     target="_blank" 
@@ -180,7 +180,7 @@ const AuditorPage = () => {
                   </a>
                 )}
                 
-                {auditor.social.linkedin && (
+                {auditor.social?.linkedin && (
                   <a 
                     href={auditor.social.linkedin} 
                     target="_blank" 
@@ -191,7 +191,7 @@ const AuditorPage = () => {
                   </a>
                 )}
                 
-                {auditor.social.github && (
+                {auditor.social?.github && (
                   <a 
                     href={auditor.social.github} 
                     target="_blank" 
