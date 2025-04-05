@@ -1,84 +1,135 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+
+import React, { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+
 const Header = () => {
-  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isMobile = useIsMobile();
-  return <header className="bg-white border-b border-civic-gray-200 sticky top-0 z-50">
-      <div className="container py-4 flex justify-between items-center">
-        <NavLink to="/" className="flex items-center">
-          <img src="/lovable-uploads/bd20067a-032a-44d4-b1f9-36d88719430f.png" alt="LocalWebsiteAudit.ca Logo" className="md:h-16 mr-2 h-11" />
-        </NavLink>
-        
-        {isMobile ? <>
-            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-civic-gray-700 hover:text-civic-blue transition-colors" aria-label={isMenuOpen ? "Close menu" : "Open menu"}>
-              {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-            
-            {isMenuOpen && <div className="fixed inset-0 bg-white z-40 pt-20">
-                <nav className="container flex flex-col space-y-4 p-4">
-                  <NavLink to="/" className={({
-              isActive
-            }) => `p-2 ${isActive ? 'text-civic-blue font-medium' : 'text-civic-gray-700'} text-lg`} onClick={() => setIsMenuOpen(false)}>
-                    Home
-                  </NavLink>
-                  <NavLink to="/audits" className={({
-              isActive
-            }) => `p-2 ${isActive ? 'text-civic-blue font-medium' : 'text-civic-gray-700'} text-lg`} onClick={() => setIsMenuOpen(false)}>
-                    Audits
-                  </NavLink>
-                  <NavLink to="/auditors" className={({
-              isActive
-            }) => `p-2 ${isActive ? 'text-civic-blue font-medium' : 'text-civic-gray-700'} text-lg`} onClick={() => setIsMenuOpen(false)}>
-                    Auditors
-                  </NavLink>
-                  <NavLink to="/tools" className={({
-              isActive
-            }) => `p-2 ${isActive ? 'text-civic-blue font-medium' : 'text-civic-gray-700'} text-lg`} onClick={() => setIsMenuOpen(false)}>
-                    Tools
-                  </NavLink>
-                  <NavLink to="/about" className={({
-              isActive
-            }) => `p-2 ${isActive ? 'text-civic-blue font-medium' : 'text-civic-gray-700'} text-lg`} onClick={() => setIsMenuOpen(false)}>
-                    About
-                  </NavLink>
-                  <a href="#" className="btn-green mt-4" onClick={() => setIsMenuOpen(false)}>
-                    Request an Audit
-                  </a>
-                </nav>
-              </div>}
-          </> : <nav className="flex items-center space-x-6">
-            <NavLink to="/" className={({
-          isActive
-        }) => isActive ? 'text-civic-blue font-medium' : 'text-civic-gray-700 hover:text-civic-blue transition-colors'}>
-              Home
-            </NavLink>
-            <NavLink to="/audits" className={({
-          isActive
-        }) => isActive ? 'text-civic-blue font-medium' : 'text-civic-gray-700 hover:text-civic-blue transition-colors'}>
-              Audits
-            </NavLink>
-            <NavLink to="/auditors" className={({
-          isActive
-        }) => isActive ? 'text-civic-blue font-medium' : 'text-civic-gray-700 hover:text-civic-blue transition-colors'}>
-              Auditors
-            </NavLink>
-            <NavLink to="/tools" className={({
-          isActive
-        }) => isActive ? 'text-civic-blue font-medium' : 'text-civic-gray-700 hover:text-civic-blue transition-colors'}>
-              Tools
-            </NavLink>
-            <NavLink to="/about" className={({
-          isActive
-        }) => isActive ? 'text-civic-blue font-medium' : 'text-civic-gray-700 hover:text-civic-blue transition-colors'}>
-              About
-            </NavLink>
-            <a href="#" className="btn-green">
-              Request an Audit
-            </a>
-          </nav>}
+  const location = useLocation();
+  
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
+  const closeMenu = () => {
+    setIsMenuOpen(false);
+  };
+
+  const isActive = (path: string) => {
+    return location.pathname === path;
+  };
+
+  const navItems = [
+    { title: 'Home', path: '/' },
+    { title: 'About', path: '/about' },
+    { title: 'Auditors', path: '/auditors' },
+  ];
+
+  return (
+    <header className="bg-white border-b border-gray-200">
+      <div className="container mx-auto px-4 py-4">
+        <div className="flex justify-between items-center">
+          <Link to="/" className="text-2xl font-bold text-civic-blue-600">
+            LocalWebsiteAudit
+          </Link>
+
+          {/* Desktop Nav */}
+          <nav className="hidden md:block">
+            <ul className="flex space-x-8">
+              {navItems.map((item) => (
+                <li key={item.path}>
+                  <Link
+                    to={item.path}
+                    className={cn(
+                      "text-civic-gray-700 hover:text-civic-blue-600 transition-colors",
+                      isActive(item.path) && "text-civic-blue-600 font-medium"
+                    )}
+                  >
+                    {item.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          <div className="hidden md:flex items-center space-x-4">
+            <Button
+              variant="outline"
+              className="border-civic-blue text-civic-blue hover:bg-civic-blue-50"
+              asChild
+            >
+              <Link to="/audit">Request an Audit</Link>
+            </Button>
+            <Button className="bg-civic-blue hover:bg-civic-blue-600" asChild>
+              <Link to="/signup">Sign Up</Link>
+            </Button>
+          </div>
+
+          {/* Mobile menu button */}
+          <button
+            className="block md:hidden text-civic-gray-600 focus:outline-none"
+            onClick={toggleMenu}
+            aria-expanded={isMenuOpen}
+            aria-controls="mobile-menu"
+          >
+            {isMenuOpen ? (
+              <X className="h-6 w-6" />
+            ) : (
+              <Menu className="h-6 w-6" />
+            )}
+          </button>
+        </div>
+
+        {/* Mobile Navigation */}
+        {isMobile && isMenuOpen && (
+          <div
+            id="mobile-menu"
+            className="md:hidden pt-4 pb-2 animate-in slide-in-from-top-5"
+          >
+            <nav>
+              <ul className="flex flex-col space-y-3">
+                {navItems.map((item) => (
+                  <li key={item.path}>
+                    <Link
+                      to={item.path}
+                      className={cn(
+                        "block py-2 text-civic-gray-700 hover:text-civic-blue-600 transition-colors",
+                        isActive(item.path) && "text-civic-blue-600 font-medium"
+                      )}
+                      onClick={closeMenu}
+                    >
+                      {item.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            <div className="flex flex-col space-y-3 mt-4 pt-4 border-t border-gray-200">
+              <Button
+                variant="outline"
+                className="border-civic-blue text-civic-blue hover:bg-civic-blue-50 w-full justify-center"
+                asChild
+                onClick={closeMenu}
+              >
+                <Link to="/audit">Request an Audit</Link>
+              </Button>
+              <Button
+                className="bg-civic-blue hover:bg-civic-blue-600 w-full justify-center"
+                asChild
+                onClick={closeMenu}
+              >
+                <Link to="/signup">Sign Up</Link>
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
-    </header>;
+    </header>
+  );
 };
+
 export default Header;
