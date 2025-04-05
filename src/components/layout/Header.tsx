@@ -23,11 +23,11 @@ const Header = () => {
     return location.pathname === path;
   };
 
+  // Navigation items without Audit
   const navItems = [
     { title: 'Home', path: '/' },
     { title: 'About', path: '/about' },
     { title: 'Auditors', path: '/auditors' },
-    { title: 'Audit', path: '/audit' }, 
     { title: 'Tools', path: '/tools' }
   ];
 
@@ -35,8 +35,12 @@ const Header = () => {
     <header className="bg-white border-b border-gray-200 py-4">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center">
-          <Link to="/" className="text-2xl font-bold text-civic-blue-600">
-            LocalWebsiteAudit
+          <Link to="/" className="flex items-center">
+            <img 
+              src="/lovable-uploads/af7f3d5a-06a1-4f42-8ffb-d9129686f86b.png" 
+              alt="LocalWebsiteAudit.ca Logo" 
+              className="h-12"
+            />
           </Link>
 
           {/* Desktop Nav */}
@@ -64,7 +68,7 @@ const Header = () => {
               >
                 <Link to="/audit">Request an Audit</Link>
               </Button>
-              <Button className="bg-civic-blue hover:bg-civic-blue-600" asChild>
+              <Button className="bg-civic-green hover:bg-civic-green-600" asChild>
                 <Link to="/signup">Sign Up</Link>
               </Button>
             </div>
@@ -119,7 +123,7 @@ const Header = () => {
                 <Link to="/audit">Request an Audit</Link>
               </Button>
               <Button
-                className="bg-civic-blue hover:bg-civic-blue-600 w-full justify-center"
+                className="bg-civic-green hover:bg-civic-green-600 w-full justify-center"
                 asChild
                 onClick={closeMenu}
               >

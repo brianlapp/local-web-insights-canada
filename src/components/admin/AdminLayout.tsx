@@ -1,3 +1,4 @@
+
 import { Link, useLocation } from 'react-router-dom'
 import { useAdminAuth } from '@/providers/AdminAuthProvider'
 import { Button } from '@/components/ui/button'
@@ -28,8 +29,12 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       <div className="hidden w-64 flex-shrink-0 bg-white md:flex md:flex-col">
         <div className="flex flex-1 flex-col overflow-y-auto">
           <div className="flex flex-shrink-0 items-center px-4 py-4">
-            <Link to="/admin/dashboard" className="text-xl font-bold">
-              Admin Panel
+            <Link to="/admin/dashboard" className="flex items-center">
+              <img 
+                src="/lovable-uploads/af7f3d5a-06a1-4f42-8ffb-d9129686f86b.png" 
+                alt="LocalWebsiteAudit.ca Logo" 
+                className="h-8"
+              />
             </Link>
           </div>
           <nav className="mt-5 flex-1 space-y-1 px-2">
@@ -92,4 +97,4 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       </div>
     </div>
   )
-} 
+}

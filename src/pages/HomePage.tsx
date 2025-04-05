@@ -1,14 +1,15 @@
+
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { ChevronRight, Search, BarChart, Code, Users, Award, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AuditCard from '@/components/ui/AuditCard';
-import PageLayout from '@/components/layout/PageLayout';
 import { getRecentBusinesses } from '@/data/businesses';
 
 const HomePage = () => {
   const recentAudits = getRecentBusinesses(6);
-  return <PageLayout>
+  return (
+      <>
       {/* Hero Section */}
       <section className="relative bg-cover bg-center py-24 md:py-32" style={{
       backgroundImage: 'url("/lovable-uploads/bddb191c-4706-40b6-a8b3-e83ca94b3816.png")'
@@ -370,7 +371,8 @@ const HomePage = () => {
           <path fill="#f3f4f6" fillOpacity="1" d="M0,224L80,213.3C160,203,320,181,480,181.3C640,181,800,203,960,197.3C1120,192,1280,160,1360,144L1440,128L1440,320L1360,320C1280,320,1120,320,960,320C800,320,640,320,480,320C320,320,160,320,80,320L0,320Z"></path>
         </svg>
       </div>
-    </PageLayout>;
+      </>
+  );
 };
 
 export default HomePage;
