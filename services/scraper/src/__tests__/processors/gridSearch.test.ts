@@ -1,18 +1,24 @@
+import { Job } from 'bull';
+import { processGridSearch } from '../../queues/processors/gridSearch';
+
 // Mock modules first
 const mockPlacesNearby = jest.fn();
-const mockInsert = jest.fn().mockResolvedValue({ error: null });
-const mockUpdate = jest.fn().mockResolvedValue({ error: null });
-const mockRpc = jest.fn().mockResolvedValue({ error: null });
-const mockFrom = jest.fn().mockReturnValue({
-  insert: mockInsert,
-  update: mockUpdate,
-  eq: jest.fn().mockReturnThis()
+const mockGoogleMapsClient = { placesNearby: mockPlacesNearby };
+
+const mockInsert = jest.fn();
+const mockUpdate = jest.fn();
+const mockRpc = jest.fn();
+const mockFrom = jest.fn().mockImplementation((table) => {
+  if (table === 'raw_business_data') {
+    return { insert: mockInsert };
+  } else if (table === 'geo_grids') {
+    return { update: mockUpdate, eq: jest.fn().mockReturnThis() };
+  }
+  return {};
 });
 
 jest.mock('@googlemaps/google-maps-services-js', () => ({
-  Client: jest.fn().mockImplementation(() => ({
-    placesNearby: mockPlacesNearby
-  }))
+  Client: jest.fn().mockImplementation(() => mockGoogleMapsClient)
 }));
 
 jest.mock('@supabase/supabase-js', () => ({
@@ -29,56 +35,62 @@ jest.mock('../../utils/logger', () => ({
   }
 }));
 
-// Mock environment variables
+// Set environment variables
 process.env.GOOGLE_MAPS_API_KEY = 'test-api-key';
-process.env.SUPABASE_URL = 'http://localhost:54321';
-process.env.SUPABASE_SERVICE_KEY = 'test-service-key';
-
-// Import dependencies after mocking
-import { Job } from 'bull';
-import { processGridSearch } from '../../queues/processors/gridSearch';
+process.env.SUPABASE_URL = 'http://test-url';
+process.env.SUPABASE_SERVICE_KEY = 'test-key';
 
 describe('Grid Search Processor', () => {
-  let mockJob: Partial<Job>;
-
   beforeEach(() => {
+    // Clear all mocks before each test
     jest.clearAllMocks();
+    mockPlacesNearby.mockReset();
+    mockInsert.mockReset();
+    mockUpdate.mockReset();
+    mockRpc.mockReset();
 
-    // Setup default successful responses
+    // Set default successful responses
     mockPlacesNearby.mockResolvedValue({
       data: {
         results: [{
           place_id: 'test-place-1',
-          name: 'Test Place 1'
-        }],
-        next_page_token: undefined
+          name: 'Test Business',
+          vicinity: '123 Test St',
+          geometry: {
+            location: { lat: 45.4165, lng: -75.6922 }
+          }
+        }]
       }
     });
-
-    // Setup mock job
-    mockJob = {
-      data: {
-        grid: {
-          id: 'test-grid-1',
-          name: 'Test Grid',
-          bounds: {
-            northeast: { lat: 45.4215, lng: -75.6972 },
-            southwest: { lat: 45.4115, lng: -75.6872 }
-          }
-        },
-        category: 'restaurant',
-        scraperRunId: 'test-run-1'
-      }
-    };
+    mockInsert.mockResolvedValue({ data: null, error: null });
+    mockUpdate.mockResolvedValue({ data: null, error: null });
+    mockRpc.mockResolvedValue({ data: null, error: null });
   });
+
+  const mockJob = {
+    data: {
+      grid: {
+        id: 'test-grid-1',
+        name: 'Test Grid',
+        bounds: {
+          northeast: { lat: 45.4166, lng: -75.6921 },
+          southwest: { lat: 45.4164, lng: -75.6923 }
+        }
+      },
+      category: 'restaurant',
+      scraperRunId: 'test-run-1'
+    }
+  };
 
   it('should process a grid search job successfully', async () => {
     const result = await processGridSearch(mockJob as Job);
 
+    expect(result).toEqual({ businessesFound: 1 });
+
     // Verify Google Places API was called correctly
     expect(mockPlacesNearby).toHaveBeenCalledWith({
       params: {
-        location: { lat: 45.4165, lng: -75.6922 }, // Center of the grid
+        location: { lat: 45.4165, lng: -75.6922 },
         radius: 1000,
         type: 'restaurant',
         key: 'test-api-key',
@@ -87,8 +99,7 @@ describe('Grid Search Processor', () => {
       timeout: 5000
     });
 
-    // Verify raw business data was stored
-    expect(mockFrom).toHaveBeenCalledWith('raw_business_data');
+    // Verify data was inserted correctly
     expect(mockInsert).toHaveBeenCalledWith({
       source_id: 'google-places',
       external_id: 'test-place-1',
@@ -102,17 +113,12 @@ describe('Grid Search Processor', () => {
       businesses_found: 1
     });
 
-    // Verify grid record was updated
-    expect(mockFrom).toHaveBeenCalledWith('geo_grids');
-    expect(mockUpdate).toHaveBeenCalledWith({
-      last_scraped: expect.any(String)
-    });
-
-    expect(result).toEqual({ businessesFound: 1 });
+    // Verify grid was updated
+    expect(mockUpdate).toHaveBeenCalledWith({ last_scraped: expect.any(String) });
   });
 
   it('should process a grid search job successfully with pagination', async () => {
-    // Mock paginated responses
+    // First call returns a next page token
     mockPlacesNearby
       .mockResolvedValueOnce({
         data: {
@@ -120,10 +126,11 @@ describe('Grid Search Processor', () => {
             place_id: 'test-place-1',
             name: 'Test Business 1',
             vicinity: '123 Test St',
-            geometry: { location: { lat: 45.4215, lng: -75.6972 } }
+            geometry: {
+              location: { lat: 45.4165, lng: -75.6922 }
+            }
           }],
-          status: 'OK',
-          next_page_token: 'page2'
+          next_page_token: 'test-token'
         }
       })
       .mockResolvedValueOnce({
@@ -132,13 +139,16 @@ describe('Grid Search Processor', () => {
             place_id: 'test-place-2',
             name: 'Test Business 2',
             vicinity: '456 Test St',
-            geometry: { location: { lat: 45.4216, lng: -75.6973 } }
-          }],
-          status: 'OK'
+            geometry: {
+              location: { lat: 45.4166, lng: -75.6923 }
+            }
+          }]
         }
       });
 
     const result = await processGridSearch(mockJob as Job);
+
+    expect(result).toEqual({ businessesFound: 2 });
 
     // Verify multiple API calls were made
     expect(mockPlacesNearby).toHaveBeenCalledTimes(2);
@@ -158,42 +168,95 @@ describe('Grid Search Processor', () => {
         radius: 1000,
         type: 'restaurant',
         key: 'test-api-key',
-        pagetoken: 'page2'
+        pagetoken: 'test-token'
       },
       timeout: 5000
     });
-
-    expect(result).toEqual({ businessesFound: 2 });
   });
 
   it('should handle empty results', async () => {
-    // Mock empty response
-    mockPlacesNearby.mockResolvedValueOnce({
+    mockPlacesNearby.mockResolvedValue({
       data: {
-        results: [],
-        status: 'ZERO_RESULTS'
+        results: []
       }
     });
 
     const result = await processGridSearch(mockJob as Job);
     expect(result).toEqual({ businessesFound: 0 });
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockRpc).toHaveBeenCalledWith('update_scraper_run_stats', {
+      run_id: 'test-run-1',
+      businesses_found: 0
+    });
   });
 
   it('should handle API errors', async () => {
-    // Mock API error
-    mockPlacesNearby.mockRejectedValueOnce(new Error('API request failed'));
+    mockPlacesNearby.mockRejectedValue(new Error('API request failed'));
 
-    await expect(processGridSearch(mockJob as Job))
-      .rejects
-      .toThrow('API request failed');
+    await expect(processGridSearch(mockJob as Job)).rejects.toThrow('API request failed');
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it('should handle database errors', async () => {
-    // Mock database error
-    mockInsert.mockResolvedValueOnce({ error: { message: 'Database error' } });
+    mockInsert.mockResolvedValue({ data: null, error: { message: 'Database error' } });
 
-    await expect(processGridSearch(mockJob as Job))
-      .rejects
-      .toThrow('Database error');
+    await expect(processGridSearch(mockJob as Job)).rejects.toThrow('Database error');
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
-}); 
+
+  it('should handle stats update errors', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'Stats update failed' } });
+
+    await expect(processGridSearch(mockJob as Job)).rejects.toThrow('Stats update failed');
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('should handle grid update errors', async () => {
+    mockUpdate.mockResolvedValue({ data: null, error: { message: 'Grid update failed' } });
+
+    await expect(processGridSearch(mockJob as Job)).rejects.toThrow('Grid update failed');
+  });
+
+  it('should handle edge case grid coordinates', async () => {
+    const edgeCaseJob = {
+      data: {
+        grid: {
+          id: 'test-grid-2',
+          name: 'Test Grid',
+          bounds: {
+            northeast: { lat: 0.0001, lng: 180 },
+            southwest: { lat: -0.0001, lng: 179.9999 }
+          }
+        },
+        category: 'restaurant',
+        scraperRunId: 'test-run-1'
+      }
+    };
+
+    await processGridSearch(edgeCaseJob as Job);
+
+    // Verify the center calculation handled the date line correctly
+    expect(mockPlacesNearby).toHaveBeenCalledWith({
+      params: {
+        location: { lat: 0, lng: 180 },
+        radius: 1000,
+        type: 'restaurant',
+        key: 'test-api-key',
+        pagetoken: undefined
+      },
+      timeout: 5000
+    });
+  });
+
+  it('should handle rate limit errors', async () => {
+    mockPlacesNearby.mockRejectedValue(new Error('OVER_QUERY_LIMIT'));
+
+    await expect(processGridSearch(mockJob as Job)).rejects.toThrow('OVER_QUERY_LIMIT');
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+});
