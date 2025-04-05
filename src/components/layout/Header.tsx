@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -67,7 +68,7 @@ const Header = () => {
               >
                 <Link to="/audit">Request an Audit</Link>
               </Button>
-              <Button className="bg-civic-blue hover:bg-civic-blue-600" asChild>
+              <Button className="bg-civic-green hover:bg-civic-green-600" asChild>
                 <Link to="/signup">Sign Up</Link>
               </Button>
             </div>
@@ -122,7 +123,7 @@ const Header = () => {
                 <Link to="/audit">Request an Audit</Link>
               </Button>
               <Button
-                className="bg-civic-blue hover:bg-civic-blue-600 w-full justify-center"
+                className="bg-civic-green hover:bg-civic-green-600 w-full justify-center"
                 asChild
                 onClick={closeMenu}
               >
