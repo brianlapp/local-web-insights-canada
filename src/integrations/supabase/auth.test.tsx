@@ -1,9 +1,9 @@
-
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { supabase } from './client'
 import { useAuth } from './auth'
-import { User, Session, AuthError } from '@supabase/supabase-js'
+import type { User, Session, AuthError } from '@supabase/supabase-js'
+import { createMockAuthError } from '@/components/forms/test-utils/auth-mocks'
 
 // Mock the Supabase client
 vi.mock('./client', () => ({
@@ -41,19 +41,12 @@ const createMockSession = (): Session => ({
   token_type: 'bearer'
 })
 
-const createAuthError = (message: string): AuthError => ({
-  name: 'AuthApiError',
-  message,
-  status: 400,
-  code: '400',
-  __isAuthError: true
-})
-
 describe('Authentication', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     // Reset auth state between tests
     vi.mocked(supabase.auth.getSession).mockResolvedValue({ data: { session: null }, error: null })
+    vi.mocked(supabase.auth.onAuthStateChange).mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } })
   })
 
   describe('Sign In', () => {
@@ -86,7 +79,7 @@ describe('Authentication', () => {
 
       vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
         data: { session: null, user: null },
-        error: createAuthError('Invalid credentials')
+        error: createMockAuthError('Invalid credentials', 400)
       })
 
       const { result } = renderHook(() => useAuth())
@@ -136,7 +129,7 @@ describe('Authentication', () => {
 
       vi.mocked(supabase.auth.signUp).mockResolvedValue({
         data: { user: null, session: null },
-        error: createAuthError('Email already exists')
+        error: createMockAuthError('Email already exists', 400)
       })
 
       const { result } = renderHook(() => useAuth())

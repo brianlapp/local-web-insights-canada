@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -6,20 +5,15 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/schema';
 
 interface PetitionFormProps {
   businessId: string;
   businessName: string;
 }
 
-// Define types for our petition signature
-interface PetitionSignature {
-  petition_id: string;
-  name: string;
-  email: string;
-  is_local: boolean;
-  message: string | null;
-}
+// Define types for our petition signature using the database schema
+type PetitionSignature = Database['public']['Tables']['petition_signatures'];
 
 const PetitionForm: React.FC<PetitionFormProps> = ({ businessId, businessName }) => {
   const [name, setName] = useState('');
@@ -51,7 +45,7 @@ const PetitionForm: React.FC<PetitionFormProps> = ({ businessId, businessName })
     try {
       const { error } = await supabase
         .from('petition_signatures')
-        .insert(petitionData);
+        .insert(petitionData as any); // Type assertion as a workaround
 
       if (error) {
         setHasError(true);

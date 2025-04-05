@@ -19,6 +19,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { Loader2, ArrowLeft } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import type { Database } from '@/integrations/supabase/schema'
 
 const businessFormSchema = z.object({
   name: z.string().min(1, 'Business name is required'),
@@ -42,6 +43,7 @@ const businessFormSchema = z.object({
 })
 
 type BusinessFormData = z.infer<typeof businessFormSchema>
+type Business = Database['public']['Tables']['businesses']
 
 export function BusinessForm() {
   const { id } = useParams()
@@ -83,7 +85,7 @@ export function BusinessForm() {
         .from('businesses')
         .select('*')
         .eq('id', id)
-        .single()
+        .single<Business>()
 
       if (error) throw error
       return data
@@ -94,7 +96,7 @@ export function BusinessForm() {
   // Update form when business data is loaded
   useEffect(() => {
     if (business) {
-      form.reset(business)
+      form.reset(business as unknown as BusinessFormData)
     }
   }, [business, form])
 
@@ -104,9 +106,11 @@ export function BusinessForm() {
       const { error } = id
         ? await supabase
             .from('businesses')
-            .update(data)
+            .update(data as unknown as Business)
             .eq('id', id)
-        : await supabase.from('businesses').insert([data])
+        : await supabase
+            .from('businesses')
+            .insert([data as unknown as Business])
 
       if (error) throw error
     },
@@ -315,4 +319,4 @@ export function BusinessForm() {
       </Card>
     </div>
   )
-} 
+}

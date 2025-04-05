@@ -1,5 +1,5 @@
+
 import { supabase } from './client'
-import type { StorageError as SupabaseStorageError } from '@supabase/storage-js'
 
 export interface UploadOptions {
   bucket?: string
@@ -9,7 +9,7 @@ export interface UploadOptions {
 }
 
 export interface CustomStorageError extends Error {
-  statusCode?: number
+  status?: number
 }
 
 const DEFAULT_BUCKET = 'business-assets'
@@ -41,7 +41,7 @@ export async function uploadFile(
 
   if (error) {
     const storageError = new Error(error.message) as CustomStorageError
-    storageError.statusCode = (error as SupabaseStorageError).statusCode
+    storageError.status = error.status || 500
     throw storageError
   }
 
@@ -77,7 +77,7 @@ export async function updateFilePermissions(
 
   if (error) {
     const storageError = new Error(error.message) as CustomStorageError
-    storageError.statusCode = (error as SupabaseStorageError).statusCode
+    storageError.status = error.status || 500
     throw storageError
   }
 }
@@ -114,7 +114,7 @@ export async function deleteFile(
 
   if (error) {
     const storageError = new Error(error.message) as CustomStorageError
-    storageError.statusCode = (error as SupabaseStorageError).statusCode
+    storageError.status = error.status || 500
     throw storageError
   }
-} 
+}

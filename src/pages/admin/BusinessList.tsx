@@ -13,16 +13,9 @@ import { Input } from '@/components/ui/input'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
 import { Loader2, Plus, Search } from 'lucide-react'
+import type { Database } from '@/integrations/supabase/schema'
 
-interface Business {
-  id: string
-  name: string
-  city: string
-  website: string
-  score: number
-  isUpgraded: boolean
-  auditDate: string
-}
+type Business = Database['public']['Tables']['businesses']
 
 export function BusinessList() {
   const navigate = useNavigate()
@@ -133,4 +126,4 @@ export function BusinessList() {
       )}
     </div>
   )
-} 
+}

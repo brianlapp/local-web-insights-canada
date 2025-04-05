@@ -1,6 +1,7 @@
 
 import { supabase } from './client'
 import type { AuditData } from '@/lib/api'
+import type { Database } from './schema'
 
 /**
  * Fetches audit data for a business, respecting RLS policies:
@@ -14,19 +15,11 @@ export async function fetchAuditDataWithRLS(businessSlug: string): Promise<Audit
   if (sessionError) throw sessionError
   if (!session) throw new Error('Authentication required')
 
-  // TypeScript won't infer the correct types here, so we need to manually type the response
-  type AuditRecord = {
-    score: number;
-    metrics: AuditData['metrics'];
-    recommendations: AuditData['recommendations'];
-    lastUpdated: string;
-  }
-
   const { data, error } = await supabase
     .from('audits')
     .select()
     .eq('business_slug', businessSlug)
-    .single<AuditRecord>()
+    .single<Database['public']['Tables']['audits']>()
 
   if (error) {
     throw new Error(error.message)
@@ -64,14 +57,6 @@ export async function updateAuditDataWithRLS(
     throw new Error('Only auditors can update audit data')
   }
 
-  // TypeScript won't infer the correct types here, so we need to manually type the response
-  type AuditRecord = {
-    score: number;
-    metrics: AuditData['metrics'];
-    recommendations: AuditData['recommendations'];
-    lastUpdated: string;
-  }
-
   const { data, error } = await supabase
     .from('audits')
     .update({
@@ -81,7 +66,7 @@ export async function updateAuditDataWithRLS(
       lastUpdated: auditData.lastUpdated,
     })
     .eq('business_slug', businessSlug)
-    .select<string, AuditRecord>()
+    .select<string, Database['public']['Tables']['audits']>()
     .single()
 
   if (error) {

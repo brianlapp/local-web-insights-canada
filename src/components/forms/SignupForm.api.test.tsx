@@ -1,4 +1,3 @@
-
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -6,6 +5,7 @@ import { toast } from '@/components/ui/use-toast'
 import { supabase } from '@/integrations/supabase/client'
 import { AuthError } from '@supabase/supabase-js'
 import SignupForm from './SignupForm'
+import { createMockAuthError } from './test-utils/auth-mocks'
 
 // Mock toast
 vi.mock('@/components/ui/use-toast', () => ({
@@ -21,15 +21,6 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }))
 
-// Create a proper AuthError mock helper
-const createAuthError = (message: string, status: number, code?: string): AuthError => ({
-  name: 'AuthApiError',
-  message,
-  status,
-  code: code || `${status}`,
-  __isAuthError: true
-})
-
 describe('SignupForm API Errors', () => {
   const user = userEvent.setup()
 
@@ -40,7 +31,7 @@ describe('SignupForm API Errors', () => {
   it('handles email already registered error', async () => {
     vi.mocked(supabase.auth.signInWithOtp).mockResolvedValue({
       data: { user: null, session: null },
-      error: createAuthError('Email already registered', 400, 'email_taken'),
+      error: createMockAuthError('Email already registered', 400, 'email_taken'),
     })
 
     render(<SignupForm />)
@@ -65,7 +56,7 @@ describe('SignupForm API Errors', () => {
   it('handles phone number already registered error', async () => {
     vi.mocked(supabase.auth.signInWithOtp).mockResolvedValue({
       data: { user: null, session: null },
-      error: createAuthError('Phone number already registered', 400, 'phone_taken'),
+      error: createMockAuthError('Phone number already registered', 400, 'phone_taken'),
     })
 
     render(<SignupForm />)
@@ -91,7 +82,7 @@ describe('SignupForm API Errors', () => {
   it('handles rate limiting error', async () => {
     vi.mocked(supabase.auth.signInWithOtp).mockResolvedValue({
       data: { user: null, session: null },
-      error: createAuthError('Too many requests', 429, 'rate_limit_exceeded'),
+      error: createMockAuthError('Too many requests', 429, 'rate_limit_exceeded'),
     })
 
     render(<SignupForm />)

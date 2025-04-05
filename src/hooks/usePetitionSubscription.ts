@@ -1,14 +1,10 @@
+
 import { useEffect, useState } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import type { RealtimeChannel } from '@supabase/supabase-js'
+import type { Database } from '@/integrations/supabase/schema'
 
-interface PetitionSignature {
-  id: string
-  petition_id: string
-  name: string
-  email: string
-  created_at: string
-}
+type PetitionSignature = Database['public']['Tables']['petition_signatures'] & { id: string; created_at: string }
 
 export function usePetitionSubscription(petitionSlug: string) {
   const [signatures, setSignatures] = useState<PetitionSignature[]>([])
