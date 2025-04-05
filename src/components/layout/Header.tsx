@@ -13,7 +13,7 @@ const Header = () => {
       <div className="container py-4 flex justify-between items-center">
         <NavLink to="/" className="flex items-center">
           <img 
-            src="/lovable-uploads/9b122619-611a-4e3f-818c-f62ea94ca09a.png" 
+            src="/lovable-uploads/f619126b-d72b-460f-a333-08311abda9e5.png" 
             alt="LocalWebsiteAudit.ca Logo" 
             className="h-10 mr-2" 
           />
