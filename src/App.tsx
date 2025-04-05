@@ -24,6 +24,10 @@ import { ToolsPage } from './pages/ToolsPage'
 import PageLayout from './components/layout/PageLayout'
 import { PetitionPage } from './pages/petition/[slug]'
 import { BusinessAuditPage } from './pages/[businessSlug]'
+import ContactPage from './pages/ContactPage'
+import AuditsPage from './pages/AuditsPage'
+import CityPage from './pages/CityPage'
+import CitiesListPage from './pages/CitiesListPage'
 
 const PetitionList = () => <div>Petition List</div>
 const Settings = () => <div>Settings</div>
@@ -37,6 +41,7 @@ function App() {
         <Router>
           <AdminAuthProvider>
             <Routes>
+              {/* Admin routes */}
               <Route path="/admin">
                 <Route path="login" element={<LoginPage />} />
                 <Route path="reset-password" element={<ResetPasswordPage />} />
@@ -57,11 +62,15 @@ function App() {
                 </Route>
               </Route>
 
+              {/* Public routes */}
               <Route element={<PageLayout><Outlet /></PageLayout>}>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/about" element={<AboutPage />} />
+                <Route path="/contact" element={<ContactPage />} />
+                <Route path="/audits" element={<AuditsPage />} />
+                <Route path="/cities" element={<CitiesListPage />} />
+                <Route path="/cities/:city" element={<CityPage />} />
                 <Route path="/auditors" element={<AuditorsPage />} />
-                <Route path="/audit" element={<AuditPage />} />
                 <Route path="/tools" element={<ToolsPage />} />
                 <Route path="/signup" element={<SignupPage />} />
                 <Route path="/:city/:slug" element={<AuditPage />} />

@@ -1,4 +1,3 @@
-
 export interface Business {
   id: string;
   name: string;
@@ -149,23 +148,25 @@ export const businesses: Business[] = [
 
 export const getBusinessBySlug = (city: string, slug: string): Business | undefined => {
   return businesses.find(
-    business => business.city.toLowerCase() === city.toLowerCase() && business.slug === slug
+    (business) => 
+      business.city?.toLowerCase() === city.toLowerCase() && 
+      business.slug === slug
   );
 };
 
 export const getBusinessesByCity = (city: string): Business[] => {
   return businesses.filter(
-    business => business.city.toLowerCase() === city.toLowerCase()
+    (business) => business.city?.toLowerCase() === city.toLowerCase()
   );
 };
 
-export const getRecentBusinesses = (limit: number = 6): Business[] => {
+export const getRecentBusinesses = (limit = 6): Business[] => {
   return [...businesses]
     .sort((a, b) => new Date(b.auditDate).getTime() - new Date(a.auditDate).getTime())
     .slice(0, limit);
 };
 
-export const getUpgradedBusinesses = (limit: number = 6): Business[] => {
+export const getUpgradedBusinesses = (limit = 6): Business[] => {
   return businesses
     .filter(business => business.isUpgraded)
     .slice(0, limit);
