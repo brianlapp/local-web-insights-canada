@@ -291,8 +291,12 @@ const HomePage = () => {
       </section>
 
       {/* Enhanced CTA Section */}
-      <section className="section bg-civic-blue-600 text-white">
-        <div className="container">
+      <section className="relative bg-cover bg-center py-16 md:py-24" style={{
+        backgroundImage: 'url("/lovable-uploads/bddb191c-4706-40b6-a8b3-e83ca94b3816.png")'
+      }}>
+        {/* Blue gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-r from-civic-blue-600/90 to-civic-blue/90"></div>
+        <div className="container relative z-10 text-white">
           <div className="max-w-3xl mx-auto text-center mb-10">
             <h2 className="text-2xl md:text-3xl font-bold mb-4">
               Help improve the web presence of your community
@@ -303,7 +307,7 @@ const HomePage = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto mb-12">
-            <div className="bg-civic-blue-500 p-6 rounded-lg text-center">
+            <div className="bg-civic-blue-500/80 backdrop-blur-sm p-6 rounded-lg text-center shadow-lg">
               <div className="w-12 h-12 bg-civic-blue-400 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Users className="w-6 h-6 text-white" />
               </div>
@@ -316,7 +320,7 @@ const HomePage = () => {
               </Button>
             </div>
             
-            <div className="bg-civic-blue-500 p-6 rounded-lg text-center">
+            <div className="bg-civic-blue-500/80 backdrop-blur-sm p-6 rounded-lg text-center shadow-lg">
               <div className="w-12 h-12 bg-civic-blue-400 rounded-full flex items-center justify-center mx-auto mb-4">
                 <MessageSquare className="w-6 h-6 text-white" />
               </div>
@@ -329,7 +333,7 @@ const HomePage = () => {
               </Button>
             </div>
             
-            <div className="bg-civic-blue-500 p-6 rounded-lg text-center">
+            <div className="bg-civic-blue-500/80 backdrop-blur-sm p-6 rounded-lg text-center shadow-lg">
               <div className="w-12 h-12 bg-civic-blue-400 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Award className="w-6 h-6 text-white" />
               </div>
@@ -344,7 +348,7 @@ const HomePage = () => {
           </div>
           
           <div className="max-w-xl mx-auto">
-            <div className="bg-civic-blue-500/50 p-6 rounded-lg">
+            <div className="bg-civic-blue-500/60 backdrop-blur-sm p-6 rounded-lg shadow-lg">
               <h3 className="text-lg font-semibold mb-3 text-center">Stay Connected</h3>
               <p className="text-civic-blue-50 text-sm text-center mb-4">
                 Subscribe to our newsletter for community updates, success stories, and volunteer opportunities
@@ -359,6 +363,13 @@ const HomePage = () => {
           </div>
         </div>
       </section>
+
+      {/* SVG Wave Decoration */}
+      <div className="relative h-24 mt-16 overflow-hidden">
+        <svg className="absolute bottom-0 w-full h-24" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320">
+          <path fill="#f3f4f6" fillOpacity="1" d="M0,224L80,213.3C160,203,320,181,480,181.3C640,181,800,203,960,197.3C1120,192,1280,160,1360,144L1440,128L1440,320L1360,320C1280,320,1120,320,960,320C800,320,640,320,480,320C320,320,160,320,80,320L0,320Z"></path>
+        </svg>
+      </div>
     </PageLayout>;
 };
 
