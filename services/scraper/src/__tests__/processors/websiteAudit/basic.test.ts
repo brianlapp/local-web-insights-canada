@@ -1,12 +1,28 @@
-import { Job } from 'bull';
-import { processWebsiteAudit } from '../../../queues/processors/websiteAudit';
-import { createBaseLighthouseResult } from '../../utils/lighthouse.mocks';
-import { setupDefaultBrowserMocks } from '../../utils/browser.mocks';
-import { createMockSupabaseClient } from '../../utils/database.mocks';
-
 // Mock modules first
 jest.mock('puppeteer');
-jest.mock('lighthouse');
+jest.mock('lighthouse', () => ({
+  default: jest.fn(() => Promise.resolve({
+    lhr: {
+      categories: {
+        performance: { score: 0.9 },
+        accessibility: { score: 0.8 },
+        'best-practices': { score: 0.7 },
+        seo: { score: 0.6 }
+      },
+      audits: {}
+    },
+    report: '{}',
+    artifacts: {
+      fetchTime: new Date().toISOString(),
+      settings: {},
+      URL: {
+        requestedUrl: 'https://example.com',
+        finalDisplayedUrl: 'https://example.com',
+        mainDocumentUrl: 'https://example.com'
+      }
+    }
+  }))
+}));
 jest.mock('@supabase/supabase-js');
 jest.mock('../../../utils/logger', () => ({
   logger: {
@@ -14,6 +30,12 @@ jest.mock('../../../utils/logger', () => ({
     error: jest.fn()
   }
 }));
+
+import { Job } from 'bull';
+import { processWebsiteAudit } from '../../../queues/processors/websiteAudit';
+import { createBaseLighthouseResult } from '../../utils/lighthouse.mocks';
+import { setupDefaultBrowserMocks } from '../../utils/browser.mocks';
+import { createMockSupabaseClient } from '../../utils/database.mocks';
 
 describe('Website Audit Processor - Basic Tests', () => {
   const { mockBrowser, mockPage } = setupDefaultBrowserMocks();

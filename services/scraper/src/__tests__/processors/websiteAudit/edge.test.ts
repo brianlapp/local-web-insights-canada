@@ -1,12 +1,24 @@
-import { Job } from 'bull';
-import { processWebsiteAudit } from '../../../queues/processors/websiteAudit';
-import { createEmptyLighthouseResult } from '../../utils/lighthouse.mocks';
-import { setupDefaultBrowserMocks } from '../../utils/browser.mocks';
-import { createMockSupabaseClient } from '../../utils/database.mocks';
-
 // Mock modules first
 jest.mock('puppeteer');
-jest.mock('lighthouse');
+jest.mock('lighthouse', () => ({
+  default: jest.fn(() => Promise.resolve({
+    lhr: {
+      categories: {},
+      audits: {}
+    },
+    report: '{}',
+    artifacts: {
+      // Add minimal required artifacts
+      fetchTime: new Date().toISOString(),
+      settings: {},
+      URL: {
+        requestedUrl: 'https://example.com',
+        finalDisplayedUrl: 'https://example.com',
+        mainDocumentUrl: 'https://example.com'
+      }
+    }
+  }))
+}));
 jest.mock('@supabase/supabase-js');
 jest.mock('../../../utils/logger', () => ({
   logger: {
@@ -14,6 +26,12 @@ jest.mock('../../../utils/logger', () => ({
     error: jest.fn()
   }
 }));
+
+import { Job } from 'bull';
+import { processWebsiteAudit } from '../../../queues/processors/websiteAudit';
+import { createEmptyLighthouseResult } from '../../utils/lighthouse.mocks';
+import { setupDefaultBrowserMocks } from '../../utils/browser.mocks';
+import { createMockSupabaseClient } from '../../utils/database.mocks';
 
 describe('Website Audit Processor - Edge Cases', () => {
   const { mockBrowser, mockPage } = setupDefaultBrowserMocks();
@@ -26,7 +44,7 @@ describe('Website Audit Processor - Edge Cases', () => {
     // Setup Puppeteer mock
     jest.mocked(require('puppeteer')).launch.mockResolvedValue(mockBrowser);
 
-    // Setup Lighthouse mock
+    // Setup Lighthouse mock with empty results
     jest.mocked(require('lighthouse')).default.mockImplementation(() => {
       return Promise.resolve(createEmptyLighthouseResult());
     });
