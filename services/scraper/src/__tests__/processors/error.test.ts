@@ -9,7 +9,8 @@ jest.mock('@googlemaps/google-maps-services-js');
 jest.mock('../../utils/logger', () => ({
   logger: {
     info: jest.fn(),
-    error: jest.fn()
+    error: jest.fn(),
+    warn: jest.fn()
   }
 }));
 
@@ -56,7 +57,10 @@ describe('Website Audit Processor - Error Handling', () => {
     // Re-import the processor
     const { processWebsiteAudit } = require('../../queues/processors/websiteAudit');
     
-    await expect(processWebsiteAudit(mockJob as Job)).rejects.toThrow('Navigation failed');
+    const result = await processWebsiteAudit(mockJob as Job);
+    expect(result).toHaveProperty('shouldRetry', true);
+    expect(result).toHaveProperty('retryCount', 1);
+    expect(result).toHaveProperty('error', 'Navigation failed');
   });
 
   it('should handle screenshot errors', async () => {
@@ -65,7 +69,10 @@ describe('Website Audit Processor - Error Handling', () => {
     // Re-import the processor
     const { processWebsiteAudit } = require('../../queues/processors/websiteAudit');
     
-    await expect(processWebsiteAudit(mockJob as Job)).rejects.toThrow('Screenshot failed');
+    const result = await processWebsiteAudit(mockJob as Job);
+    expect(result).toHaveProperty('shouldRetry', true);
+    expect(result).toHaveProperty('retryCount', 1);
+    expect(result).toHaveProperty('error', 'Screenshot failed');
   });
 
   it('should handle Lighthouse errors', async () => {
@@ -79,7 +86,10 @@ describe('Website Audit Processor - Error Handling', () => {
     // Re-import the processor after mocking
     const { processWebsiteAudit } = require('../../queues/processors/websiteAudit');
     
-    await expect(processWebsiteAudit(mockJob as Job)).rejects.toThrow('Lighthouse failed');
+    const result = await processWebsiteAudit(mockJob as Job);
+    expect(result).toHaveProperty('shouldRetry', true);
+    expect(result).toHaveProperty('retryCount', 1);
+    expect(result).toHaveProperty('error', 'Lighthouse failed');
   });
 
   it('should handle storage errors', async () => {
@@ -97,7 +107,10 @@ describe('Website Audit Processor - Error Handling', () => {
     // Re-import the processor
     const { processWebsiteAudit } = require('../../queues/processors/websiteAudit');
     
-    await expect(processWebsiteAudit(mockJob as Job)).rejects.toThrow(`Storage Error: ${storageError.message}`);
+    const result = await processWebsiteAudit(mockJob as Job);
+    expect(result).toHaveProperty('shouldRetry', true);
+    expect(result).toHaveProperty('retryCount', 1);
+    expect(result).toHaveProperty('error', `Storage Error: ${storageError.message}`);
   });
 
   it('should handle database errors', async () => {
@@ -115,7 +128,10 @@ describe('Website Audit Processor - Error Handling', () => {
     // Re-import the processor
     const { processWebsiteAudit } = require('../../queues/processors/websiteAudit');
     
-    await expect(processWebsiteAudit(mockJob as Job)).rejects.toThrow(`Database Error: ${dbError.message}`);
+    const result = await processWebsiteAudit(mockJob as Job);
+    expect(result).toHaveProperty('shouldRetry', true);
+    expect(result).toHaveProperty('retryCount', 1);
+    expect(result).toHaveProperty('error', `Database Error: ${dbError.message}`);
   });
 
   it('should handle invalid URLs', async () => {
@@ -130,6 +146,9 @@ describe('Website Audit Processor - Error Handling', () => {
     // Re-import the processor
     const { processWebsiteAudit } = require('../../queues/processors/websiteAudit');
     
-    await expect(processWebsiteAudit(invalidJob as Job)).rejects.toThrow('Navigation failed: invalid URL');
+    const result = await processWebsiteAudit(invalidJob as Job);
+    expect(result).toHaveProperty('shouldRetry', true);
+    expect(result).toHaveProperty('retryCount', 1);
+    expect(result).toHaveProperty('error', 'Navigation failed: invalid URL');
   });
 }); 
