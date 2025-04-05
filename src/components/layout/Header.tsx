@@ -1,17 +1,14 @@
-
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const isMobile = useIsMobile();
-
   return <header className="bg-white border-b border-civic-gray-200 sticky top-0 z-50">
       <div className="container py-4 flex justify-between items-center">
         <NavLink to="/" className="flex items-center">
-          <img src="/lovable-uploads/bd20067a-032a-44d4-b1f9-36d88719430f.png" alt="LocalWebsiteAudit.ca Logo" className="h-14 mr-2" />
+          <img src="/lovable-uploads/bd20067a-032a-44d4-b1f9-36d88719430f.png" alt="LocalWebsiteAudit.ca Logo" className="h-16 mr-2" />
         </NavLink>
         
         {isMobile ? <>
@@ -84,5 +81,4 @@ const Header = () => {
       </div>
     </header>;
 };
-
 export default Header;
