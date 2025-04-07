@@ -76,28 +76,94 @@ export class BusinessService {
     }
   }
 
-  async listBusinesses(params: BusinessQueryParams): Promise<{ businesses: Business[]; total: number }> {
+  async listBusinesses(params: BusinessQueryParams): Promise<{ businesses: Business[]; total: number; facets?: Record<string, any> }> {
     try {
+      // First get available facets for filtering
+      const facets = await this.getFilterFacets();
+      
+      // Build the main query
       let query = this.supabase.from('businesses').select('*', { count: 'exact' });
 
-      // Apply filters
+      // Apply text search (across multiple fields)
       if (params.search) {
-        query = query.or(`name.ilike.%${params.search}%,website_url.ilike.%${params.search}%`);
+        // Clean the search term to prevent SQL injection
+        const searchTerm = params.search.replace(/['";]/g, '');
+        
+        // Search across multiple fields with ilike
+        query = query.or(
+          `name.ilike.%${searchTerm}%,` +
+          `description.ilike.%${searchTerm}%,` +
+          `website.ilike.%${searchTerm}%,` +
+          `email.ilike.%${searchTerm}%,` +
+          `city.ilike.%${searchTerm}%,` +
+          `state.ilike.%${searchTerm}%,` +
+          `industry.ilike.%${searchTerm}%`
+        );
       }
+      
+      // Apply exact match filters
       if (params.industry) {
         query = query.eq('industry', params.industry);
       }
+      
+      // Apply location filters with city and state
       if (params.location) {
-        query = query.eq('location', params.location);
+        // Check if location contains state abbreviation (e.g., "New York, NY")
+        const parts = params.location.split(',').map(part => part.trim());
+        if (parts.length > 1) {
+          // If we have city and state
+          query = query
+            .ilike('city', `%${parts[0]}%`)
+            .ilike('state', `%${parts[1]}%`);
+        } else {
+          // If just one location term, search in both city and state
+          query = query.or(`city.ilike.%${params.location}%,state.ilike.%${params.location}%`);
+        }
       }
+      
+      // Apply status filter
       if (params.status) {
         query = query.eq('status', params.status);
       }
-
-      // Apply sorting
-      if (params.sort_by) {
-        query = query.order(params.sort_by, { ascending: params.sort_order === 'asc' });
+      
+      // Apply date range filters if provided
+      if (params.created_after) {
+        query = query.gte('created_at', params.created_after);
       }
+      
+      if (params.created_before) {
+        query = query.lte('created_at', params.created_before);
+      }
+      
+      if (params.updated_after) {
+        query = query.gte('updated_at', params.updated_after);
+      }
+      
+      if (params.updated_before) {
+        query = query.lte('updated_at', params.updated_before);
+      }
+      
+      // Filter by field existence (not null)
+      if (params.has_website !== undefined) {
+        if (params.has_website) {
+          query = query.not('website', 'is', null);
+        } else {
+          query = query.is('website', null);
+        }
+      }
+      
+      if (params.has_email !== undefined) {
+        if (params.has_email) {
+          query = query.not('email', 'is', null);
+        } else {
+          query = query.is('email', null);
+        }
+      }
+      
+      // Apply sorting
+      const sortBy = params.sort_by || 'created_at';
+      const sortOrder = params.sort_order || 'desc';
+      query = query.order(sortBy, { ascending: sortOrder === 'asc' });
 
       // Apply pagination
       const page = params.page || 1;
@@ -105,13 +171,70 @@ export class BusinessService {
       const start = (page - 1) * limit;
       query = query.range(start, start + limit - 1);
 
+      // Execute the query
       const { data: businesses, error, count } = await query;
 
       if (error) throw error;
-      return { businesses: businesses || [], total: count || 0 };
+      
+      return { 
+        businesses: businesses || [], 
+        total: count || 0,
+        facets
+      };
     } catch (error) {
       logger.error('Error listing businesses:', error);
       throw new ApiError('Failed to list businesses', 500);
+    }
+  }
+  
+  /**
+   * Get facets for filtering businesses
+   * This provides available options for dropdown filters
+   */
+  private async getFilterFacets(): Promise<Record<string, any>> {
+    try {
+      // Get distinct industries
+      const { data: industries, error: industriesError } = await this.supabase
+        .from('businesses')
+        .select('industry')
+        .not('industry', 'is', null)
+        .order('industry');
+        
+      if (industriesError) throw industriesError;
+      
+      // Get distinct states
+      const { data: states, error: statesError } = await this.supabase
+        .from('businesses')
+        .select('state')
+        .not('state', 'is', null)
+        .order('state');
+        
+      if (statesError) throw statesError;
+      
+      // Get distinct cities (limit to top 50 for performance)
+      const { data: cities, error: citiesError } = await this.supabase
+        .from('businesses')
+        .select('city')
+        .not('city', 'is', null)
+        .order('city')
+        .limit(50);
+        
+      if (citiesError) throw citiesError;
+      
+      return {
+        industries: [...new Set(industries.map(item => item.industry))],
+        states: [...new Set(states.map(item => item.state))],
+        cities: [...new Set(cities.map(item => item.city))],
+        statuses: ['active', 'inactive', 'pending']
+      };
+    } catch (error) {
+      logger.error('Error fetching filter facets:', error);
+      return {
+        industries: [],
+        states: [],
+        cities: [],
+        statuses: ['active', 'inactive', 'pending']
+      };
     }
   }
 

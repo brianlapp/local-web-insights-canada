@@ -3,7 +3,7 @@ import { getSupabaseClient } from '../utils/database';
 import logger from '../utils/logger';
 import { ApiError } from '../middleware/errorMiddleware';
 import { BusinessService } from '../services/businessService';
-import { CreateBusinessDTO, UpdateBusinessDTO, BusinessQueryParams } from '../types/business';
+import { CreateBusinessDTO, UpdateBusinessDTO, BusinessQueryParams, Business } from '../types/business';
 
 /**
  * Get all businesses with filtering and pagination
@@ -374,9 +374,35 @@ export class BusinessController {
 
   listBusinesses = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const queryParams = req.query as BusinessQueryParams;
-      const businesses = await this.businessService.listBusinesses(queryParams);
-      res.json(businesses);
+      // Convert query params to the right types
+      const queryParams: BusinessQueryParams = {
+        search: req.query.search as string,
+        industry: req.query.industry as string,
+        location: req.query.location as string,
+        status: req.query.status as 'active' | 'inactive' | 'pending',
+        page: req.query.page ? parseInt(req.query.page as string, 10) : undefined,
+        limit: req.query.limit ? parseInt(req.query.limit as string, 10) : undefined,
+        sort_by: (req.query.sort_by as string) as keyof Business,
+        sort_order: req.query.sort_order as 'asc' | 'desc',
+        created_after: req.query.created_after as string,
+        created_before: req.query.created_before as string,
+        updated_after: req.query.updated_after as string,
+        updated_before: req.query.updated_before as string,
+        has_website: req.query.has_website ? req.query.has_website === 'true' : undefined,
+        has_email: req.query.has_email ? req.query.has_email === 'true' : undefined
+      };
+      
+      const result = await this.businessService.listBusinesses(queryParams);
+      
+      res.json({
+        success: true,
+        businesses: result.businesses,
+        total: result.total,
+        page: queryParams.page || 1,
+        limit: queryParams.limit || 10,
+        totalPages: Math.ceil(result.total / (queryParams.limit || 10)),
+        facets: result.facets
+      });
     } catch (error) {
       if (error instanceof ApiError) {
         next(error);

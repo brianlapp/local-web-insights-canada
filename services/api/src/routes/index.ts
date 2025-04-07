@@ -2,6 +2,7 @@ import { Router } from 'express';
 import businessRoutes from './businessRoutes';
 import analysisRoutes from './analysisRoutes';
 import webhookRoutes from './webhookRoutes';
+import businessAnalyticsRoutes from './businessAnalyticsRoutes';
 import { authenticateJWT, requireStandard } from '../middleware/authMiddleware';
 
 const router = Router();
@@ -34,5 +35,6 @@ router.get('/me', authenticateJWT, requireStandard, (req, res) => {
 router.use('/businesses', businessRoutes);
 router.use('/analyses', analysisRoutes);
 router.use('/webhooks', webhookRoutes);
+router.use('/analytics', businessAnalyticsRoutes);
 
 export default router; 

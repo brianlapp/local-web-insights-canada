@@ -15,7 +15,7 @@ export const registerWebhook = async (req: Request, res: Response, next: NextFun
     const supabase = getSupabaseClient();
     
     if (!userId) {
-      return next(new ApiError(401, 'User not authenticated'));
+      return next(new ApiError('User not authenticated', 401));
     }
     
     // Generate a secret if not provided
@@ -37,7 +37,7 @@ export const registerWebhook = async (req: Request, res: Response, next: NextFun
     
     if (error) {
       logger.error('Error registering webhook:', error);
-      return next(new ApiError(500, 'Failed to register webhook'));
+      return next(new ApiError('Failed to register webhook', 500));
     }
     
     // Don't return the secret in the response
@@ -50,7 +50,7 @@ export const registerWebhook = async (req: Request, res: Response, next: NextFun
     });
   } catch (error) {
     logger.error('Error in registerWebhook:', error);
-    next(new ApiError(500, 'An unexpected error occurred'));
+    next(new ApiError('An unexpected error occurred', 500));
   }
 };
 
@@ -68,7 +68,7 @@ export const getAllWebhooks = async (req: Request, res: Response, next: NextFunc
     
     if (error) {
       logger.error('Error fetching webhooks:', error);
-      return next(new ApiError(500, 'Failed to fetch webhooks'));
+      return next(new ApiError('Failed to fetch webhooks', 500));
     }
     
     res.status(200).json({
@@ -78,7 +78,7 @@ export const getAllWebhooks = async (req: Request, res: Response, next: NextFunc
     });
   } catch (error) {
     logger.error('Error in getAllWebhooks:', error);
-    next(new ApiError(500, 'An unexpected error occurred'));
+    next(new ApiError('An unexpected error occurred', 500));
   }
 };
 
@@ -98,10 +98,10 @@ export const getWebhookById = async (req: Request, res: Response, next: NextFunc
     
     if (error) {
       if (error.code === 'PGRST116') {
-        return next(new ApiError(404, 'Webhook not found'));
+        return next(new ApiError('Webhook not found', 404));
       }
       logger.error('Error fetching webhook by ID:', error);
-      return next(new ApiError(500, 'Failed to fetch webhook'));
+      return next(new ApiError('Failed to fetch webhook', 500));
     }
     
     res.status(200).json({
@@ -110,7 +110,7 @@ export const getWebhookById = async (req: Request, res: Response, next: NextFunc
     });
   } catch (error) {
     logger.error('Error in getWebhookById:', error);
-    next(new ApiError(500, 'An unexpected error occurred'));
+    next(new ApiError('An unexpected error occurred', 500));
   }
 };
 
@@ -132,10 +132,10 @@ export const updateWebhook = async (req: Request, res: Response, next: NextFunct
     
     if (checkError) {
       if (checkError.code === 'PGRST116') {
-        return next(new ApiError(404, 'Webhook not found'));
+        return next(new ApiError('Webhook not found', 404));
       }
       logger.error('Error checking webhook existence:', checkError);
-      return next(new ApiError(500, 'Failed to update webhook'));
+      return next(new ApiError('Failed to update webhook', 500));
     }
     
     // Update webhook
@@ -159,7 +159,7 @@ export const updateWebhook = async (req: Request, res: Response, next: NextFunct
     
     if (error) {
       logger.error('Error updating webhook:', error);
-      return next(new ApiError(500, 'Failed to update webhook'));
+      return next(new ApiError('Failed to update webhook', 500));
     }
     
     res.status(200).json({
@@ -169,7 +169,7 @@ export const updateWebhook = async (req: Request, res: Response, next: NextFunct
     });
   } catch (error) {
     logger.error('Error in updateWebhook:', error);
-    next(new ApiError(500, 'An unexpected error occurred'));
+    next(new ApiError('An unexpected error occurred', 500));
   }
 };
 
@@ -190,10 +190,10 @@ export const deleteWebhook = async (req: Request, res: Response, next: NextFunct
     
     if (checkError) {
       if (checkError.code === 'PGRST116') {
-        return next(new ApiError(404, 'Webhook not found'));
+        return next(new ApiError('Webhook not found', 404));
       }
       logger.error('Error checking webhook existence:', checkError);
-      return next(new ApiError(500, 'Failed to delete webhook'));
+      return next(new ApiError('Failed to delete webhook', 500));
     }
     
     // Delete webhook
@@ -204,7 +204,7 @@ export const deleteWebhook = async (req: Request, res: Response, next: NextFunct
     
     if (error) {
       logger.error('Error deleting webhook:', error);
-      return next(new ApiError(500, 'Failed to delete webhook'));
+      return next(new ApiError('Failed to delete webhook', 500));
     }
     
     res.status(200).json({
@@ -213,7 +213,7 @@ export const deleteWebhook = async (req: Request, res: Response, next: NextFunct
     });
   } catch (error) {
     logger.error('Error in deleteWebhook:', error);
-    next(new ApiError(500, 'An unexpected error occurred'));
+    next(new ApiError('An unexpected error occurred', 500));
   }
 };
 
@@ -235,15 +235,15 @@ export const testWebhook = async (req: Request, res: Response, next: NextFunctio
     
     if (webhookError) {
       if (webhookError.code === 'PGRST116') {
-        return next(new ApiError(404, 'Webhook not found'));
+        return next(new ApiError('Webhook not found', 404));
       }
       logger.error('Error fetching webhook for testing:', webhookError);
-      return next(new ApiError(500, 'Failed to test webhook'));
+      return next(new ApiError('Failed to test webhook', 500));
     }
     
     // Check if event is in the webhook's events array
     if (!webhook.events.includes(event)) {
-      return next(new ApiError(400, `Webhook is not subscribed to event: ${event}`));
+      return next(new ApiError(`Webhook is not subscribed to event: ${event}`, 400));
     }
     
     // Prepare webhook payload
@@ -302,11 +302,11 @@ export const testWebhook = async (req: Request, res: Response, next: NextFunctio
           success: false
         });
       
-      return next(new ApiError(500, `Failed to send webhook: ${error.message}`));
+      return next(new ApiError(`Failed to send webhook: ${error.message}`, 500));
     }
   } catch (error) {
     logger.error('Error in testWebhook:', error);
-    next(new ApiError(500, 'An unexpected error occurred'));
+    next(new ApiError('An unexpected error occurred', 500));
   }
 };
 
@@ -327,10 +327,10 @@ export const getWebhookLogs = async (req: Request, res: Response, next: NextFunc
     
     if (webhookError) {
       if (webhookError.code === 'PGRST116') {
-        return next(new ApiError(404, 'Webhook not found'));
+        return next(new ApiError('Webhook not found', 404));
       }
       logger.error('Error checking webhook existence:', webhookError);
-      return next(new ApiError(500, 'Failed to fetch webhook logs'));
+      return next(new ApiError('Failed to fetch webhook logs', 500));
     }
     
     // Get the logs
@@ -343,7 +343,7 @@ export const getWebhookLogs = async (req: Request, res: Response, next: NextFunc
     
     if (logsError) {
       logger.error('Error fetching webhook logs:', logsError);
-      return next(new ApiError(500, 'Failed to fetch webhook logs'));
+      return next(new ApiError('Failed to fetch webhook logs', 500));
     }
     
     res.status(200).json({
@@ -354,7 +354,7 @@ export const getWebhookLogs = async (req: Request, res: Response, next: NextFunc
     });
   } catch (error) {
     logger.error('Error in getWebhookLogs:', error);
-    next(new ApiError(500, 'An unexpected error occurred'));
+    next(new ApiError('An unexpected error occurred', 500));
   }
 };
 
@@ -386,7 +386,7 @@ export const handleExternalWebhook = async (req: Request, res: Response, next: N
     
     if (!processResult.success) {
       logger.error(`Failed to process external webhook: ${processResult.error}`);
-      return next(new ApiError(400, processResult.error || 'Failed to process webhook'));
+      return next(new ApiError(`Failed to process webhook: ${processResult.error}`, 400));
     }
     
     res.status(200).json({
@@ -396,7 +396,7 @@ export const handleExternalWebhook = async (req: Request, res: Response, next: N
     });
   } catch (error) {
     logger.error('Error in handleExternalWebhook:', error);
-    next(new ApiError(500, 'An unexpected error occurred'));
+    next(new ApiError('An unexpected error occurred', 500));
   }
 };
 

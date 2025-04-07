@@ -3,6 +3,13 @@ import { getSupabaseClient, transaction } from '../utils/database';
 import logger from '../utils/logger';
 import { ApiError } from '../middleware/errorMiddleware';
 
+interface Business {
+  id: string;
+  name: string;
+  city?: string;
+  website?: string;
+}
+
 /**
  * Get all analyses with filtering and pagination
  */
@@ -48,7 +55,7 @@ export const getAllAnalyses = async (req: Request, res: Response, next: NextFunc
     
     if (error) {
       logger.error('Error fetching analyses:', error);
-      return next(new ApiError(500, 'Failed to fetch analyses'));
+      return next(new ApiError('Failed to fetch analyses', 500));
     }
     
     res.status(200).json({
@@ -61,7 +68,7 @@ export const getAllAnalyses = async (req: Request, res: Response, next: NextFunc
     });
   } catch (error) {
     logger.error('Error in getAllAnalyses:', error);
-    next(new ApiError(500, 'An unexpected error occurred'));
+    next(new ApiError('An unexpected error occurred', 500));
   }
 };
 
@@ -85,10 +92,10 @@ export const getAnalysisById = async (req: Request, res: Response, next: NextFun
     
     if (error) {
       if (error.code === 'PGRST116') {
-        return next(new ApiError(404, 'Analysis not found'));
+        return next(new ApiError('Analysis not found', 404));
       }
       logger.error('Error fetching analysis by ID:', error);
-      return next(new ApiError(500, 'Failed to fetch analysis'));
+      return next(new ApiError('Failed to fetch analysis', 500));
     }
     
     // Format business IDs
@@ -97,7 +104,7 @@ export const getAnalysisById = async (req: Request, res: Response, next: NextFun
       : [];
     
     // Get related businesses if any
-    let businesses = [];
+    let businesses: Business[] = [];
     if (businessIds.length > 0) {
       const { data: businessData, error: businessError } = await supabase
         .from('businesses')
@@ -124,7 +131,7 @@ export const getAnalysisById = async (req: Request, res: Response, next: NextFun
     });
   } catch (error) {
     logger.error('Error in getAnalysisById:', error);
-    next(new ApiError(500, 'An unexpected error occurred'));
+    next(new ApiError('An unexpected error occurred', 500));
   }
 };
 
@@ -139,7 +146,7 @@ export const createAnalysis = async (req: Request, res: Response, next: NextFunc
     const userId = req.user?.id;
     
     if (!userId) {
-      return next(new ApiError(401, 'User not authenticated'));
+      return next(new ApiError('User not authenticated', 401));
     }
     
     // Validate business IDs if provided
@@ -151,14 +158,14 @@ export const createAnalysis = async (req: Request, res: Response, next: NextFunc
       
       if (businessCheckError) {
         logger.error('Error checking businesses:', businessCheckError);
-        return next(new ApiError(500, 'Failed to validate business IDs'));
+        return next(new ApiError('Failed to validate business IDs', 500));
       }
       
       const foundIds = new Set(existingBusinesses.map((b: { id: string }) => b.id));
       const invalidIds = businessIds.filter((id: string) => !foundIds.has(id));
       
       if (invalidIds.length > 0) {
-        return next(new ApiError(400, `Invalid business IDs: ${invalidIds.join(', ')}`));
+        return next(new ApiError(`Invalid business IDs: ${invalidIds.join(', ')}`, 400));
       }
     }
     
@@ -180,7 +187,7 @@ export const createAnalysis = async (req: Request, res: Response, next: NextFunc
       
       if (analysisError) {
         logger.error('Error creating analysis:', analysisError);
-        throw new ApiError(500, 'Failed to create analysis');
+        throw new ApiError('Failed to create analysis', 500);
       }
       
       // Link businesses if provided
@@ -196,7 +203,7 @@ export const createAnalysis = async (req: Request, res: Response, next: NextFunc
         
         if (linkError) {
           logger.error('Error linking businesses to analysis:', linkError);
-          throw new ApiError(500, 'Failed to link businesses to analysis');
+          throw new ApiError('Failed to link businesses to analysis', 500);
         }
       }
       
@@ -211,7 +218,7 @@ export const createAnalysis = async (req: Request, res: Response, next: NextFunc
       
       if (queueError) {
         logger.error('Error queueing analysis job:', queueError);
-        throw new ApiError(500, 'Failed to queue analysis job');
+        throw new ApiError('Failed to queue analysis job', 500);
       }
       
       res.status(201).json({
@@ -225,7 +232,7 @@ export const createAnalysis = async (req: Request, res: Response, next: NextFunc
     }
     
     logger.error('Error in createAnalysis:', error);
-    next(new ApiError(500, 'An unexpected error occurred'));
+    next(new ApiError('An unexpected error occurred', 500));
   }
 };
 
@@ -247,17 +254,17 @@ export const updateAnalysis = async (req: Request, res: Response, next: NextFunc
     
     if (checkError) {
       if (checkError.code === 'PGRST116') {
-        return next(new ApiError(404, 'Analysis not found'));
+        return next(new ApiError('Analysis not found', 404));
       }
       logger.error('Error checking analysis:', checkError);
-      return next(new ApiError(500, 'Failed to update analysis'));
+      return next(new ApiError('Failed to update analysis', 500));
     }
     
     // Validate status update
     if (status && 
         (existingAnalysis.status === 'completed' || existingAnalysis.status === 'failed')) {
       return next(
-        new ApiError(400, 'Cannot update status of completed or failed analyses')
+        new ApiError('Cannot update status of completed or failed analyses', 400)
       );
     }
     
@@ -280,7 +287,7 @@ export const updateAnalysis = async (req: Request, res: Response, next: NextFunc
     
     if (error) {
       logger.error('Error updating analysis:', error);
-      return next(new ApiError(500, 'Failed to update analysis'));
+      return next(new ApiError('Failed to update analysis', 500));
     }
     
     // If status was updated, also update the queue
@@ -305,7 +312,7 @@ export const updateAnalysis = async (req: Request, res: Response, next: NextFunc
     });
   } catch (error) {
     logger.error('Error in updateAnalysis:', error);
-    next(new ApiError(500, 'An unexpected error occurred'));
+    next(new ApiError('An unexpected error occurred', 500));
   }
 };
 
@@ -326,10 +333,10 @@ export const getAnalysisResults = async (req: Request, res: Response, next: Next
     
     if (analysisError) {
       if (analysisError.code === 'PGRST116') {
-        return next(new ApiError(404, 'Analysis not found'));
+        return next(new ApiError('Analysis not found', 404));
       }
       logger.error('Error fetching analysis:', analysisError);
-      return next(new ApiError(500, 'Failed to fetch analysis results'));
+      return next(new ApiError('Failed to fetch analysis results', 500));
     }
     
     // Get analysis results if available
@@ -341,7 +348,7 @@ export const getAnalysisResults = async (req: Request, res: Response, next: Next
     
     if (resultsError) {
       logger.error('Error fetching analysis results:', resultsError);
-      return next(new ApiError(500, 'Failed to fetch analysis results'));
+      return next(new ApiError('Failed to fetch analysis results', 500));
     }
     
     // Get metadata about the analysis
@@ -366,7 +373,7 @@ export const getAnalysisResults = async (req: Request, res: Response, next: Next
     });
   } catch (error) {
     logger.error('Error in getAnalysisResults:', error);
-    next(new ApiError(500, 'An unexpected error occurred'));
+    next(new ApiError('An unexpected error occurred', 500));
   }
 };
 
@@ -381,7 +388,7 @@ export const rerunAnalysis = async (req: Request, res: Response, next: NextFunct
     const supabase = getSupabaseClient();
     
     if (!userId) {
-      return next(new ApiError(401, 'User not authenticated'));
+      return next(new ApiError('User not authenticated', 401));
     }
     
     // Check if analysis exists
@@ -393,10 +400,10 @@ export const rerunAnalysis = async (req: Request, res: Response, next: NextFunct
     
     if (checkError) {
       if (checkError.code === 'PGRST116') {
-        return next(new ApiError(404, 'Analysis not found'));
+        return next(new ApiError('Analysis not found', 404));
       }
       logger.error('Error checking analysis existence:', checkError);
-      return next(new ApiError(500, 'Failed to re-run analysis'));
+      return next(new ApiError('Failed to re-run analysis', 500));
     }
     
     // Create a new analysis based on the existing one
@@ -420,7 +427,7 @@ export const rerunAnalysis = async (req: Request, res: Response, next: NextFunct
       
       if (createError) {
         logger.error('Error creating new analysis:', createError);
-        throw new ApiError(500, 'Failed to create new analysis');
+        throw new ApiError('Failed to create new analysis', 500);
       }
       
       // Copy business relationships
@@ -431,7 +438,7 @@ export const rerunAnalysis = async (req: Request, res: Response, next: NextFunct
       
       if (relationsError) {
         logger.error('Error fetching business relations:', relationsError);
-        throw new ApiError(500, 'Failed to copy business relations');
+        throw new ApiError('Failed to copy business relations', 500);
       }
       
       if (businessRelations && businessRelations.length > 0) {
@@ -446,7 +453,7 @@ export const rerunAnalysis = async (req: Request, res: Response, next: NextFunct
         
         if (insertError) {
           logger.error('Error copying business relations:', insertError);
-          throw new ApiError(500, 'Failed to copy business relations');
+          throw new ApiError('Failed to copy business relations', 500);
         }
       }
       
@@ -461,7 +468,7 @@ export const rerunAnalysis = async (req: Request, res: Response, next: NextFunct
       
       if (queueError) {
         logger.error('Error queueing analysis job:', queueError);
-        throw new ApiError(500, 'Failed to queue analysis job');
+        throw new ApiError('Failed to queue analysis job', 500);
       }
       
       res.status(201).json({
@@ -475,6 +482,6 @@ export const rerunAnalysis = async (req: Request, res: Response, next: NextFunct
     }
     
     logger.error('Error in rerunAnalysis:', error);
-    next(new ApiError(500, 'An unexpected error occurred'));
+    next(new ApiError('An unexpected error occurred', 500));
   }
 }; 
