@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MapPin, Globe, Calendar, Check, AlertTriangle, ExternalLink, ArrowLeft, Search, BarChart, Code, Palette } from 'lucide-react';
@@ -17,7 +16,7 @@ const AuditPage = () => {
   const navigate = useNavigate();
   
   const business = city && slug ? getBusinessBySlug(city, slug) : undefined;
-  const auditor = business ? getAuditorById(business.auditorId) : undefined;
+  const auditor = business?.auditorId ? getAuditorById(business.auditorId) : undefined;
   
   if (!business) {
     return (

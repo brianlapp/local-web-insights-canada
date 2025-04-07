@@ -5,13 +5,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import PageLayout from '@/components/layout/PageLayout';
 
 const AuditorsPage = () => {
   const navigate = useNavigate();
   
   return (
-    <PageLayout>
+    <>
       {/* Hero Section */}
       <div className="bg-civic-blue-600 text-white">
         <div className="container py-12 md:py-16">
@@ -173,7 +172,7 @@ const AuditorsPage = () => {
           </div>
         </div>
       </div>
-    </PageLayout>
+    </>
   );
 };
 
