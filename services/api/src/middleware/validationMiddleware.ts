@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { validationResult } from 'express-validator';
-import type { ValidationChain, ValidationError } from 'express-validator';
+import { validationResult, ValidationChain } from 'express-validator';
 import { ApiError } from './errorMiddleware';
 
 /**
@@ -83,13 +82,25 @@ export interface ValidationErrorResponse {
   message: string;
 }
 
+interface ValidationErrorWithParam {
+  type: string;
+  value: any;
+  msg: string;
+  path: string;
+  location: string;
+  param: string;
+}
+
 export const validateRequest = (req: Request, res: Response, next: NextFunction): void => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    const formattedErrors: ValidationErrorResponse[] = errors.array().map((err: ValidationError) => ({
-      field: err.param,
-      message: err.msg,
-    }));
+    const formattedErrors: ValidationErrorResponse[] = errors.array().map((err) => {
+      const error = err as unknown as ValidationErrorWithParam;
+      return {
+        field: error.param || error.path || 'unknown',
+        message: error.msg,
+      };
+    });
     throw new ApiError('Validation Error', 400, formattedErrors);
   }
   next();

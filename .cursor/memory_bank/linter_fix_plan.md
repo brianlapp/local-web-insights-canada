@@ -1,4 +1,58 @@
-# Linter Error Fix Plan
+# Linter Fix Plan
+
+## Issues Identified
+
+1. ✅ Missing type declarations for dependencies
+   - ✅ Express-validator imports fixed with proper syntax
+
+2. ❌ ApiError constructor parameter order issues
+   - Almost all controller files have instances where ApiError is called with `(number, string)` but the constructor expects `(string, number, details?)`
+   - Need to update all calls to ApiError to match the new constructor signature
+
+3. ❌ Missing type dependencies for compression, morgan, and axios
+   - Need to install @types/compression, @types/morgan, and axios
+
+4. ❌ Incorrect typing in authMiddleware.ts
+   - Object literal properties issue with 'email' property
+   - Type issues with apiKey assignment
+
+## Fix Strategy
+
+1. Dependencies - Need to install:
+   ```bash
+   npm install --save-dev @types/compression @types/morgan axios
+   ```
+
+2. ApiError Usage:
+   - Update all ApiError constructor calls to use the correct parameter order:
+   - From: `new ApiError(404, 'Not found')`
+   - To: `new ApiError('Not found', 404)`
+
+3. Auth Middleware Issues:
+   - Update the Request interface extension to include email for user
+   - Fix apiKey typing to match what's being assigned
+
+## Progress
+
+1. ✅ Validation Middleware:
+   - Fixed express-validator imports and usage
+   - Fixed type issues with validation errors
+
+2. ✅ Directory Structure Issues:
+   - Identified and fixed the nested directory problem
+   - Ensured commands are executed from the correct directory
+
+## Next Steps
+
+1. Fix ApiError constructor calls
+   - Create a script to automatically update all instances
+   - Or manually update each file
+
+2. Install missing type declarations
+
+3. Fix auth middleware typing issues
+
+4. Run final TypeScript checks
 
 ## 1. Type Declaration Issues
 

@@ -29,7 +29,7 @@ export class ApiError extends Error {
  * Not Found middleware - handles 404 errors
  */
 export const notFound = (req: Request, res: Response, next: NextFunction): void => {
-  next(new ApiError('Not Found', 404));
+  next(new ApiError(`Not Found - ${req.originalUrl}`, 404));
 };
 
 /**
