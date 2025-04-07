@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { validationResult, ValidationChain } from 'express-validator';
+import { validationResult, ValidationChain, ValidationError } from 'express-validator';
 import { ApiError } from './errorMiddleware';
 
 /**
@@ -9,28 +9,7 @@ export const validate = (validations: ValidationChain[]) => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // Execute all validations
     await Promise.all(validations.map(validation => validation.run(req)));
-
-    // Check for validation errors
-    const errors = validationResult(req);
-    
-    if (errors.isEmpty()) {
-      return next();
-    }
-
-    // Format error messages
-    const extractedErrors: Record<string, string> = {};
-    errors.array().forEach(err => {
-      if ('path' in err && 'msg' in err) {
-        extractedErrors[err.path] = err.msg;
-      }
-    });
-
-    // Return validation error response
-    res.status(400).json({
-      success: false,
-      error: 'Validation failed',
-      validationErrors: extractedErrors
-    });
+    validateRequest(req, res, next);
   };
 };
 
@@ -43,11 +22,11 @@ export const validatePagination = (req: Request, res: Response, next: NextFuncti
 
   // Enforce limits
   if (page < 1) {
-    return next(new ApiError(400, 'Page must be greater than 0'));
+    return next(new ApiError('Page must be greater than 0', 400));
   }
 
   if (limit < 1 || limit > 100) {
-    return next(new ApiError(400, 'Limit must be between 1 and 100'));
+    return next(new ApiError('Limit must be between 1 and 100', 400));
   }
 
   // Set validated values
@@ -69,8 +48,8 @@ export const validateSorting = (allowedFields: string[]) => {
     if (sortBy && !allowedFields.includes(sortBy)) {
       return next(
         new ApiError(
-          400, 
-          `Invalid sort field. Allowed fields: ${allowedFields.join(', ')}`
+          `Invalid sort field. Allowed fields: ${allowedFields.join(', ')}`,
+          400
         )
       );
     }
@@ -79,8 +58,8 @@ export const validateSorting = (allowedFields: string[]) => {
     if (sortOrder && !['asc', 'desc'].includes(sortOrder.toLowerCase())) {
       return next(
         new ApiError(
-          400, 
-          'Sort order must be "asc" or "desc"'
+          'Sort order must be "asc" or "desc"',
+          400
         )
       );
     }
@@ -96,4 +75,21 @@ export const validateSorting = (allowedFields: string[]) => {
 
     next();
   };
+};
+
+export interface ValidationErrorResponse {
+  field: string;
+  message: string;
+}
+
+export const validateRequest = (req: Request, res: Response, next: NextFunction): void => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    const formattedErrors: ValidationErrorResponse[] = errors.array().map((err: ValidationError) => ({
+      field: err.param,
+      message: err.msg,
+    }));
+    throw new ApiError('Validation Error', 400, formattedErrors);
+  }
+  next();
 }; 

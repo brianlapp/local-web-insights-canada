@@ -1,77 +1,89 @@
 import { Router } from 'express';
-import { param, query, body } from 'express-validator';
-import * as businessController from '../controllers/businessController';
-import { authenticateJWT, requireStandard } from '../middleware/authMiddleware';
-import { validate, validatePagination, validateSorting } from '../middleware/validationMiddleware';
-import { asyncHandler } from '../middleware/errorMiddleware';
+import { BusinessController } from '../controllers/businessController';
+import { authenticateJWT, requireAdmin } from '../middleware/authMiddleware';
+import { body, query, param } from 'express-validator';
+import { validateRequest } from '../middleware/validationMiddleware';
 
 const router = Router();
+const businessController = new BusinessController();
 
-// Get all businesses with filters
+// Validation middleware
+const createBusinessValidation = [
+  body('name').notEmpty().trim().isLength({ min: 2, max: 100 }),
+  body('website_url').isURL(),
+  body('industry').notEmpty().trim(),
+  body('location').notEmpty().trim(),
+];
+
+const updateBusinessValidation = [
+  body('name').optional().trim().isLength({ min: 2, max: 100 }),
+  body('website_url').optional().isURL(),
+  body('industry').optional().trim(),
+  body('location').optional().trim(),
+  body('status').optional().isIn(['active', 'inactive', 'pending']),
+];
+
+const queryParamsValidation = [
+  query('search').optional().trim(),
+  query('industry').optional().trim(),
+  query('location').optional().trim(),
+  query('status').optional().isIn(['active', 'inactive', 'pending']),
+  query('page').optional().isInt({ min: 1 }),
+  query('limit').optional().isInt({ min: 1, max: 100 }),
+  query('sort_by').optional().isIn(['name', 'created_at', 'updated_at', 'status']),
+  query('sort_order').optional().isIn(['asc', 'desc']),
+];
+
+// Routes
+router.post(
+  '/',
+  authenticateJWT,
+  createBusinessValidation,
+  validateRequest,
+  businessController.createBusiness
+);
+
 router.get(
   '/',
   authenticateJWT,
-  requireStandard,
-  validatePagination,
-  validateSorting(['name', 'rating', 'city', 'created_at', 'updated_at']),
-  validate([
-    query('name').optional().isString().withMessage('Name must be a string'),
-    query('city').optional().isString().withMessage('City must be a string'),
-    query('category').optional().isString().withMessage('Category must be a string'),
-    query('minRating').optional().isFloat({ min: 0, max: 5 }).withMessage('Minimum rating must be between 0 and 5'),
-    query('maxRating').optional().isFloat({ min: 0, max: 5 }).withMessage('Maximum rating must be between 0 and 5'),
-    query('hasWebsite').optional().isBoolean().withMessage('hasWebsite must be a boolean')
-  ]),
-  asyncHandler(businessController.getAllBusinesses)
+  queryParamsValidation,
+  validateRequest,
+  businessController.listBusinesses
 );
 
-// Get business by ID
 router.get(
   '/:id',
   authenticateJWT,
-  requireStandard,
-  validate([
-    param('id').isUUID().withMessage('Business ID must be a valid UUID')
-  ]),
-  asyncHandler(businessController.getBusinessById)
+  param('id').isUUID(),
+  validateRequest,
+  businessController.getBusiness
 );
 
-// Get business insights
-router.get(
-  '/:id/insights',
-  authenticateJWT,
-  requireStandard,
-  validate([
-    param('id').isUUID().withMessage('Business ID must be a valid UUID')
-  ]),
-  asyncHandler(businessController.getBusinessInsights)
-);
-
-// Get business website audit data
-router.get(
-  '/:id/website-audit',
-  authenticateJWT,
-  requireStandard,
-  validate([
-    param('id').isUUID().withMessage('Business ID must be a valid UUID')
-  ]),
-  asyncHandler(businessController.getBusinessWebsiteAudit)
-);
-
-// Update business 
-router.patch(
+router.put(
   '/:id',
   authenticateJWT,
-  requireStandard,
-  validate([
-    param('id').isUUID().withMessage('Business ID must be a valid UUID'),
-    body('name').optional().isString().withMessage('Name must be a string'),
-    body('description').optional().isString().withMessage('Description must be a string'),
-    body('website').optional().isURL().withMessage('Website must be a valid URL'),
-    body('notes').optional().isString().withMessage('Notes must be a string'),
-    body('isMonitored').optional().isBoolean().withMessage('isMonitored must be a boolean')
-  ]),
-  asyncHandler(businessController.updateBusiness)
+  requireAdmin,
+  param('id').isUUID(),
+  updateBusinessValidation,
+  validateRequest,
+  businessController.updateBusiness
+);
+
+router.delete(
+  '/:id',
+  authenticateJWT,
+  requireAdmin,
+  param('id').isUUID(),
+  validateRequest,
+  businessController.deleteBusiness
+);
+
+router.get(
+  '/:id/analytics',
+  authenticateJWT,
+  param('id').isUUID(),
+  validateRequest,
+  businessController.getBusinessAnalytics
 );
 
 export default router; 

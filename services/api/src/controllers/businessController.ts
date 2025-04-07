@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { getSupabaseClient } from '../utils/database';
 import logger from '../utils/logger';
 import { ApiError } from '../middleware/errorMiddleware';
+import { BusinessService } from '../services/businessService';
+import { CreateBusinessDTO, UpdateBusinessDTO, BusinessQueryParams } from '../types/business';
 
 /**
  * Get all businesses with filtering and pagination
@@ -56,7 +58,7 @@ export const getAllBusinesses = async (req: Request, res: Response, next: NextFu
     
     if (error) {
       logger.error('Error fetching businesses:', error);
-      return next(new ApiError(500, 'Failed to fetch businesses'));
+      return next(new ApiError('Failed to fetch businesses', 500));
     }
     
     res.status(200).json({
@@ -69,7 +71,7 @@ export const getAllBusinesses = async (req: Request, res: Response, next: NextFu
     });
   } catch (error) {
     logger.error('Error in getAllBusinesses:', error);
-    next(new ApiError(500, 'An unexpected error occurred'));
+    next(new ApiError('An unexpected error occurred', 500));
   }
 };
 
@@ -89,10 +91,10 @@ export const getBusinessById = async (req: Request, res: Response, next: NextFun
     
     if (error) {
       if (error.code === 'PGRST116') {
-        return next(new ApiError(404, 'Business not found'));
+        return next(new ApiError('Business not found', 404));
       }
       logger.error('Error fetching business by ID:', error);
-      return next(new ApiError(500, 'Failed to fetch business'));
+      return next(new ApiError('Failed to fetch business', 500));
     }
     
     res.status(200).json({
@@ -101,7 +103,7 @@ export const getBusinessById = async (req: Request, res: Response, next: NextFun
     });
   } catch (error) {
     logger.error('Error in getBusinessById:', error);
-    next(new ApiError(500, 'An unexpected error occurred'));
+    next(new ApiError('An unexpected error occurred', 500));
   }
 };
 
@@ -122,10 +124,10 @@ export const getBusinessInsights = async (req: Request, res: Response, next: Nex
     
     if (businessError) {
       if (businessError.code === 'PGRST116') {
-        return next(new ApiError(404, 'Business not found'));
+        return next(new ApiError('Business not found', 404));
       }
       logger.error('Error fetching business:', businessError);
-      return next(new ApiError(500, 'Failed to fetch business'));
+      return next(new ApiError('Failed to fetch business', 500));
     }
     
     // Get the latest analysis results for this business
@@ -139,7 +141,7 @@ export const getBusinessInsights = async (req: Request, res: Response, next: Nex
     
     if (insightsError && insightsError.code !== 'PGRST116') {
       logger.error('Error fetching business insights:', insightsError);
-      return next(new ApiError(500, 'Failed to fetch business insights'));
+      return next(new ApiError('Failed to fetch business insights', 500));
     }
     
     // Get historical metrics
@@ -152,7 +154,7 @@ export const getBusinessInsights = async (req: Request, res: Response, next: Nex
     
     if (metricsError) {
       logger.error('Error fetching business metrics:', metricsError);
-      return next(new ApiError(500, 'Failed to fetch business metrics'));
+      return next(new ApiError('Failed to fetch business metrics', 500));
     }
     
     res.status(200).json({
@@ -165,7 +167,7 @@ export const getBusinessInsights = async (req: Request, res: Response, next: Nex
     });
   } catch (error) {
     logger.error('Error in getBusinessInsights:', error);
-    next(new ApiError(500, 'An unexpected error occurred'));
+    next(new ApiError('An unexpected error occurred', 500));
   }
 };
 
@@ -186,14 +188,14 @@ export const getBusinessWebsiteAudit = async (req: Request, res: Response, next:
     
     if (businessError) {
       if (businessError.code === 'PGRST116') {
-        return next(new ApiError(404, 'Business not found'));
+        return next(new ApiError('Business not found', 404));
       }
       logger.error('Error fetching business:', businessError);
-      return next(new ApiError(500, 'Failed to fetch business'));
+      return next(new ApiError('Failed to fetch business', 500));
     }
     
     if (!business.website) {
-      return next(new ApiError(404, 'Business does not have a website'));
+      return next(new ApiError('Business does not have a website', 404));
     }
     
     // Get the latest website audit for this business
@@ -207,7 +209,7 @@ export const getBusinessWebsiteAudit = async (req: Request, res: Response, next:
     
     if (auditError && auditError.code !== 'PGRST116') {
       logger.error('Error fetching website audit:', auditError);
-      return next(new ApiError(500, 'Failed to fetch website audit'));
+      return next(new ApiError('Failed to fetch website audit', 500));
     }
     
     // Get audit screenshots if available
@@ -236,7 +238,7 @@ export const getBusinessWebsiteAudit = async (req: Request, res: Response, next:
     });
   } catch (error) {
     logger.error('Error in getBusinessWebsiteAudit:', error);
-    next(new ApiError(500, 'An unexpected error occurred'));
+    next(new ApiError('An unexpected error occurred', 500));
   }
 };
 
@@ -258,10 +260,10 @@ export const updateBusiness = async (req: Request, res: Response, next: NextFunc
     
     if (checkError) {
       if (checkError.code === 'PGRST116') {
-        return next(new ApiError(404, 'Business not found'));
+        return next(new ApiError('Business not found', 404));
       }
       logger.error('Error checking business existence:', checkError);
-      return next(new ApiError(500, 'Failed to update business'));
+      return next(new ApiError('Failed to update business', 500));
     }
     
     // Update business
@@ -285,7 +287,7 @@ export const updateBusiness = async (req: Request, res: Response, next: NextFunc
     
     if (error) {
       logger.error('Error updating business:', error);
-      return next(new ApiError(500, 'Failed to update business'));
+      return next(new ApiError('Failed to update business', 500));
     }
     
     res.status(200).json({
@@ -294,6 +296,108 @@ export const updateBusiness = async (req: Request, res: Response, next: NextFunc
     });
   } catch (error) {
     logger.error('Error in updateBusiness:', error);
-    next(new ApiError(500, 'An unexpected error occurred'));
+    next(new ApiError('An unexpected error occurred', 500));
   }
-}; 
+};
+
+export class BusinessController {
+  private businessService: BusinessService;
+
+  constructor() {
+    this.businessService = new BusinessService();
+  }
+
+  createBusiness = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        next(new ApiError('Unauthorized', 401));
+        return;
+      }
+      const business = await this.businessService.createBusiness(req.body, userId);
+      res.status(201).json(business);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        next(error);
+      } else {
+        next(new ApiError('Failed to create business', 500, error));
+      }
+    }
+  };
+
+  getBusiness = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const business = await this.businessService.getBusiness(req.params.id);
+      if (!business) {
+        next(new ApiError('Business not found', 404));
+        return;
+      }
+      res.json(business);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        next(error);
+      } else {
+        next(new ApiError('Failed to get business', 500, error));
+      }
+    }
+  };
+
+  updateBusiness = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const business = await this.businessService.updateBusiness(req.params.id, req.body);
+      if (!business) {
+        next(new ApiError('Business not found', 404));
+        return;
+      }
+      res.json(business);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        next(error);
+      } else {
+        next(new ApiError('Failed to update business', 500, error));
+      }
+    }
+  };
+
+  deleteBusiness = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      await this.businessService.deleteBusiness(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      if (error instanceof ApiError) {
+        next(error);
+      } else {
+        next(new ApiError('Failed to delete business', 500, error));
+      }
+    }
+  };
+
+  listBusinesses = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const queryParams = req.query as BusinessQueryParams;
+      const businesses = await this.businessService.listBusinesses(queryParams);
+      res.json(businesses);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        next(error);
+      } else {
+        next(new ApiError('Failed to list businesses', 500, error));
+      }
+    }
+  };
+
+  async getBusinessAnalytics(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const analytics = await this.businessService.getBusinessAnalytics(id);
+      res.json(analytics);
+    } catch (error) {
+      logger.error('Error in getBusinessAnalytics controller:', error);
+      if (error instanceof ApiError) {
+        res.status(error.statusCode).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: 'Failed to fetch business analytics' });
+      }
+    }
+  }
+} 
