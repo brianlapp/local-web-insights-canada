@@ -59,13 +59,94 @@ export interface WebsiteAudit {
   id: string;
   business_id: string;
   url: string;
+  original_url?: string;
+  audit_date: string;
   created_at: string;
-  performance_score?: number;
-  accessibility_score?: number;
-  best_practices_score?: number;
-  seo_score?: number;
-  pwa_score?: number;
-  audit_data?: Record<string, any>;
+  scores: {
+    performance: number;
+    accessibility: number;
+    bestPractices: number;
+    seo: number;
+    mobile: number;
+    technical: number;
+  };
+  overall_score: number;
+  detailed_metrics?: {
+    desktop: {
+      performance: {
+        score: number;
+        metrics: Record<string, number | null>;
+      };
+      accessibility: {
+        score: number;
+        failingItems: Array<{ title: string; impact: string }>;
+      };
+      bestPractices: {
+        score: number;
+        failingItems: Array<{ title: string; impact: string }>;
+      };
+      seo: {
+        score: number;
+        failingItems: Array<{ title: string; impact: string }>;
+      };
+    };
+    mobile: {
+      performance: {
+        score: number;
+        metrics: Record<string, number | null>;
+      };
+      accessibility: {
+        score: number;
+        failingItems: Array<{ title: string; impact: string }>;
+      };
+      bestPractices: {
+        score: number;
+        failingItems: Array<{ title: string; impact: string }>;
+      };
+      seo: {
+        score: number;
+        failingItems: Array<{ title: string; impact: string }>;
+      };
+    };
+  };
+  device_comparison?: {
+    performanceDiff: number;
+    isMobileWorse: boolean;
+    speedMetricsDiff: Record<string, number | null>;
+    mobileOnlyIssues: Array<{ title: string; impact: string }>;
+  };
+  recommendations?: Array<{
+    title: string;
+    description: string;
+    impact: 'high' | 'medium' | 'low';
+    category: 'performance' | 'accessibility' | 'best-practices' | 'seo';
+  }>;
+  technologies?: Array<{
+    name: string;
+    technologies: Array<{
+      name: string;
+      confidence: number;
+      version?: string;
+      website?: string;
+      categories?: string[];
+    }>;
+  }>;
+  screenshots?: {
+    desktop?: string;
+    mobile?: string;
+  };
+  url_validation?: {
+    isValid: boolean;
+    normalizedUrl: string;
+    originalUrl: string;
+    redirectUrl?: string;
+    statusCode?: number;
+    responseTime?: number;
+    error?: string;
+    isDomain?: boolean;
+  };
+  audit_status?: 'queued' | 'in-progress' | 'completed' | 'failed' | 'validated' | 'tech-detected';
+  audit_error?: string;
 }
 
 export interface IndustryBenchmark {

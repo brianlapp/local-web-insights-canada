@@ -1,56 +1,55 @@
-# Local Web Insights Scraper Service
+# Local Web Insights - Scraper Service
 
-This service is responsible for discovering local businesses and performing website audits using Lighthouse.
+This service is responsible for discovering business data and performing website audits. It consists of two main components:
+
+1. **Business Scraper Engine**: Discovers businesses via Google Places API using a grid-based geographic search system
+2. **Website Audit Service**: Analyzes business websites using Lighthouse and other tools
 
 ## Features
 
-- Grid-based business discovery using Google Places API
-- Website auditing with Lighthouse
-- Screenshot capture for desktop and mobile views
-- Queue-based job processing with Redis
-- REST API for job management
+- **Grid-based Geographic Search**: Optimized algorithm for efficient area coverage
+- **API Key Rotation**: Support for multiple Google Maps API keys with quota management
+- **Rate Limiting**: Built-in throttling to respect API rate limits
+- **Job Queue System**: Background processing using Bull and Redis
+- **Website Auditing**: Performance, SEO, accessibility, and best practices scoring
+- **REST API**: Endpoints for triggering and monitoring jobs
 
-## Prerequisites
+## Getting Started
+
+### Prerequisites
 
 - Node.js 18 or later
-- Redis 6 or later
-- Google Maps API key
-- Supabase project
+- Redis server
+- Google Maps API key(s)
+- Supabase account
 
-## Installation
+### Installation
 
 1. Clone the repository
-2. Install dependencies:
-   ```bash
+2. Navigate to the scraper service directory:
+   ```
+   cd services/scraper
+   ```
+3. Install dependencies:
+   ```
    npm install
    ```
-3. Copy the environment file:
-   ```bash
+4. Copy the example environment file:
+   ```
    cp .env.example .env
    ```
-4. Update the environment variables in `.env` with your credentials
+5. Update the `.env` file with your credentials
 
-## Development
+### Running the Service
 
-Start the service in development mode:
-
-```bash
+For development:
+```
 npm run dev
 ```
 
-## Building
-
-Build the TypeScript code:
-
-```bash
-npm run build
+For production:
 ```
-
-## Production
-
-Start the service in production mode:
-
-```bash
+npm run build
 npm start
 ```
 
@@ -58,52 +57,131 @@ npm start
 
 ### Health Check
 ```
-GET /health
+GET /api/health
 ```
 
-### Queue Status
+### Job Status
 ```
-GET /status
+GET /api/status
 ```
 
-### Grid Search
+### API Key Status
 ```
-POST /search
+GET /api/api-keys
+```
+
+### Generate Grid
+```
+POST /api/generate-grid
+```
+Example request body:
+```json
 {
-  "gridId": "string",
-  "gridName": "string",
   "bounds": {
-    "northeast": { "lat": number, "lng": number },
-    "southwest": { "lat": number, "lng": number }
+    "northeast": { "lat": 43.72, "lng": -79.35 },
+    "southwest": { "lat": 43.65, "lng": -79.42 }
+  }
+}
+```
+
+### Search Grid
+```
+POST /api/search
+```
+Example request body:
+```json
+{
+  "gridId": "grid123",
+  "gridName": "Downtown Toronto",
+  "bounds": {
+    "northeast": { "lat": 43.72, "lng": -79.35 },
+    "southwest": { "lat": 43.65, "lng": -79.42 }
   },
-  "category": "string",
-  "scraperRunId": "string"
+  "category": "restaurant",
+  "scraperRunId": "run123"
+}
+```
+
+### Search Point
+```
+POST /api/search-point
+```
+Example request body:
+```json
+{
+  "lat": 43.65,
+  "lng": -79.38,
+  "radius": 1000,
+  "category": "restaurant",
+  "scraperRunId": "run123"
 }
 ```
 
 ### Website Audit
 ```
-POST /audit
+POST /api/audit
+```
+Example request body:
+```json
 {
-  "businessId": "string",
-  "url": "string"
+  "businessId": "business123",
+  "url": "https://example.com"
 }
 ```
 
 ### Job Status
 ```
-GET /jobs/:id
+GET /api/jobs/:jobId
 ```
 
-## Environment Variables
+## Configuration
 
-- `PORT`: Server port (default: 3000)
-- `NODE_ENV`: Environment (development/production)
-- `REDIS_URL`: Redis connection URL
-- `GOOGLE_MAPS_API_KEY`: Google Maps API key
-- `SUPABASE_URL`: Supabase project URL
-- `SUPABASE_SERVICE_KEY`: Supabase service role key
-- `LOG_LEVEL`: Winston logger level (default: info)
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| PORT | Server port | 3000 |
+| NODE_ENV | Environment | development |
+| REDIS_URL | Redis server URL | redis://localhost:6379 |
+| GOOGLE_MAPS_API_KEY | Single API key | - |
+| GOOGLE_MAPS_API_KEYS | Multiple API keys with quotas (key1:quota1,key2:quota2) | - |
+| SUPABASE_URL | Supabase URL | - |
+| SUPABASE_SERVICE_KEY | Supabase service key | - |
+| LOG_LEVEL | Logging level | info |
+
+## Architecture
+
+### Business Scraper Engine
+
+The scraper engine uses a grid-based approach to efficiently cover geographic areas:
+
+1. A large area is divided into optimal sub-grids
+2. Each sub-grid is processed independently
+3. Results are deduplicated and stored in the database
+4. Website URLs are extracted and queued for auditing
+
+### Website Audit Service
+
+The audit service analyzes business websites:
+
+1. Uses Lighthouse to analyze performance, SEO, accessibility, and best practices
+2. Captures screenshots in both mobile and desktop views
+3. Extracts technologies used on the website
+4. Generates scores and improvement recommendations
+
+## Development
+
+### Running Tests
+
+```
+npm test
+```
+
+### Code Style
+
+```
+npm run lint
+```
 
 ## Docker
 

@@ -11,6 +11,9 @@ import {
   DetailedMetrics,
   Recommendation
 } from './websiteAuditUtils';
+import { validateUrl, UrlValidationResult } from '../../utils/urlValidator';
+import { detectTechnologies, TechnologyCategory } from '../../utils/techDetector';
+import { calculateWebsiteScore, WebsiteScore } from '../../utils/scoreCalculator';
 
 // Keep CJS require for compatibility
 const lighthouse = require('lighthouse');
@@ -24,11 +27,99 @@ interface WebsiteAuditJobData {
   businessId: string;
   url: string;
   retryCount?: number;
+  options?: {
+    validateOnly?: boolean;
+    detectTechnologies?: boolean;
+    fullAudit?: boolean;
+  };
 }
 
 export async function processWebsiteAudit(job: Job<WebsiteAuditJobData>) {
-  const { businessId, url, retryCount = 0 } = job.data;
-  logger.info(`Starting website audit for business ${businessId} at ${url}`);
+  const { businessId, url, retryCount = 0, options = {} } = job.data;
+  const { validateOnly = false, detectTechnologies: shouldDetectTech = true, fullAudit = true } = options;
+  
+  logger.info(`Starting website audit for business ${businessId} at ${url} with options:`, options);
+  
+  // Step 1: Validate URL
+  logger.info(`Validating URL: ${url}`);
+  const urlValidation: UrlValidationResult = await validateUrl(url);
+  
+  if (!urlValidation.isValid) {
+    logger.error(`Invalid URL for business ${businessId}: ${urlValidation.error}`);
+    
+    // Update business record with URL validation error
+    await supabase
+      .from('businesses')
+      .update({
+        url_validation: urlValidation,
+        auditDate: new Date().toISOString(),
+        audit_status: 'failed',
+        audit_error: urlValidation.error
+      })
+      .eq('id', businessId);
+      
+    return {
+      error: urlValidation.error,
+      details: 'URL validation failed',
+      urlValidation
+    };
+  }
+  
+  // If validation-only option is enabled, return early with validation results
+  if (validateOnly) {
+    await supabase
+      .from('businesses')
+      .update({
+        url_validation: urlValidation,
+        auditDate: new Date().toISOString(),
+        audit_status: 'validated'
+      })
+      .eq('id', businessId);
+      
+    return {
+      urlValidation,
+      status: 'validated',
+      details: 'URL validation completed successfully'
+    };
+  }
+  
+  // If URL was redirected, use the final URL
+  const finalUrl = urlValidation.redirectUrl || urlValidation.normalizedUrl;
+  logger.info(`Using final URL: ${finalUrl}`);
+  
+  // Step 2: Detect technologies if enabled
+  let technologies: TechnologyCategory[] = [];
+  if (shouldDetectTech) {
+    logger.info(`Detecting technologies for ${finalUrl}`);
+    try {
+      technologies = await detectTechnologies(finalUrl);
+      logger.info(`Detected ${technologies.length} technology categories`);
+      
+      // If only technology detection is requested (not full audit), update and return
+      if (!fullAudit) {
+        await supabase
+          .from('businesses')
+          .update({
+            url_validation: urlValidation,
+            technologies,
+            final_url: finalUrl,
+            auditDate: new Date().toISOString(),
+            audit_status: 'tech-detected'
+          })
+          .eq('id', businessId);
+          
+        return {
+          urlValidation,
+          technologies,
+          status: 'tech-detected',
+          details: 'Technology detection completed successfully'
+        };
+      }
+    } catch (error) {
+      logger.warn(`Technology detection failed: ${error instanceof Error ? error.message : String(error)}`);
+      // Continue despite technology detection failure
+    }
+  }
   
   const browser = await puppeteer.launch({
     headless: true,
@@ -40,12 +131,12 @@ export async function processWebsiteAudit(job: Job<WebsiteAuditJobData>) {
     const page = await browser.newPage();
     
     // Run desktop audit
-    logger.info(`Running desktop audit for ${url}`);
+    logger.info(`Running desktop audit for ${finalUrl}`);
     await page.setViewport({ width: 1920, height: 1080 });
 
     // Navigate to the URL
     try {
-      await page.goto(url, {
+      await page.goto(finalUrl, {
         waitUntil: 'networkidle0',
         timeout: 30000
       });
@@ -67,7 +158,7 @@ export async function processWebsiteAudit(job: Job<WebsiteAuditJobData>) {
     // Run Lighthouse for desktop
     let desktopLighthouseResult: RunnerResult | undefined;
     try {
-      desktopLighthouseResult = await lighthouse(url, {
+      desktopLighthouseResult = await lighthouse(finalUrl, {
         port: Number((new URL(browser.wsEndpoint())).port),
         output: 'json',
         logLevel: 'error',
@@ -87,7 +178,7 @@ export async function processWebsiteAudit(job: Job<WebsiteAuditJobData>) {
     }
 
     // Run mobile audit
-    logger.info(`Running mobile audit for ${url}`);
+    logger.info(`Running mobile audit for ${finalUrl}`);
     await page.setViewport({ width: 375, height: 667, isMobile: true });
     
     // Wait for mobile view to load properly
@@ -111,7 +202,7 @@ export async function processWebsiteAudit(job: Job<WebsiteAuditJobData>) {
     // Run Lighthouse for mobile
     let mobileLighthouseResult: RunnerResult | undefined;
     try {
-      mobileLighthouseResult = await lighthouse(url, {
+      mobileLighthouseResult = await lighthouse(finalUrl, {
         port: Number((new URL(browser.wsEndpoint())).port),
         output: 'json',
         logLevel: 'error',
@@ -150,13 +241,8 @@ export async function processWebsiteAudit(job: Job<WebsiteAuditJobData>) {
     // Generate prioritized recommendations
     const recommendations = generateRecommendations(desktopLhr, mobileLhr);
 
-    // Calculate primary scores (averaging desktop and mobile)
-    const scores = {
-      performance: Math.round((desktopMetrics.performance.score + mobileMetrics.performance.score) / 2 * 100),
-      accessibility: Math.round((desktopMetrics.accessibility.score + mobileMetrics.accessibility.score) / 2 * 100),
-      bestPractices: Math.round((desktopMetrics.bestPractices.score + mobileMetrics.bestPractices.score) / 2 * 100),
-      seo: Math.round((desktopMetrics.seo.score + mobileMetrics.seo.score) / 2 * 100)
-    };
+    // Calculate comprehensive website scores
+    const websiteScore = calculateWebsiteScore(desktopMetrics, mobileMetrics, technologies);
 
     // Wrap Supabase operations in an async IIFE to ensure errors are caught
     await (async () => {
@@ -184,7 +270,15 @@ export async function processWebsiteAudit(job: Job<WebsiteAuditJobData>) {
       const { error: updateError } = await supabase
         .from('businesses')
         .update({
-          scores,
+          scores: {
+            performance: websiteScore.performance,
+            accessibility: websiteScore.accessibility,
+            bestPractices: websiteScore.bestPractices,
+            seo: websiteScore.seo,
+            mobile: websiteScore.mobile,
+            technical: websiteScore.technical
+          },
+          overall_score: websiteScore.overall,
           detailed_metrics: {
             desktop: desktopMetrics,
             mobile: mobileMetrics
@@ -193,6 +287,10 @@ export async function processWebsiteAudit(job: Job<WebsiteAuditJobData>) {
           desktopScreenshot: desktopScreenshotPath,
           mobileScreenshot: mobileScreenshotPath,
           auditDate: new Date().toISOString(),
+          audit_status: 'completed',
+          url_validation: urlValidation,
+          technologies,
+          final_url: finalUrl,
           suggestedImprovements: recommendations.map((rec: Recommendation) => ({
             title: rec.title,
             description: rec.description,
@@ -213,12 +311,23 @@ export async function processWebsiteAudit(job: Job<WebsiteAuditJobData>) {
         .insert({
           business_id: businessId,
           audit_date: new Date().toISOString(),
-          url: url,
-          scores,
+          url: finalUrl,
+          original_url: url,
+          scores: {
+            performance: websiteScore.performance,
+            accessibility: websiteScore.accessibility,
+            bestPractices: websiteScore.bestPractices,
+            seo: websiteScore.seo,
+            mobile: websiteScore.mobile,
+            technical: websiteScore.technical
+          },
+          overall_score: websiteScore.overall,
           desktop_metrics: desktopMetrics,
           mobile_metrics: mobileMetrics,
           device_comparison: comparison,
-          recommendations: recommendations
+          recommendations,
+          technologies,
+          url_validation: urlValidation
         });
 
       if (auditError) {
@@ -229,15 +338,36 @@ export async function processWebsiteAudit(job: Job<WebsiteAuditJobData>) {
 
     // Return results
     return { 
-      scores,
+      scores: {
+        performance: websiteScore.performance,
+        accessibility: websiteScore.accessibility,
+        bestPractices: websiteScore.bestPractices,
+        seo: websiteScore.seo,
+        mobile: websiteScore.mobile,
+        technical: websiteScore.technical
+      },
+      overallScore: websiteScore.overall,
       desktopMetrics,
       mobileMetrics,
       comparison,
-      recommendationsCount: recommendations.length
+      recommendationsCount: recommendations.length,
+      technologiesCount: technologies.length,
+      url: finalUrl
     };
 
   } catch (error) {
     logger.error('Website audit failed:', error);
+    
+    // Update business record with error
+    await supabase
+      .from('businesses')
+      .update({
+        auditDate: new Date().toISOString(),
+        audit_status: 'failed',
+        audit_error: error instanceof Error ? error.message : 'Unknown error',
+        url_validation: urlValidation
+      })
+      .eq('id', businessId);
     
     // Handle retry logic for recoverable errors
     const MAX_RETRIES = 2;
@@ -249,22 +379,13 @@ export async function processWebsiteAudit(job: Job<WebsiteAuditJobData>) {
       };
     }
     
-    // Update business with failure status
-    try {
-      await supabase
-        .from('businesses')
-        .update({
-          audit_status: 'failed',
-          audit_error: error instanceof Error ? error.message : 'Unknown error',
-          auditDate: new Date().toISOString()
-        })
-        .eq('id', businessId);
-    } catch (dbError) {
-      logger.error('Failed to update business error status:', dbError);
-    }
-    
-    return Promise.reject(error);
+    // If max retries exceeded
+    return {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      url: finalUrl
+    };
   } finally {
+    // Ensure browser is closed
     await browser.close();
   }
 } 
