@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { validationResult, ValidationChain, ValidationError } from 'express-validator';
+import { validationResult } from 'express-validator';
+import type { ValidationChain, ValidationError } from 'express-validator';
 import { ApiError } from './errorMiddleware';
 
 /**
