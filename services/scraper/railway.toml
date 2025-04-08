@@ -1,0 +1,33 @@
+
+[build]
+builder = "nixpacks"
+buildCommand = "npm install && npm run build"
+
+[deploy]
+startCommand = "node dist/index.js"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 100
+restartPolicyType = "on-failure"
+
+# Environment variables required for the scraper service
+[variables]
+PORT = "3000"
+NODE_ENV = "production"
+LOG_LEVEL = "info"
+
+# Redis configuration - You'll need to add a Redis service in Railway
+# The REDIS_URL will be automatically injected by Railway when you add Redis
+
+# Google Maps API keys
+GOOGLE_MAPS_API_KEYS = "${GOOGLE_MAPS_API_KEYS}"
+
+# Supabase configuration
+SUPABASE_URL = "${SUPABASE_URL}"
+SUPABASE_SERVICE_KEY = "${SUPABASE_SERVICE_KEY}"
+
+# Storage configuration
+GCS_BUCKET_NAME = "${GCS_BUCKET_NAME}"
+GCS_CREDENTIALS = "${GCS_CREDENTIALS}"
+
+# Made With API key for technology detection
+MADEWITH_API_KEY = "${MADEWITH_API_KEY}"
