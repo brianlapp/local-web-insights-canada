@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Search, RefreshCw } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Search, RefreshCw, AlertTriangle } from 'lucide-react';
 import { ScraperJob } from '@/services/scraperService';
 
 interface ScraperFormProps {
@@ -14,6 +15,7 @@ interface ScraperFormProps {
   onLocationChange: (location: string) => void;
   onStartScraper: () => void;
   onRefreshJobs: () => void;
+  apiAvailable?: boolean;
 }
 
 const ScraperForm: React.FC<ScraperFormProps> = ({
@@ -21,7 +23,8 @@ const ScraperForm: React.FC<ScraperFormProps> = ({
   location,
   onLocationChange,
   onStartScraper,
-  onRefreshJobs
+  onRefreshJobs,
+  apiAvailable = true
 }) => {
   // Calculate progress as a percentage based on business count
   // For simplicity we'll use a mock progression that shows some movement
@@ -37,6 +40,16 @@ const ScraperForm: React.FC<ScraperFormProps> = ({
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
+          {!apiAvailable && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Connection Error</AlertTitle>
+              <AlertDescription>
+                Cannot connect to the scraper service. Some features may be unavailable.
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="col-span-2">
               <Input 
@@ -48,7 +61,7 @@ const ScraperForm: React.FC<ScraperFormProps> = ({
             </div>
             <Button 
               onClick={onStartScraper} 
-              disabled={!!currentJob || !location}
+              disabled={!!currentJob || !location || !apiAvailable}
               className="w-full"
             >
               <Search className="mr-2 h-4 w-4" />

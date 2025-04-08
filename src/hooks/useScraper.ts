@@ -6,6 +6,7 @@ import {
   fetchRecentJobs, 
   startScraper, 
   runWebsiteAudit,
+  checkScraperHealth,
   Business,
   ScraperJob
 } from '@/services/scraperService';
@@ -17,7 +18,23 @@ export const useScraper = () => {
   const [jobLoading, setJobLoading] = useState<boolean>(false);
   const [location, setLocation] = useState<string>('Ottawa');
   const [currentJob, setCurrentJob] = useState<ScraperJob | null>(null);
+  const [apiAvailable, setApiAvailable] = useState<boolean>(true);
   const { toast } = useToast();
+  
+  // Check if the scraper API is available
+  const checkApiHealth = useCallback(async () => {
+    try {
+      const isHealthy = await checkScraperHealth();
+      setApiAvailable(isHealthy);
+      
+      if (!isHealthy) {
+        console.warn('Scraper API is not available. Some features may not work.');
+      }
+    } catch (error) {
+      console.error('Error checking API health:', error);
+      setApiAvailable(false);
+    }
+  }, []);
   
   const fetchBusinesses = useCallback(async () => {
     setLoading(true);
@@ -61,6 +78,15 @@ export const useScraper = () => {
       });
       return;
     }
+    
+    if (!apiAvailable) {
+      toast({
+        title: 'Scraper API unavailable',
+        description: 'Cannot connect to the scraper service. Please try again later.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     try {
       const newJob = await startScraper(location);
@@ -79,13 +105,22 @@ export const useScraper = () => {
         variant: 'destructive',
       });
     }
-  }, [location, toast, fetchJobs]);
+  }, [location, toast, fetchJobs, apiAvailable]);
   
   const handleRunWebsiteAudit = useCallback(async (businessId: string, website: string) => {
     if (!website) {
       toast({
         title: 'Website required',
         description: 'Business does not have a website to audit',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (!apiAvailable) {
+      toast({
+        title: 'Scraper API unavailable',
+        description: 'Cannot connect to the scraper service. Please try again later.',
         variant: 'destructive',
       });
       return;
@@ -105,12 +140,13 @@ export const useScraper = () => {
         variant: 'destructive',
       });
     }
-  }, [toast]);
+  }, [toast, apiAvailable]);
   
   useEffect(() => {
+    checkApiHealth();
     fetchBusinesses();
     fetchJobs();
-  }, [fetchBusinesses, fetchJobs]);
+  }, [fetchBusinesses, fetchJobs, checkApiHealth]);
   
   return {
     businesses,
@@ -119,6 +155,7 @@ export const useScraper = () => {
     jobLoading,
     location,
     currentJob,
+    apiAvailable,
     setLocation,
     fetchBusinesses,
     fetchJobs,

@@ -43,88 +43,115 @@ export const fetchRecentJobs = async (): Promise<{jobs: ScraperJob[], currentJob
 
 // Start a new scraper job
 export const startScraper = async (location: string): Promise<ScraperJob> => {
-  // First, check if we have an active session
-  const { data: sessionData } = await supabase.auth.getSession();
-  
-  if (!sessionData.session) {
-    console.error('No auth session found');
-    throw new Error('Authentication required to start scraper');
-  }
+  try {
+    // First, check if we have an active session
+    const { data: sessionData } = await supabase.auth.getSession();
+    
+    if (!sessionData.session) {
+      console.error('No auth session found');
+      throw new Error('Authentication required to start scraper');
+    }
 
-  console.log('Starting scraper with auth token');
-  
-  // Insert the scraper run record
-  const { data, error } = await supabase
-    .from('scraper_runs')
-    .insert({
-      status: 'running' as const,
-      location,
-      businessesfound: 0
-    })
-    .select()
-    .single();
+    console.log('Starting scraper with auth token');
+    
+    // Insert the scraper run record
+    const { data, error } = await supabase
+      .from('scraper_runs')
+      .insert({
+        status: 'running' as const,
+        location,
+        businessesfound: 0
+      })
+      .select()
+      .single();
 
-  if (error) {
-    console.error('Error starting scraper job:', error);
-    throw error;
-  }
-  
-  // If record creation was successful, call the API to start the actual scraper
-  if (data) {
-    try {
-      const response = await fetch('/api/scraper/start', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionData.session.access_token}`
-        },
-        body: JSON.stringify({
-          location,
-          jobId: data.id
-        }),
-      });
+    if (error) {
+      console.error('Error starting scraper job:', error);
+      throw error;
+    }
+    
+    // If record creation was successful, call the API to start the actual scraper
+    if (data) {
+      try {
+        console.log(`Calling scraper API at /api/scraper/start for location: ${location}`);
+        
+        const response = await fetch('/api/scraper/start', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionData.session.access_token}`
+          },
+          body: JSON.stringify({
+            location,
+            jobId: data.id
+          }),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('API error starting scraper:', errorData);
+        if (!response.ok) {
+          let errorMessage = 'Failed to start scraper';
+          
+          try {
+            const errorData = await response.json();
+            console.error('API error starting scraper:', errorData);
+            errorMessage = errorData.message || errorMessage;
+          } catch (parseError) {
+            console.error('Could not parse error response:', parseError);
+            // Use status text if the response isn't valid JSON
+            errorMessage = `API error (${response.status}): ${response.statusText}`;
+          }
+          
+          // Update the job status to failed
+          await supabase
+            .from('scraper_runs')
+            .update({ status: 'failed', error: errorMessage })
+            .eq('id', data.id);
+            
+          throw new Error(errorMessage);
+        }
+        
+        const responseData = await response.json();
+        console.log('Scraper started successfully:', responseData);
+        
+        return data;
+      } catch (apiError) {
+        console.error('API call failed:', apiError);
         
         // Update the job status to failed
         await supabase
           .from('scraper_runs')
-          .update({ status: 'failed', error: errorData.message || 'API failed to start scraper' })
+          .update({ 
+            status: 'failed', 
+            error: apiError instanceof Error 
+              ? apiError.message 
+              : 'API call failed' 
+          })
           .eq('id', data.id);
           
-        throw new Error(errorData.message || 'Failed to start scraper');
+        throw apiError;
       }
-    } catch (apiError) {
-      console.error('API call failed:', apiError);
-      
-      // Update the job status to failed
-      await supabase
-        .from('scraper_runs')
-        .update({ status: 'failed', error: apiError instanceof Error ? apiError.message : 'API call failed' })
-        .eq('id', data.id);
-        
-      throw apiError;
     }
+    
+    return data;
+  } catch (error) {
+    console.error('Error in startScraper:', error);
+    throw error;
   }
-  
-  return data;
 };
 
 // Run a website audit for a business
 export const runWebsiteAudit = async (businessId: string, website: string): Promise<void> => {
-  // First, check if we have an active session
-  const { data: sessionData } = await supabase.auth.getSession();
-  
-  if (!sessionData.session) {
-    console.error('No auth session found');
-    throw new Error('Authentication required to run website audit');
-  }
-
-  console.log('Running website audit with auth token');
-  
   try {
+    // First, check if we have an active session
+    const { data: sessionData } = await supabase.auth.getSession();
+    
+    if (!sessionData.session) {
+      console.error('No auth session found');
+      throw new Error('Authentication required to run website audit');
+    }
+
+    console.log('Running website audit with auth token');
+    console.log(`Calling audit API for business ID: ${businessId}, website: ${website}`);
+    
     const response = await fetch('/api/scraper/audit', {
       method: 'POST',
       headers: {
@@ -138,12 +165,37 @@ export const runWebsiteAudit = async (businessId: string, website: string): Prom
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error('API error running audit:', errorData);
-      throw new Error(errorData.message || 'Failed to start website audit');
+      let errorMessage = 'Failed to start website audit';
+      
+      try {
+        const errorData = await response.json();
+        console.error('API error running audit:', errorData);
+        errorMessage = errorData.message || errorMessage;
+      } catch (parseError) {
+        console.error('Could not parse error response:', parseError);
+        errorMessage = `API error (${response.status}): ${response.statusText}`;
+      }
+      
+      throw new Error(errorMessage);
     }
+    
+    const responseData = await response.json();
+    console.log('Website audit started successfully:', responseData);
   } catch (error) {
     console.error('Website audit API call failed:', error);
     throw error;
+  }
+};
+
+// Add a health check function to verify API connection
+export const checkScraperHealth = async (): Promise<boolean> => {
+  try {
+    const response = await fetch('/api/scraper/health');
+    if (!response.ok) return false;
+    const data = await response.json();
+    return data.status === 'ok';
+  } catch (error) {
+    console.error('Health check failed:', error);
+    return false;
   }
 };

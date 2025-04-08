@@ -14,6 +14,7 @@ export default function ScraperControl() {
     jobLoading,
     location,
     currentJob,
+    apiAvailable,
     setLocation,
     fetchBusinesses,
     fetchJobs,
@@ -31,6 +32,7 @@ export default function ScraperControl() {
         onLocationChange={setLocation}
         onStartScraper={handleStartScraper}
         onRefreshJobs={fetchJobs}
+        apiAvailable={apiAvailable}
       />
 
       <Tabs defaultValue="businesses">
