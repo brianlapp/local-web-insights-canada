@@ -60,9 +60,34 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
-## How can I deploy this project?
+## Deployment
+
+### Lovable Deployment
 
 Simply open [Lovable](https://lovable.dev/projects/e55484c1-8897-447e-adf9-c06d2f9ee0f3) and click on Share -> Publish.
+
+### Railway Deployment
+
+For deploying the microservices architecture to Railway:
+
+1. Make sure you have the [Railway CLI](https://docs.railway.app/develop/cli) installed:
+   ```
+   npm i -g @railway/cli
+   ```
+
+2. Run our setup script to configure the Railway project:
+   ```
+   chmod +x scripts/setup-railway.sh
+   ./scripts/setup-railway.sh
+   ```
+
+3. The script will guide you through:
+   - Setting up a new Railway project
+   - Adding a Redis service
+   - Configuring environment variables
+   - Deploying the application
+
+For detailed instructions, see the [Railway Deployment Guide](docs/railway-deployment.md).
 
 ## Can I connect a custom domain to my Lovable project?
 

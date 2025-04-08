@@ -1,0 +1,11 @@
+# Minimal Railway configuration for scraper service
+
+[build]
+rootDirectory = "services/scraper"
+
+[deploy]
+rootDirectory = "services/scraper"
+restartPolicyType = "on-failure"
+
+[variables]
+NODE_ENV = "production" 

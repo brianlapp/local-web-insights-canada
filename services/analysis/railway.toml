@@ -1,0 +1,22 @@
+[build]
+builder = "nixpacks"
+buildCommand = "npm install && npm run build"
+
+[deploy]
+startCommand = "node dist/index.js"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 100
+restartPolicyType = "on-failure"
+
+# Environment variables required for the analysis service
+[variables]
+PORT = "3001"
+NODE_ENV = "production"
+LOG_LEVEL = "info"
+
+# Redis configuration - You'll need to add a Redis service in Railway
+# The REDIS_URL will be automatically injected by Railway when you add Redis
+
+# Supabase configuration
+SUPABASE_URL = "${SUPABASE_URL}"
+SUPABASE_API_KEY = "${SUPABASE_SERVICE_KEY}" 
