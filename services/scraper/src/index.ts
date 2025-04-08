@@ -1,3 +1,4 @@
+
 import express from 'express';
 import Queue from 'bull';
 import dotenv from 'dotenv';
@@ -5,6 +6,7 @@ import { logger } from './utils/logger';
 import { setupRoutes } from './routes';
 import { processGridSearch } from './queues/processors/gridSearch';
 import { processWebsiteAudit } from './queues/processors/websiteAudit';
+import { setupDataProcessingQueue } from './processors/dataProcessor';
 
 // Load environment variables
 dotenv.config();
@@ -20,12 +22,15 @@ if (!process.env.REDIS_URL) {
   throw new Error('REDIS_URL environment variable is required');
 }
 
-const scraperQueue = new Queue('scraper', process.env.REDIS_URL);
-const auditQueue = new Queue('audit', process.env.REDIS_URL);
+const scraperQueue = new Queue('scraper', process.env.REDIS_URL as string);
+const auditQueue = new Queue('audit', process.env.REDIS_URL as string);
 
 // Set up queue processors
 scraperQueue.process('search-grid', processGridSearch);
 auditQueue.process('audit-website', processWebsiteAudit);
+
+// Set up data processing queue
+const dataProcessingQueue = setupDataProcessingQueue();
 
 // Handle queue errors
 scraperQueue.on('error', (error) => {
@@ -34,6 +39,15 @@ scraperQueue.on('error', (error) => {
 
 auditQueue.on('error', (error) => {
   logger.error('Audit queue error:', error);
+});
+
+// Handle completed jobs
+scraperQueue.on('completed', (job) => {
+  logger.info(`Completed scraper job ${job.id}`);
+});
+
+auditQueue.on('completed', (job) => {
+  logger.info(`Completed audit job ${job.id}`);
 });
 
 // Handle failed jobs
@@ -46,7 +60,7 @@ auditQueue.on('failed', (job, error) => {
 });
 
 // Set up routes
-app.use('/api', setupRoutes(scraperQueue, auditQueue));
+app.use('/api', setupRoutes(scraperQueue, auditQueue, dataProcessingQueue));
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
