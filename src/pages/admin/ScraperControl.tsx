@@ -24,7 +24,6 @@ export default function ScraperControl() {
   const [currentJob, setCurrentJob] = useState<ScraperJob | null>(null);
   const { toast } = useToast();
 
-  // Fetch recent businesses and jobs on component mount
   useEffect(() => {
     fetchRecentBusinesses();
     fetchJobs();
@@ -64,7 +63,6 @@ export default function ScraperControl() {
       if (error) throw error;
       setJobs(data || []);
       
-      // Check if there's an active job
       const runningJob = data?.find(job => job.status === 'running');
       if (runningJob) {
         setCurrentJob(runningJob);
@@ -93,7 +91,6 @@ export default function ScraperControl() {
     }
 
     try {
-      // Create a new scraper run
       const { data, error } = await supabase
         .from('scraper_runs')
         .insert({
@@ -106,11 +103,9 @@ export default function ScraperControl() {
 
       if (error) throw error;
       
-      // Set the current job
       if (data) {
         setCurrentJob(data);
         
-        // Call the scraper API endpoint
         const response = await fetch('/api/scraper/start', {
           method: 'POST',
           headers: {
@@ -132,7 +127,6 @@ export default function ScraperControl() {
           description: `Started scraping businesses in ${location}`,
         });
 
-        // Refresh the job list
         fetchJobs();
       }
     } catch (error: any) {
