@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -77,13 +78,13 @@ const BusinessList = () => {
                 <Badge variant="secondary">{business.scores?.overall}</Badge>
               </TableCell>
               <TableCell>
-                {business.isUpgraded ? (
+                {business.is_upgraded ? (
                   <Badge>Yes</Badge>
                 ) : (
                   <Badge variant="outline">No</Badge>
                 )}
               </TableCell>
-              <TableCell>{business.auditDate}</TableCell>
+              <TableCell>{business.audit_date}</TableCell>
               <TableCell className="text-right">
                 <Button asChild variant="link">
                   <Link to={`/admin/businesses/edit/${business.id}`}>Edit</Link>

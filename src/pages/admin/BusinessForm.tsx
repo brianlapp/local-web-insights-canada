@@ -16,7 +16,6 @@ type BusinessInsert = Database['public']['Tables']['businesses']['Insert'];
 type BusinessUpdate = Database['public']['Tables']['businesses']['Update'];
 
 const emptyBusiness: BusinessInsert = {
-  id: '',
   name: '',
   city: '',
   category: '',
@@ -24,8 +23,8 @@ const emptyBusiness: BusinessInsert = {
   website: '',
   address: '',
   image: '',
-  mobileScreenshot: '',
-  desktopScreenshot: '',
+  mobile_screenshot: '',
+  desktop_screenshot: '',
   scores: {
     seo: 0,
     performance: 0,
@@ -33,9 +32,9 @@ const emptyBusiness: BusinessInsert = {
     design: 0,
     overall: 0
   },
-  suggestedImprovements: [],
-  isUpgraded: false,
-  auditDate: new Date().toISOString()
+  suggested_improvements: [],
+  is_upgraded: false,
+  audit_date: new Date().toISOString()
 };
 
 export const BusinessForm = () => {
@@ -158,14 +157,14 @@ export const BusinessForm = () => {
     
     setFormData(prev => ({
       ...prev,
-      suggestedImprovements: improvementsArray
+      suggested_improvements: improvementsArray
     }));
   };
 
   const handleToggleChange = (checked: boolean) => {
     setFormData(prev => ({
       ...prev,
-      isUpgraded: checked
+      is_upgraded: checked
     }));
   };
 
@@ -243,22 +242,22 @@ export const BusinessForm = () => {
         />
       </div>
       <div>
-        <Label htmlFor="mobileScreenshot">Mobile Screenshot URL</Label>
+        <Label htmlFor="mobile_screenshot">Mobile Screenshot URL</Label>
         <Input 
           type="text" 
-          id="mobileScreenshot" 
-          name="mobileScreenshot" 
-          value={(formData as Business).mobileScreenshot || ''} 
+          id="mobile_screenshot" 
+          name="mobile_screenshot" 
+          value={(formData as Business).mobile_screenshot || ''} 
           onChange={handleInputChange} 
         />
       </div>
       <div>
-        <Label htmlFor="desktopScreenshot">Desktop Screenshot URL</Label>
+        <Label htmlFor="desktop_screenshot">Desktop Screenshot URL</Label>
         <Input 
           type="text" 
-          id="desktopScreenshot" 
-          name="desktopScreenshot" 
-          value={(formData as Business).desktopScreenshot || ''} 
+          id="desktop_screenshot" 
+          name="desktop_screenshot" 
+          value={(formData as Business).desktop_screenshot || ''} 
           onChange={handleInputChange} 
         />
       </div>
@@ -318,20 +317,20 @@ export const BusinessForm = () => {
         </div>
       </div>
       <div>
-        <Label htmlFor="suggestedImprovements">Suggested Improvements</Label>
+        <Label htmlFor="suggested_improvements">Suggested Improvements</Label>
         <Textarea
-          id="suggestedImprovements"
-          name="suggestedImprovements"
-          value={((formData as Business).suggestedImprovements || []).join('\n')}
+          id="suggested_improvements"
+          name="suggested_improvements"
+          value={((formData as Business).suggested_improvements || []).join('\n')}
           onChange={handleSuggestedImprovementsChange}
           placeholder="Enter each improvement on a new line"
         />
       </div>
       <div>
-        <Label htmlFor="isUpgraded">Is Upgraded</Label>
+        <Label htmlFor="is_upgraded">Is Upgraded</Label>
         <Switch
-          id="isUpgraded"
-          checked={(formData as Business).isUpgraded || false}
+          id="is_upgraded"
+          checked={(formData as Business).is_upgraded || false}
           onCheckedChange={handleToggleChange}
         />
       </div>
