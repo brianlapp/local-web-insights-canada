@@ -1,4 +1,5 @@
 
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
@@ -11,6 +12,7 @@ import { LoginPage } from '@/pages/admin/LoginPage'
 import { DashboardPage } from '@/pages/admin/DashboardPage'
 import BusinessList from '@/pages/admin/BusinessList'
 import BusinessForm from '@/pages/admin/BusinessForm'
+import ScraperControl from '@/pages/admin/ScraperControl'
 import HomePage from './pages/HomePage'
 import AuditPage from './pages/AuditPage'
 import AuditorPage from './pages/AuditorPage'
@@ -54,6 +56,7 @@ function App() {
                   <Route path="businesses" element={<BusinessList />} />
                   <Route path="businesses/new" element={<BusinessForm />} />
                   <Route path="businesses/:id" element={<BusinessForm />} />
+                  <Route path="scraper" element={<ScraperControl />} />
                   <Route path="petitions" element={<PetitionList />} />
                   <Route path="settings" element={<Settings />} />
                 </Route>

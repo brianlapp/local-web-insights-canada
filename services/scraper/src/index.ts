@@ -7,6 +7,7 @@ import { setupRoutes } from './routes';
 import { processGridSearch } from './queues/processors/gridSearch';
 import { processWebsiteAudit } from './queues/processors/websiteAudit';
 import { setupDataProcessingQueue } from './processors/dataProcessor';
+import { getSupabaseClient } from './utils/database';
 
 // Load environment variables
 dotenv.config();
@@ -47,8 +48,25 @@ auditQueue.on('error', (error) => {
 });
 
 // Handle completed jobs
-scraperQueue.on('completed', (job) => {
+scraperQueue.on('completed', async (job) => {
   logger.info(`Completed scraper job ${job.id}`);
+  
+  // If this job is linked to a scraper_run record, update its status
+  const jobData = job.data;
+  if (jobData.jobId) {
+    try {
+      const supabase = getSupabaseClient();
+      await supabase
+        .from('scraper_runs')
+        .update({ 
+          status: 'completed',
+          businessesFound: jobData.businesses?.length || 0
+        })
+        .eq('id', jobData.jobId);
+    } catch (error) {
+      logger.error(`Error updating job status for ${job.id}:`, error);
+    }
+  }
 });
 
 auditQueue.on('completed', (job) => {
@@ -56,8 +74,25 @@ auditQueue.on('completed', (job) => {
 });
 
 // Handle failed jobs
-scraperQueue.on('failed', (job, error) => {
+scraperQueue.on('failed', async (job, error) => {
   logger.error(`Scraper job ${job.id} failed:`, error);
+  
+  // If this job is linked to a scraper_run record, update its status
+  const jobData = job.data;
+  if (jobData.jobId) {
+    try {
+      const supabase = getSupabaseClient();
+      await supabase
+        .from('scraper_runs')
+        .update({ 
+          status: 'failed',
+          error: error.message
+        })
+        .eq('id', jobData.jobId);
+    } catch (updateError) {
+      logger.error(`Error updating job status for ${job.id}:`, updateError);
+    }
+  }
 });
 
 auditQueue.on('failed', (job, error) => {

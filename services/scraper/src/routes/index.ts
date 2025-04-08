@@ -60,6 +60,68 @@ export function setupRoutes(
     }
   });
 
+  // New endpoint for starting the scraper from the admin panel
+  router.post('/scraper/start', async (req, res) => {
+    try {
+      const { location, jobId } = req.body;
+
+      if (!location) {
+        return res.status(400).json({ error: 'Location is required' });
+      }
+
+      // Default radius for Ottawa (in meters)
+      const radius = 10000;
+
+      const job = await scraperQueue.add('search-grid', {
+        location,
+        radius,
+        searchTerm: '', // Optional search term
+        jobId // Reference back to our job tracking
+      });
+
+      res.json({ 
+        jobId: job.id, 
+        message: `Scraper job started for ${location}`,
+        status: 'running'
+      });
+    } catch (error) {
+      logger.error('Error starting scraper job:', error);
+      res.status(500).json({ error: 'Failed to start scraper job' });
+    }
+  });
+
+  // New endpoint for running a website audit from the admin panel
+  router.post('/scraper/audit', async (req, res) => {
+    try {
+      const { businessId, url } = req.body;
+
+      if (!businessId || !url) {
+        return res.status(400).json({ error: 'Business ID and URL are required' });
+      }
+
+      // Verify URL format
+      try {
+        new URL(url);
+      } catch (e) {
+        return res.status(400).json({ error: 'Invalid URL format' });
+      }
+
+      const job = await auditQueue.add('audit-website', {
+        businessId,
+        url,
+      });
+
+      res.json({ 
+        jobId: job.id, 
+        message: `Website audit started for ${url}`,
+        status: 'running'
+      });
+    } catch (error) {
+      logger.error('Error starting website audit:', error);
+      res.status(500).json({ error: 'Failed to start website audit' });
+    }
+  });
+
   // Add data processing routes
   router.use('/data-processing', dataProcessingRoutes);
   

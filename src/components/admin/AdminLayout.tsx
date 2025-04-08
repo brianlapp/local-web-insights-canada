@@ -9,12 +9,14 @@ import {
   LogOut,
   Settings,
   User,
+  Search,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navigation = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: BarChart3 },
   { name: 'Businesses', href: '/admin/businesses', icon: Building2 },
+  { name: 'Scraper', href: '/admin/scraper', icon: Search },
   { name: 'Petitions', href: '/admin/petitions', icon: ClipboardList },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ]
