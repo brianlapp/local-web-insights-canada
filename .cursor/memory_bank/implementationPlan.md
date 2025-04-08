@@ -1,8 +1,9 @@
+
 # Implementation Plan: Local Web Insights Canada
 
-## Priority Focus: Business Scraper Engine
+## Priority Focus: Production Build Testing & Data Pipeline Implementation
 
-The Business Scraper Engine is the highest priority component for implementation as it serves as the data acquisition foundation for the entire platform.
+After successfully implementing the Supabase storage integration for screenshots, our next priorities are testing the production build and implementing the data processing pipeline.
 
 ### Implementation Phases
 
@@ -27,11 +28,16 @@ The Business Scraper Engine is the highest priority component for implementation
   - ✅ Implement screenshot capture functionality
   - ✅ Develop tech stack detection
   - ✅ Build scoring algorithm for websites
-- 🔄 Set up Docker environment for scalable deployment
+- ✅ Set up storage integration for screenshots
+  - ✅ Configure Supabase buckets
+  - ✅ Implement file upload functionality
+  - ✅ Add fallback to GCS storage
+  - ✅ Update audit processor to use storage
+- 🔄 Test Docker environment for production
   - ✅ Configure Redis container
   - ✅ Set up environment variables
-  - 🔄 Fix Chrome installation for ARM architecture
-  - 🔄 Build and test complete Docker environment
+  - ✅ Fix Chrome installation for ARM architecture
+  - 🔄 Build and test production image
 - 🔄 Develop data processing pipeline
   - 🔄 Set up data normalization procedures
   - 🔄 Create ETL processes for raw data
@@ -103,65 +109,59 @@ The Business Scraper Engine is the highest priority component for implementation
 
 ### Current Implementation Tasks
 
-#### Business Scraper Engine Tasks
+#### Production Build Testing Tasks
 
-1. **Google Places API Integration (Complete ✅)**
-   - ✅ Implement grid-based geographic system
-   - ✅ Create API client with rate limiting
-   - ✅ Set up job queue processing
-   - ✅ Build data normalization
+1. **Build Production Image**
+   - Use Dockerfile.production to build image
+   - Verify TypeScript compilation 
+   - Ensure proper module imports
+   - Check build size and optimization
 
-2. **Website Audit Implementation (Complete ✅)**
-   - ✅ Create URL validation service
-   - ✅ Implement Lighthouse integration
-   - ✅ Set up headless browser for screenshots
-   - ✅ Build tech detection system
-   - ✅ Develop scoring algorithm
+2. **Test Production Image**
+   - Run image in isolated environment
+   - Test core functionality
+   - Verify Lighthouse integration works
+   - Confirm screenshots are stored correctly
 
-3. **Docker Environment Setup (In Progress 🔄)**
-   - ✅ Configure Redis container
-   - ✅ Set up environment variables correctly
-   - 🔄 Fix Chrome installation for ARM architecture
-   - 🔄 Test full Docker environment
+3. **Performance Testing**
+   - Measure memory usage
+   - Track CPU utilization
+   - Monitor network activity
+   - Compare with development mode
 
-4. **Data Pipeline Development**
-   - 🔄 Create ETL processes
-   - 🔄 Implement error recovery
-   - 🔄 Set up monitoring
-   - 🔄 Build logging system
+#### Data Pipeline Tasks
 
-#### API Service Tasks
+1. **ETL Process Implementation**
+   - Create data normalization utilities
+   - Implement transformation functions
+   - Set up loading mechanisms
+   - Add validation checks
 
-1. **Business Analytics Endpoints**
-   - 🔄 Implement summary endpoint
-   - 🔄 Create performance data access
-   - 🔄 Add recommendation generation
-   - 🔄 Build competitor comparison
+2. **Error Handling & Recovery**
+   - Implement retry mechanisms
+   - Create failure tracking system
+   - Add alerting for critical errors
+   - Build recovery workflows
 
-2. **Search and Filtering Enhancement**
-   - ✅ Add advanced filtering options
-   - ✅ Implement faceted search
-   - ✅ Create geospatial queries
-   - ✅ Add sorting and pagination
-
-3. **Testing Infrastructure**
-   - 🔄 Set up unit testing framework
-   - 🔄 Create integration tests
-   - 🔄 Build CI/CD pipeline
-   - 🔄 Implement code coverage
+3. **Monitoring System**
+   - Add job status tracking
+   - Implement performance metrics
+   - Create dashboard visualizations
+   - Set up logging infrastructure
 
 ### Resources Required
 
 1. **External APIs**
    - ✅ Google Places API keys
-   - 🔄 Google Maps API access
-   - 🔄 Lighthouse API integration
+   - ✅ Google Maps API access
+   - ✅ Lighthouse API integration
+   - ✅ Supabase storage configuration
 
 2. **Infrastructure**
    - ✅ Node.js hosting environment
    - ✅ Supabase database
    - ✅ Redis for job queue
-   - 🔄 Object storage for screenshots
+   - ✅ Object storage for screenshots
 
 3. **Development Tools**
    - ✅ TypeScript development environment
@@ -176,9 +176,10 @@ The Business Scraper Engine is the highest priority component for implementation
 | 1 | Core API Service | Complete | ✅ |
 | 2.1 | Google Places Integration | 2 weeks | ✅ |
 | 2.2 | Website Audit System | 3 weeks | ✅ |
-| 2.3 | Docker Environment Setup | 1 week | 🔄 |
-| 2.4 | Data Processing Pipeline | 2 weeks | 🔄 |
-| 2.5 | Management Interface | 1 week | 🔄 |
+| 2.3 | Storage Integration | 1 week | ✅ |
+| 2.4 | Production Build Testing | 1 week | 🔄 |
+| 2.5 | Data Processing Pipeline | 2 weeks | 🔄 |
+| 2.6 | Management Interface | 1 week | 🔄 |
 | 3.1 | Data Aggregation System | 2 weeks | ⏳ |
 | 3.2 | Report Generation | 2 weeks | ⏳ |
 | 3.3 | Scheduled Processing | 1 week | ⏳ |
@@ -190,21 +191,20 @@ The Business Scraper Engine is the highest priority component for implementation
 
 ## Next Steps
 
-1. **Fix Docker Build for Scraper Service**:
-   - Address the ARM/AMD64 architecture issue with Chrome installation
-   - Modify Dockerfile to support M1/M2 Mac (ARM) architecture
-   - Options to consider:
-     - Use `--platform=linux/amd64` flag in docker-compose.yml
-     - Modify Chrome installation steps in Dockerfile
-     - Use an ARM-compatible Chrome alternative
+1. **Test Production Build for Scraper Service**:
+   - Build using the Dockerfile.production
+   - Test with a small set of businesses
+   - Monitor resource usage and performance
+   - Verify all functionality works as expected
 
-2. **Test the Scraper Pipeline End-to-End**:
-   - Verify data collection from Google Places API
-   - Test website audit functionality
-   - Confirm data is properly stored in Supabase
-   - Validate error handling mechanisms
+2. **Implement Data Processing Pipeline**:
+   - Create ETL processes for raw business data
+   - Implement error handling and recovery mechanisms
+   - Add job status monitoring
+   - Set up metrics collection
 
-3. **Implement Data Processing Pipeline**:
-   - Create ETL processes for raw data
-   - Implement error handling and recovery
-   - Build monitoring system for job status 
+3. **Enhance API Service**:
+   - Add business analytics endpoints
+   - Implement webhook integration
+   - Create testing infrastructure
+   - Add comprehensive logging
