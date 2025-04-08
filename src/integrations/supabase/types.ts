@@ -469,7 +469,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_counter: {
+        Args: { row_id: string; count: number }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never
