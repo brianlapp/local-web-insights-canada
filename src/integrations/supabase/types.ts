@@ -473,6 +473,10 @@ export type Database = {
         Args: { row_id: string; count: number }
         Returns: number
       }
+      is_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
