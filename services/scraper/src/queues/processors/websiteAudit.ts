@@ -1,392 +1,358 @@
+
 import { Job } from 'bull';
 import puppeteer from 'puppeteer';
-// @ts-ignore - Suppress CJS/ESM module conflict for type import
-import type { RunnerResult } from 'lighthouse';
-import { createClient } from '@supabase/supabase-js';
 import { logger } from '../../utils/logger';
-import { 
-  extractDetailedMetrics, 
-  compareMetrics, 
-  generateRecommendations, 
-  DetailedMetrics,
-  Recommendation
-} from './websiteAuditUtils';
-import { validateUrl, UrlValidationResult } from '../../utils/urlValidator';
-import { detectTechnologies, TechnologyCategory } from '../../utils/techDetector';
-import { calculateWebsiteScore, WebsiteScore } from '../../utils/scoreCalculator';
-import { runLighthouse } from '../../utils/lighthouseWrapper';
+import { runLighthouse } from '../../utils/lighthouse';
+import { detectTechnologies } from '../../utils/technologies';
+import { saveAuditResults } from '../../utils/database';
+import { uploadScreenshot } from '../../utils/storage';
+import * as path from 'path';
+import * as fs from 'fs';
+import * as os from 'os';
 
-// Remove direct require since we're using the wrapper now
-// const lighthouse = require('lighthouse');
-
-const supabase = createClient(
-  process.env.SUPABASE_URL as string,
-  process.env.SUPABASE_SERVICE_KEY as string
-);
-
-interface WebsiteAuditJobData {
+// Interface for the job data
+interface AuditJobData {
   businessId: string;
   url: string;
-  retryCount?: number;
   options?: {
-    validateOnly?: boolean;
+    runLighthouse?: boolean;
     detectTechnologies?: boolean;
-    fullAudit?: boolean;
+    takeScreenshots?: boolean;
+    validateOnly?: boolean;
   };
 }
 
-export async function processWebsiteAudit(job: Job<WebsiteAuditJobData>) {
-  const { businessId, url, retryCount = 0, options = {} } = job.data;
-  const { validateOnly = false, detectTechnologies: shouldDetectTech = true, fullAudit = true } = options;
-  
-  logger.info(`Starting website audit for business ${businessId} at ${url} with options:`, options);
-  
-  // Step 1: Validate URL
-  logger.info(`Validating URL: ${url}`);
-  const urlValidation: UrlValidationResult = await validateUrl(url);
-  
-  if (!urlValidation.isValid) {
-    logger.error(`Invalid URL for business ${businessId}: ${urlValidation.error}`);
-    
-    // Update business record with URL validation error
-    await supabase
-      .from('businesses')
-      .update({
-        url_validation: urlValidation,
-        auditDate: new Date().toISOString(),
-        audit_status: 'failed',
-        audit_error: urlValidation.error
-      })
-      .eq('id', businessId);
-      
-    return {
-      error: urlValidation.error,
-      details: 'URL validation failed',
-      urlValidation
-    };
-  }
-  
-  // If validation-only option is enabled, return early with validation results
-  if (validateOnly) {
-    await supabase
-      .from('businesses')
-      .update({
-        url_validation: urlValidation,
-        auditDate: new Date().toISOString(),
-        audit_status: 'validated'
-      })
-      .eq('id', businessId);
-      
-    return {
-      urlValidation,
-      status: 'validated',
-      details: 'URL validation completed successfully'
-    };
-  }
-  
-  // If URL was redirected, use the final URL
-  const finalUrl = urlValidation.redirectUrl || urlValidation.normalizedUrl;
-  logger.info(`Using final URL: ${finalUrl}`);
-  
-  // Step 2: Detect technologies if enabled
-  let technologies: TechnologyCategory[] = [];
-  if (shouldDetectTech) {
-    logger.info(`Detecting technologies for ${finalUrl}`);
-    try {
-      technologies = await detectTechnologies(finalUrl);
-      logger.info(`Detected ${technologies.length} technology categories`);
-      
-      // If only technology detection is requested (not full audit), update and return
-      if (!fullAudit) {
-        await supabase
-          .from('businesses')
-          .update({
-            url_validation: urlValidation,
-            technologies,
-            final_url: finalUrl,
-            auditDate: new Date().toISOString(),
-            audit_status: 'tech-detected'
-          })
-          .eq('id', businessId);
-          
-        return {
-          urlValidation,
-          technologies,
-          status: 'tech-detected',
-          details: 'Technology detection completed successfully'
-        };
-      }
-    } catch (error) {
-      logger.warn(`Technology detection failed: ${error instanceof Error ? error.message : String(error)}`);
-      // Continue despite technology detection failure
-    }
-  }
-  
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
+/**
+ * Process a website audit job
+ */
+export const processWebsiteAudit = async (job: Job<AuditJobData>) => {
+  const { businessId, url, options = {} } = job.data;
+  logger.info(`Starting website audit for business ${businessId} at URL: ${url}`);
+
+  // Default options
+  const jobOptions = {
+    runLighthouse: true,
+    detectTechnologies: true,
+    takeScreenshots: true,
+    validateOnly: false,
+    ...options,
+  };
+
+  // Create temp directory for screenshots
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'website-audit-'));
+  const desktopScreenshotPath = path.join(tmpDir, 'desktop.png');
+  const mobileScreenshotPath = path.join(tmpDir, 'mobile.png');
+
+  let browser;
+  let lighthouseResults = null;
+  let technologies = null;
+  let desktopScreenshotUrl = null;
+  let mobileScreenshotUrl = null;
+  let scores = {
+    performance: 0,
+    accessibility: 0,
+    bestPractices: 0,
+    seo: 0,
+    mobile: 0,
+    technical: 0,
+    overall: 0,
+  };
 
   try {
-    // Create a new page
+    // Launch the browser
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+    // 1. Validate the URL works
     const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 800 });
     
-    // Run desktop audit
-    logger.info(`Running desktop audit for ${finalUrl}`);
-    await page.setViewport({ width: 1920, height: 1080 });
-
-    // Navigate to the URL
     try {
-      await page.goto(finalUrl, {
-        waitUntil: 'networkidle0',
-        timeout: 30000
-      });
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
     } catch (error) {
-      logger.error('Navigation failed:', error);
-      throw error;
-    }
-
-    // Take desktop screenshot
-    let desktopScreenshot;
-    try {
-      desktopScreenshot = await page.screenshot({ fullPage: true });
-    } catch (error) {
-      logger.error('Failed to take desktop screenshot:', error);
-      throw error;
-    }
-    const desktopScreenshotPath = `businesses/${businessId}/desktop-${Date.now()}.png`;
-
-    // Run Lighthouse for desktop
-    let desktopLighthouseResult: RunnerResult | undefined;
-    try {
-      desktopLighthouseResult = await runLighthouse(finalUrl, {
-        port: Number((new URL(browser.wsEndpoint())).port),
-        output: 'json',
-        logLevel: 'error',
-        formFactor: 'desktop',
-        screenEmulation: {
-          width: 1920,
-          height: 1080,
-          deviceScaleFactor: 1,
-          mobile: false,
-          disabled: false
-        },
-        onlyCategories: ['performance', 'accessibility', 'best-practices', 'seo']
-      });
-    } catch (error) {
-      logger.error('Desktop Lighthouse audit failed:', error);
-      throw error;
-    }
-
-    // Run mobile audit
-    logger.info(`Running mobile audit for ${finalUrl}`);
-    await page.setViewport({ width: 375, height: 667, isMobile: true });
-    
-    // Wait for mobile view to load properly
-    try {
-      await page.reload({ waitUntil: 'networkidle0', timeout: 30000 });
-    } catch (error) {
-      logger.error('Mobile reload failed:', error);
-      // Continue despite error, just log it
-    }
-    
-    // Take mobile screenshot
-    let mobileScreenshot;
-    try {
-      mobileScreenshot = await page.screenshot({ fullPage: true });
-    } catch (error) {
-      logger.error('Failed to take mobile screenshot:', error);
-      throw error;
-    }
-    const mobileScreenshotPath = `businesses/${businessId}/mobile-${Date.now()}.png`;
-
-    // Run Lighthouse for mobile
-    let mobileLighthouseResult: RunnerResult | undefined;
-    try {
-      mobileLighthouseResult = await runLighthouse(finalUrl, {
-        port: Number((new URL(browser.wsEndpoint())).port),
-        output: 'json',
-        logLevel: 'error',
-        formFactor: 'mobile',
-        screenEmulation: {
-          width: 375,
-          height: 667,
-          deviceScaleFactor: 2.625,
-          mobile: true,
-          disabled: false
-        },
-        throttling: {
-          cpuSlowdownMultiplier: 4,
-          requestLatencyMs: 150,
-          downloadThroughputKbps: 1638.4,
-          uploadThroughputKbps: 750
-        },
-        onlyCategories: ['performance', 'accessibility', 'best-practices', 'seo']
-      });
-    } catch (error) {
-      logger.error('Mobile Lighthouse audit failed:', error);
-      throw error;
-    }
-
-    // Access lhr from RunnerResults
-    const desktopLhr = desktopLighthouseResult?.lhr;
-    const mobileLhr = mobileLighthouseResult?.lhr;
-
-    // Extract detailed metrics
-    const desktopMetrics = extractDetailedMetrics(desktopLhr);
-    const mobileMetrics = extractDetailedMetrics(mobileLhr);
-
-    // Compare mobile vs desktop for insights
-    const comparison = compareMetrics(desktopMetrics, mobileMetrics);
-
-    // Generate prioritized recommendations
-    const recommendations = generateRecommendations(desktopLhr, mobileLhr);
-
-    // Calculate comprehensive website scores
-    const websiteScore = calculateWebsiteScore(desktopMetrics, mobileMetrics, technologies);
-
-    // Wrap Supabase operations in an async IIFE to ensure errors are caught
-    await (async () => {
-      // Upload desktop screenshot
-      const { error: desktopError } = await supabase.storage
-        .from('public')
-        .upload(desktopScreenshotPath, desktopScreenshot);
-
-      if (desktopError) {
-        logger.error('Failed to upload desktop screenshot:', desktopError);
-        throw new Error(`Storage Error: ${desktopError.message}`);
+      logger.error(`Error accessing URL ${url}:`, error);
+      await browser.close();
+      
+      // Clean up temp files
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (e) {}
+      
+      if (jobOptions.validateOnly) {
+        return { valid: false, error: 'URL could not be accessed' };
+      } else {
+        throw new Error(`URL validation failed: ${error.message}`);
       }
+    }
 
-      // Upload mobile screenshot
-      const { error: mobileError } = await supabase.storage
-        .from('public')
-        .upload(mobileScreenshotPath, mobileScreenshot);
-
-      if (mobileError) {
-        logger.error('Failed to upload mobile screenshot:', mobileError);
-        throw new Error(`Storage Error: ${mobileError.message}`);
+    // 2. Take screenshots if requested
+    if (jobOptions.takeScreenshots) {
+      logger.info('Taking desktop screenshot');
+      await page.screenshot({ path: desktopScreenshotPath, fullPage: true });
+      
+      // Mobile viewport
+      await page.setViewport({ width: 375, height: 667, isMobile: true });
+      logger.info('Taking mobile screenshot');
+      await page.screenshot({ path: mobileScreenshotPath, fullPage: true });
+      
+      // Upload screenshots to storage
+      desktopScreenshotUrl = await uploadScreenshot(businessId, 'desktop', desktopScreenshotPath);
+      mobileScreenshotUrl = await uploadScreenshot(businessId, 'mobile', mobileScreenshotPath);
+      
+      if (!desktopScreenshotUrl || !mobileScreenshotUrl) {
+        logger.warn('Failed to upload one or more screenshots');
       }
+    }
 
-      // Update business record with enhanced details
-      const { error: updateError } = await supabase
-        .from('businesses')
-        .update({
-          scores: {
-            performance: websiteScore.performance,
-            accessibility: websiteScore.accessibility,
-            bestPractices: websiteScore.bestPractices,
-            seo: websiteScore.seo,
-            mobile: websiteScore.mobile,
-            technical: websiteScore.technical
-          },
-          overall_score: websiteScore.overall,
-          detailed_metrics: {
-            desktop: desktopMetrics,
-            mobile: mobileMetrics
-          },
-          device_comparison: comparison,
-          desktopScreenshot: desktopScreenshotPath,
-          mobileScreenshot: mobileScreenshotPath,
-          auditDate: new Date().toISOString(),
-          audit_status: 'completed',
-          url_validation: urlValidation,
-          technologies,
-          final_url: finalUrl,
-          suggestedImprovements: recommendations.map((rec: Recommendation) => ({
-            title: rec.title,
-            description: rec.description,
-            impact: rec.impact,
-            category: rec.category
-          }))
-        })
-        .eq('id', businessId);
-
-      if (updateError) {
-        logger.error('Failed to update business record:', updateError);
-        throw new Error(`Database Error: ${updateError.message}`);
-      }
-
-      // Store the full audit data in a separate table for historical tracking
-      const { error: auditError } = await supabase
-        .from('website_audits')
-        .insert({
-          business_id: businessId,
-          audit_date: new Date().toISOString(),
-          url: finalUrl,
-          original_url: url,
-          scores: {
-            performance: websiteScore.performance,
-            accessibility: websiteScore.accessibility,
-            bestPractices: websiteScore.bestPractices,
-            seo: websiteScore.seo,
-            mobile: websiteScore.mobile,
-            technical: websiteScore.technical
-          },
-          overall_score: websiteScore.overall,
-          desktop_metrics: desktopMetrics,
-          mobile_metrics: mobileMetrics,
-          device_comparison: comparison,
-          recommendations,
-          technologies,
-          url_validation: urlValidation
+    // 3. Run Lighthouse if requested
+    if (jobOptions.runLighthouse) {
+      logger.info('Running Lighthouse audit');
+      try {
+        lighthouseResults = await runLighthouse(url, {
+          onlyCategories: ['performance', 'accessibility', 'best-practices', 'seo'],
+          formFactor: 'desktop',
+          throttling: { cpuSlowdownMultiplier: 1 },
         });
-
-      if (auditError) {
-        logger.warn('Failed to store audit history record:', auditError);
-        // Don't fail the whole job for this non-critical operation
+        
+        if (lighthouseResults && lighthouseResults.lhr) {
+          // Extract scores
+          scores.performance = Math.round(lighthouseResults.lhr.categories.performance.score * 100);
+          scores.accessibility = Math.round(lighthouseResults.lhr.categories.accessibility.score * 100);
+          scores.bestPractices = Math.round(lighthouseResults.lhr.categories['best-practices'].score * 100);
+          scores.seo = Math.round(lighthouseResults.lhr.categories.seo.score * 100);
+        }
+      } catch (error) {
+        logger.error('Lighthouse audit failed:', error);
       }
-    })();
+    }
 
-    // Return results
-    return { 
-      scores: {
-        performance: websiteScore.performance,
-        accessibility: websiteScore.accessibility,
-        bestPractices: websiteScore.bestPractices,
-        seo: websiteScore.seo,
-        mobile: websiteScore.mobile,
-        technical: websiteScore.technical
+    // 4. Detect technologies if requested
+    if (jobOptions.detectTechnologies) {
+      logger.info('Detecting technologies');
+      technologies = await detectTechnologies(url);
+      
+      // Calculate technical score based on technologies
+      if (technologies) {
+        scores.technical = calculateTechnicalScore(technologies);
+      }
+    }
+
+    // 5. Calculate mobile score
+    if (lighthouseResults && lighthouseResults.lhr) {
+      // Run a mobile Lighthouse test
+      try {
+        const mobileLighthouse = await runLighthouse(url, {
+          onlyCategories: ['performance'],
+          formFactor: 'mobile',
+          throttling: {
+            cpuSlowdownMultiplier: 4,
+            rttMs: 150,
+            throughputKbps: 1600,
+          },
+        });
+        
+        if (mobileLighthouse && mobileLighthouse.lhr) {
+          scores.mobile = Math.round(mobileLighthouse.lhr.categories.performance.score * 100);
+        }
+      } catch (error) {
+        logger.error('Mobile Lighthouse audit failed:', error);
+        scores.mobile = Math.round(scores.performance * 0.7); // Fallback approximation
+      }
+    }
+
+    // 6. Calculate overall score
+    scores.overall = calculateOverallScore(scores);
+
+    // 7. Generate recommendations
+    const recommendations = generateRecommendations(scores, lighthouseResults, technologies);
+
+    // 8. Save results to the database
+    const auditData = {
+      businessId,
+      url,
+      scores,
+      lighthouseData: lighthouseResults ? lighthouseResults.lhr : null,
+      technologies,
+      screenshots: {
+        desktop: desktopScreenshotUrl,
+        mobile: mobileScreenshotUrl,
       },
-      overallScore: websiteScore.overall,
-      desktopMetrics,
-      mobileMetrics,
-      comparison,
-      recommendationsCount: recommendations.length,
-      technologiesCount: technologies.length,
-      url: finalUrl
+      recommendations,
     };
 
-  } catch (error) {
-    logger.error('Website audit failed:', error);
-    
-    // Update business record with error
-    await supabase
-      .from('businesses')
-      .update({
-        auditDate: new Date().toISOString(),
-        audit_status: 'failed',
-        audit_error: error instanceof Error ? error.message : 'Unknown error',
-        url_validation: urlValidation
-      })
-      .eq('id', businessId);
-    
-    // Handle retry logic for recoverable errors
-    const MAX_RETRIES = 2;
-    if (retryCount < MAX_RETRIES) {
-      return {
-        shouldRetry: true,
-        retryCount: retryCount + 1,
-        error: error instanceof Error ? error.message : 'Unknown error'
+    // If validate only, return without saving
+    if (jobOptions.validateOnly) {
+      await browser.close();
+      
+      // Clean up temp files
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (e) {}
+      
+      return { 
+        valid: true, 
+        url,
+        scores,
+        screenshots: {
+          desktop: desktopScreenshotUrl,
+          mobile: mobileScreenshotUrl,
+        }
       };
     }
-    
-    // If max retries exceeded
-    return {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      url: finalUrl
-    };
-  } finally {
-    // Ensure browser is closed
+
+    // Save data to database
+    const savedAudit = await saveAuditResults(auditData);
+    logger.info(`Audit completed and saved for business ${businessId}`);
+
     await browser.close();
+    
+    // Clean up temp files
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (e) {}
+    
+    return savedAudit;
+  } catch (error) {
+    logger.error(`Error processing website audit for ${url}:`, error);
+    
+    // Ensure browser is closed
+    if (browser) {
+      await browser.close();
+    }
+    
+    // Clean up temp files
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (e) {}
+    
+    throw error;
   }
-} 
+};
+
+/**
+ * Calculate technical score based on detected technologies
+ */
+function calculateTechnicalScore(technologies: any): number {
+  // This is a placeholder for a more sophisticated scoring algorithm
+  let score = 50; // Default score
+  
+  // Adjust score based on technologies
+  if (technologies.cms) {
+    // Modern CMS gets higher score
+    const modernCMS = ['wordpress', 'shopify', 'wix'];
+    if (modernCMS.includes(technologies.cms.toLowerCase())) {
+      score += 10;
+    }
+  }
+  
+  // Adjust for JavaScript frameworks
+  if (technologies.frameworks && technologies.frameworks.length > 0) {
+    const modernFrameworks = ['react', 'vue', 'angular', 'next.js', 'gatsby'];
+    const hasModernFramework = technologies.frameworks.some(
+      (f: any) => modernFrameworks.includes(f.toLowerCase())
+    );
+    
+    if (hasModernFramework) {
+      score += 15;
+    }
+  }
+  
+  // Adjust for analytics
+  if (technologies.analytics && technologies.analytics.length > 0) {
+    score += 5;
+  }
+  
+  // Cap the score at 100
+  return Math.min(100, Math.max(0, score));
+}
+
+/**
+ * Calculate overall score based on individual scores
+ */
+function calculateOverallScore(scores: any): number {
+  // Weighted average of all scores
+  const weights = {
+    performance: 0.3,
+    accessibility: 0.2,
+    seo: 0.2,
+    bestPractices: 0.1,
+    mobile: 0.1,
+    technical: 0.1,
+  };
+  
+  let overallScore = 0;
+  let totalWeight = 0;
+  
+  for (const [key, weight] of Object.entries(weights)) {
+    if (scores[key] !== undefined && scores[key] !== null) {
+      overallScore += scores[key] * (weight as number);
+      totalWeight += weight as number;
+    }
+  }
+  
+  // Normalize if not all scores are available
+  if (totalWeight > 0) {
+    overallScore = overallScore / totalWeight;
+  }
+  
+  return Math.round(overallScore);
+}
+
+/**
+ * Generate recommendations based on audit results
+ */
+function generateRecommendations(
+  scores: any,
+  lighthouseResults: any,
+  technologies: any
+): string[] {
+  const recommendations: string[] = [];
+  
+  // Performance recommendations
+  if (scores.performance < 70) {
+    recommendations.push('Optimize images and reduce unused JavaScript to improve page load times.');
+    recommendations.push('Consider implementing lazy loading for images and videos.');
+  }
+  
+  // Accessibility recommendations
+  if (scores.accessibility < 70) {
+    recommendations.push('Improve accessibility by adding proper alt text to images and ensuring proper contrast ratios.');
+    recommendations.push('Make sure all interactive elements are keyboard accessible.');
+  }
+  
+  // SEO recommendations
+  if (scores.seo < 70) {
+    recommendations.push('Improve SEO by adding meta descriptions and appropriate title tags.');
+    recommendations.push('Ensure content is properly structured with heading tags (h1, h2, etc.).');
+  }
+  
+  // Mobile recommendations
+  if (scores.mobile < 70) {
+    recommendations.push('Optimize for mobile by using responsive design principles.');
+    recommendations.push('Ensure touch targets are appropriately sized for mobile users.');
+  }
+  
+  // Technical recommendations
+  if (scores.technical < 70) {
+    recommendations.push('Consider using modern web technologies or frameworks to improve site functionality.');
+    recommendations.push('Implement proper analytics to track user behavior and site performance.');
+  }
+  
+  // Use Lighthouse audit data for more specific recommendations
+  if (lighthouseResults && lighthouseResults.lhr && lighthouseResults.lhr.audits) {
+    const audits = lighthouseResults.lhr.audits;
+    
+    // Check for specific issues
+    if (audits['render-blocking-resources'] && audits['render-blocking-resources'].score < 0.9) {
+      recommendations.push('Eliminate render-blocking resources to improve page load performance.');
+    }
+    
+    if (audits['unminified-css'] && audits['unminified-css'].score < 0.9) {
+      recommendations.push('Minify CSS files to reduce file size and improve load times.');
+    }
+    
+    if (audits['unminified-javascript'] && audits['unminified-javascript'].score < 0.9) {
+      recommendations.push('Minify JavaScript files to reduce file size and improve load times.');
+    }
+    
+    if (audits['uses-responsive-images'] && audits['uses-responsive-images'].score < 0.9) {
+      recommendations.push('Use responsive images to improve mobile performance and reduce data usage.');
+    }
+  }
+  
+  return recommendations;
+}

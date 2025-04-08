@@ -1,19 +1,17 @@
+
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files and install dependencies
+# Install dependencies
 COPY package*.json ./
 RUN npm ci
 
-# Copy application code
+# Copy source code
 COPY . .
 
-# Build TypeScript code
-RUN npm run build
-
-# Expose API port
+# Expose port
 EXPOSE 3001
 
 # Start the service
-CMD ["node", "dist/index.js"] 
+CMD ["npm", "run", "dev"]
