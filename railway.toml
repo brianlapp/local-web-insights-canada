@@ -5,7 +5,7 @@ rootDirectory = "services/scraper"
 
 [deploy]
 rootDirectory = "services/scraper"
-restartPolicyType = "on-failure"
+restartPolicyType = "ON_FAILURE"
 
 [variables]
 NODE_ENV = "production" 
