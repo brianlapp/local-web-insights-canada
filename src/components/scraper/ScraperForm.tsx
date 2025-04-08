@@ -25,7 +25,7 @@ const ScraperForm: React.FC<ScraperFormProps> = ({
 }) => {
   // Calculate progress as a percentage based on business count
   // For simplicity we'll use a mock progression that shows some movement
-  const progressValue = currentJob ? Math.min(45, currentJob.businessesFound * 2) : 0;
+  const progressValue = currentJob ? Math.min(45, currentJob.businessesfound * 2) : 0;
   
   return (
     <Card>
@@ -73,7 +73,7 @@ const ScraperForm: React.FC<ScraperFormProps> = ({
               <div className="space-y-1">
                 <div className="flex justify-between text-sm">
                   <span>Businesses found:</span>
-                  <span>{currentJob.businessesFound || 0}</span>
+                  <span>{currentJob.businessesfound || 0}</span>
                 </div>
                 <Progress value={progressValue} className="h-2" />
               </div>

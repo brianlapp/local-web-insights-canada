@@ -42,7 +42,7 @@ export const startScraper = async (location: string): Promise<ScraperJob> => {
     .insert({
       status: 'running' as const,
       location,
-      businessesFound: 0
+      businessesfound: 0
     })
     .select()
     .single();

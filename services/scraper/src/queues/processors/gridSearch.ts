@@ -1,3 +1,4 @@
+
 import { Job } from 'bull';
 import { logger } from '../../utils/logger';
 import { getSupabaseClient } from '../../utils/database';
@@ -58,7 +59,7 @@ export async function processGridSearch(job: Job) {
           await supabase
             .from('scraper_runs')
             .update({ 
-              businessesFound: supabase.rpc('increment_counter', { row_id: jobId, count: 1 })
+              businessesfound: supabase.rpc('increment_counter', { row_id: jobId, count: 1 })
             })
             .eq('id', jobId);
         }
@@ -73,7 +74,7 @@ export async function processGridSearch(job: Job) {
         .from('scraper_runs')
         .update({ 
           status: 'completed',
-          businessesFound: businesses.length
+          businessesfound: businesses.length
         })
         .eq('id', jobId);
     }

@@ -32,7 +32,7 @@ export type Tables = {
     id: string;
     status: 'pending' | 'running' | 'completed' | 'failed';
     location: string;
-    businessesFound: number;
+    businessesfound: number;
     error?: string;
     created_at: string;
     updated_at: string;
@@ -148,7 +148,6 @@ export type Tables = {
     created_at: string;
     updated_at: string;
   };
-  // Keep any existing tables not modified in our migration
   audits: {
     id?: string;
     business_slug: string;

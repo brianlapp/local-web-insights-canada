@@ -54,7 +54,7 @@ const JobList: React.FC<JobListProps> = ({
                 
                 <div className="mt-2">
                   <p className="text-sm">
-                    Businesses found: {job.businessesFound || 0}
+                    Businesses found: {job.businessesfound || 0}
                   </p>
                   {job.error && (
                     <p className="text-sm text-red-500 mt-1">
