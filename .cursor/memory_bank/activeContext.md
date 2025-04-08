@@ -1,85 +1,80 @@
 
 # Active Context: Local Web Insights Canada
 
-## Current Focus: Production Build Testing & Data Pipeline Implementation
+## Current Focus: Railway Deployment & Production Configuration
 
-We've successfully implemented Supabase storage for screenshots and fixed the Lighthouse integration issues. Our immediate focus is now on testing the production build to ensure it works correctly before full deployment, and implementing the data processing pipeline.
+We've successfully configured the Railway deployment for the scraper service. Our immediate focus is now on deploying the service, setting up Redis, and completing the integration with the frontend application.
 
 ## Recent Changes
 
-1. **Supabase Storage Implementation**
-   - Created storage buckets for screenshots
-   - Implemented file upload functionality
-   - Added support for both Supabase and GCS storage
-   - Updated Docker environment configuration
-   - Modified the website audit processor to handle the new storage system
+1. **Railway Deployment Configuration**
+   - Created railway.toml configuration file for the scraper service
+   - Set up build and deploy commands
+   - Configured environment variables
+   - Added health check endpoint
+   - Prepared for production deployment
 
-2. **Production Dockerfile Creation**
-   - Created a production-ready Dockerfile for the scraper service
-   - Implemented proper TypeScript build process
-   - Added clean-up steps to reduce image size
-   - Configured for running in production mode
+2. **Scraper Service Health Check**
+   - Implemented `/api/health` endpoint
+   - Added proper health check configuration
+   - Set appropriate timeout values
 
-3. **Lighthouse Integration Fix**
-   - Created a compatibility wrapper to handle ESM/CommonJS module differences
-   - Implemented dynamic import with fallback to CommonJS require
-   - Added comprehensive logging for debugging
-   - Successfully tested Lighthouse audit functionality
-
-4. **Docker Configuration**
-   - Fixed ARM architecture compatibility by using the pre-built Puppeteer Docker image
-   - Added proper user permissions with `--chown=pptruser:pptruser`
-   - Configured the scraper to run in development mode
-   - Successfully tested job queuing and processing
+3. **Production Build Preparation**
+   - Configured production environment variables
+   - Set up service discovery mechanism
+   - Prepared for Redis integration in production
 
 ## Active Decisions
 
-### Production Build Testing
-- **Development vs Production**:
-  - Development mode is currently working with ts-node-dev
-  - Production build needs to compile TypeScript to JavaScript
-  - Need to verify proper module imports in the built code
-- **Performance Considerations**:
-  - Production mode should have better performance
-  - Need to ensure proper error handling
-  - Memory usage should be monitored
-- **Decision**: Will build and test the production image to verify both functionality and performance
+### Railway Deployment Strategy
+- **Configuration Approach**:
+  - Using Config as Code (railway.toml) for reproducible deployments
+  - Environment variables defined in configuration file
+  - Health check properly configured
+- **Service Dependencies**:
+  - Need to add Redis service in Railway
+  - Need to configure environment variables in Railway dashboard
+  - Need to link services together
+- **Decision**: Will deploy scraper service first, then add Redis, and finally update frontend configuration
 
-### Data Processing Pipeline
-- **Current Process**:
-  - Raw business data is collected but needs further processing
-  - ETL processes need to be implemented for data normalization
-  - Error handling and recovery mechanisms need to be created
-  - Monitoring system for job status is required
+### Frontend Integration Strategy
+- **Current Integration**:
+  - Frontend currently configured to use local development endpoints
+  - Need to update to use deployed services
+  - Proxy configuration needs to be updated in vite.config.ts
 - **Technical Considerations**:
-  - Need to implement retry mechanisms for failed jobs
-  - Need to add metrics collection for performance monitoring
-  - Data integrity checks are required
-- **Decision**: Will implement the data processing pipeline with robust error handling and recovery mechanisms
+  - Need to handle CORS properly
+  - Authentication tokens need to be forwarded
+  - Need to ensure proper error handling
+- **Decision**: Will update vite.config.ts with deployed service URL after deployment
 
 ## Immediate Next Steps
 
-1. **Test Production Build**
-   - Build using the new Dockerfile.production
-   - Verify TypeScript compilation works correctly
-   - Test running the built image
-   - Monitor performance and resource usage
+1. **Deploy Scraper Service to Railway**
+   - Push code with railway.toml to repository
+   - Deploy using Railway dashboard or CLI
+   - Verify health check is working
 
-2. **Implement Data Processing Pipeline**
+2. **Add Redis Service in Railway**
+   - Create Redis service in Railway dashboard
+   - Link Redis to scraper service
+   - Verify REDIS_URL is correctly injected
+
+3. **Update Frontend Configuration**
+   - Get deployed service URL
+   - Update vite.config.ts proxy configuration
+   - Test end-to-end functionality
+   
+4. **Implement Data Processing Pipeline**
    - Create ETL processes for raw data
    - Implement error handling and recovery
    - Build monitoring system for job status
    - Add metrics collection for performance monitoring
 
-3. **Complete End-to-End Testing**
-   - Test full scraper functionality in production mode
-   - Validate audit results
-   - Verify data and screenshot storage in Supabase
-   - Monitor for any performance issues
-
 ## Open Questions
 
-1. What metrics should we collect to monitor the scraper's performance in production?
-2. How should we handle error recovery for failed jobs in production?
-3. What's the most efficient way to process large batches of raw business data?
-4. Should we implement auto-scaling for the scraper service based on queue length?
+1. How should we handle rate limiting in the production environment?
+2. What monitoring metrics should we implement for the deployed service?
+3. How should we handle automatic scaling for the scraper service?
+4. What backup strategy should we implement for the Redis queue?
+
