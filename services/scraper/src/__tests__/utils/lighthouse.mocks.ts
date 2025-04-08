@@ -1,3 +1,4 @@
+// Using type-only imports to avoid module system issues
 import type { RunnerResult, Artifacts } from 'lighthouse';
 import type { Result } from 'lighthouse';
 import type { ConfigSettings, ThrottlingSettings, ScreenEmulationSettings } from 'lighthouse/types/lhr/settings';

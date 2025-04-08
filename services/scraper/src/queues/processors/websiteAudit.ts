@@ -14,9 +14,10 @@ import {
 import { validateUrl, UrlValidationResult } from '../../utils/urlValidator';
 import { detectTechnologies, TechnologyCategory } from '../../utils/techDetector';
 import { calculateWebsiteScore, WebsiteScore } from '../../utils/scoreCalculator';
+import { runLighthouse } from '../../utils/lighthouseWrapper';
 
-// Keep CJS require for compatibility
-const lighthouse = require('lighthouse');
+// Remove direct require since we're using the wrapper now
+// const lighthouse = require('lighthouse');
 
 const supabase = createClient(
   process.env.SUPABASE_URL as string,
@@ -158,7 +159,7 @@ export async function processWebsiteAudit(job: Job<WebsiteAuditJobData>) {
     // Run Lighthouse for desktop
     let desktopLighthouseResult: RunnerResult | undefined;
     try {
-      desktopLighthouseResult = await lighthouse(finalUrl, {
+      desktopLighthouseResult = await runLighthouse(finalUrl, {
         port: Number((new URL(browser.wsEndpoint())).port),
         output: 'json',
         logLevel: 'error',
@@ -202,7 +203,7 @@ export async function processWebsiteAudit(job: Job<WebsiteAuditJobData>) {
     // Run Lighthouse for mobile
     let mobileLighthouseResult: RunnerResult | undefined;
     try {
-      mobileLighthouseResult = await lighthouse(finalUrl, {
+      mobileLighthouseResult = await runLighthouse(finalUrl, {
         port: Number((new URL(browser.wsEndpoint())).port),
         output: 'json',
         logLevel: 'error',

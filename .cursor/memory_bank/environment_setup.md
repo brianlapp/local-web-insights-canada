@@ -69,6 +69,38 @@ If you prefer to set up manually, create `.env` files for each service based on 
 - **API Service**: `services/api/.env`
 - **Analysis Service**: `services/analysis/.env`
 
+## Docker Environment Setup
+
+The project uses Docker and Docker Compose for containerization and easy deployment. Key files:
+
+1. **docker-compose.yml**: Defines the services needed for the application
+   - Redis service
+   - Scraper service
+
+2. **Environment Files**:
+   - `services/.env`: Primary environment variables for Docker Compose
+   - `services/scraper/.env`: Specific environment variables for the scraper service
+
+3. **Docker Build Considerations**:
+   - ARM Architecture (M1/M2 Mac): Requires special handling for Chrome installation
+   - AMD64 Architecture: Standard Chrome installation works as expected
+
+4. **Docker Commands**:
+   ```bash
+   # Build and start all services
+   docker-compose up --build -d
+   
+   # Start only Redis service
+   docker-compose up redis -d
+   
+   # Check running containers
+   docker-compose ps
+   ```
+
+5. **Known Issues**:
+   - Chrome installation fails on ARM architecture (M1/M2 Mac)
+   - Potential fix: Use `--platform=linux/amd64` in the Dockerfile or docker-compose.yml
+
 ## Scraper Service Configuration
 
 Key environment variables for the scraper service:
@@ -171,6 +203,16 @@ API_SERVICE_URL=http://localhost:4000
 4. **Monitor usage** to prevent unexpected charges
 5. **Use multiple API keys** with the rotation system for higher quotas
 
+## Staging Environment
+
+The staging environment is available at:
+- **URL**: [https://local-web-insights-canada.lovable.app/](https://local-web-insights-canada.lovable.app/)
+
+### Staging Configuration:
+- Full Supabase integration
+- API services are deployed
+- Used for testing before production deployment
+
 ## Troubleshooting
 
 ### Common Issues
@@ -191,4 +233,6 @@ API_SERVICE_URL=http://localhost:4000
 4. **Service Communication Errors**:
    - Ensure all services are running
    - Check the service URLs in .env files
+   - Verify internal API keys match across services
+
    - Verify internal API keys match across services 

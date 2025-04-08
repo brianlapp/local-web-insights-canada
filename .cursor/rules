@@ -274,4 +274,66 @@ Learn --> Apply
 
 The format is flexible - focus on capturing valuable insights that help me work more effectively with you and the project. Think of .cursor/rules as a living document that grows smarter as we work together.
 
-REMEMBER: After every memory reset, I begin completely fresh. The Memory Bank is my only link to previous work. It must be maintained with precision and clarity, as my effectiveness depends entirely on its accuracy.
+REMEMBER: After every memory reset, I begin completely fresh. The Memory Bank is my only link to previous work. It must be maintained with precision and clarity, as my effectiveness depends entirely on its accuracy. Important: try to fix things at the cause, not the symptom. e very detailed with summarization and do not miss out things that are important
+
+---
+
+description: Project-specific intelligence for Local Web Insights Canada
+
+globs:
+
+alwaysApply: true
+
+---
+
+# Local Web Insights Canada - Project Intelligence
+
+## Key Project Priorities
+
+1. **Business Scraper Tool Functionality**
+   - The business scraper is the core engine of the site and the top priority
+   - Without the scraper functioning, the site is essentially useless
+   - Current focus is on fixing Lighthouse integration and implementing production build
+
+2. **Staging Environment**
+   - Staging is already set up and available at https://local-web-insights-canada.lovable.app/
+   - No need to set up additional staging environments
+
+3. **Core Architecture**
+   - The project uses a microservices architecture with Docker
+   - Services include: API service, Scraper service, Redis for queueing
+
+## Workflow Patterns
+
+1. **Development Approach**
+   - Focus on getting core functionality working first
+   - Prioritize the scraper engine as the "brains" of the application
+   - Fix issues at their root cause rather than adding workarounds
+
+2. **Environment Variables**
+   - Environment variables are managed in `.env` files
+   - Docker services use `env_file:` directive to load environment files
+   - Critical variables include Google Maps API keys and Supabase credentials
+
+3. **Docker Configuration**
+   - Docker is used for containerization and deployment
+   - Development is being done on M1/M2 Mac (ARM architecture)
+   - Using pre-built Puppeteer Docker image for Chrome compatibility
+   - Currently running in development mode with ts-node-dev
+
+## Known Challenges
+
+1. **Module Compatibility Issues**
+   - Lighthouse has ESM vs CommonJS module import issues
+   - Error: "lighthouse is not a function" when running in development mode
+   - Need solution for proper module imports in TypeScript
+
+2. **Development vs Production Mode**
+   - Currently running in development mode for quick iteration
+   - Need to implement production build process for performance
+   - Need to resolve TypeScript build issues with module imports
+
+3. **Environment Variable Access**
+   - Services need proper environment variable configuration
+   - Docker-compose and individual services have separate env files
+   - Correct path mapping in docker-compose.yml is essential
