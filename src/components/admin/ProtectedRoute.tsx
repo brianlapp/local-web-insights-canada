@@ -1,6 +1,8 @@
+
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAdminAuth } from '@/providers/AdminAuthProvider'
 import { Loader2 } from 'lucide-react'
+import { useAdminSession } from '@/hooks/useAdminSession'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -8,9 +10,10 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { session, loading } = useAdminAuth()
+  const { isReady } = useAdminSession()
   const location = useLocation()
 
-  if (loading) {
+  if (loading || !isReady) {
     return (
       <div className="flex h-screen w-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
@@ -24,4 +27,4 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   return <>{children}</>
-} 
+}

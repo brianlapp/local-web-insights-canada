@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Session } from '@supabase/supabase-js'
@@ -98,4 +99,4 @@ export const useAdminAuth = () => {
     throw new Error('useAdminAuth must be used within an AdminAuthProvider')
   }
   return context
-} 
+}

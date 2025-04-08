@@ -13,7 +13,10 @@ export const fetchRecentBusinesses = async (): Promise<Business[]> => {
     .order('created_at', { ascending: false })
     .limit(10);
 
-  if (error) throw error;
+  if (error) {
+    console.error('Error fetching businesses:', error);
+    throw error;
+  }
   return data || [];
 };
 
@@ -25,7 +28,10 @@ export const fetchRecentJobs = async (): Promise<{jobs: ScraperJob[], currentJob
     .order('created_at', { ascending: false })
     .limit(5);
 
-  if (error) throw error;
+  if (error) {
+    console.error('Error fetching scraper jobs:', error);
+    throw error;
+  }
   
   const runningJob = data?.find(job => job.status === 'running') || null;
   
@@ -37,6 +43,13 @@ export const fetchRecentJobs = async (): Promise<{jobs: ScraperJob[], currentJob
 
 // Start a new scraper job
 export const startScraper = async (location: string): Promise<ScraperJob> => {
+  // First, check if we have an active session
+  const { data: sessionData } = await supabase.auth.getSession();
+  
+  if (!sessionData.session) {
+    throw new Error('Authentication required to start scraper');
+  }
+
   const { data, error } = await supabase
     .from('scraper_runs')
     .insert({
@@ -47,13 +60,17 @@ export const startScraper = async (location: string): Promise<ScraperJob> => {
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('Error starting scraper job:', error);
+    throw error;
+  }
   
   if (data) {
     const response = await fetch('/api/scraper/start', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${sessionData.session.access_token}`
       },
       body: JSON.stringify({
         location,
@@ -72,10 +89,18 @@ export const startScraper = async (location: string): Promise<ScraperJob> => {
 
 // Run a website audit for a business
 export const runWebsiteAudit = async (businessId: string, website: string): Promise<void> => {
+  // First, check if we have an active session
+  const { data: sessionData } = await supabase.auth.getSession();
+  
+  if (!sessionData.session) {
+    throw new Error('Authentication required to run website audit');
+  }
+
   const response = await fetch('/api/scraper/audit', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${sessionData.session.access_token}`
     },
     body: JSON.stringify({
       businessId,
