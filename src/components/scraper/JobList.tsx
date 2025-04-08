@@ -5,9 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, RefreshCw } from 'lucide-react';
-import { Tables } from '@/integrations/supabase/schema';
-
-type ScraperJob = Tables['scraper_runs'];
+import { ScraperJob } from '@/services/scraperService';
 
 interface JobListProps {
   jobs: ScraperJob[];

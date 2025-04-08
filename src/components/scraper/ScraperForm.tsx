@@ -1,14 +1,12 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Search, RefreshCw } from 'lucide-react';
-import { Tables } from '@/integrations/supabase/schema';
-
-type ScraperJob = Tables['scraper_runs'];
+import { ScraperJob } from '@/services/scraperService';
 
 interface ScraperFormProps {
   currentJob: ScraperJob | null;
@@ -25,6 +23,10 @@ const ScraperForm: React.FC<ScraperFormProps> = ({
   onStartScraper,
   onRefreshJobs
 }) => {
+  // Calculate progress as a percentage based on business count
+  // For simplicity we'll use a mock progression that shows some movement
+  const progressValue = currentJob ? Math.min(45, currentJob.businessesFound * 2) : 0;
+  
   return (
     <Card>
       <CardHeader>
@@ -73,7 +75,7 @@ const ScraperForm: React.FC<ScraperFormProps> = ({
                   <span>Businesses found:</span>
                   <span>{currentJob.businessesFound || 0}</span>
                 </div>
-                <Progress value={45} className="h-2" />
+                <Progress value={progressValue} className="h-2" />
               </div>
             </div>
           )}

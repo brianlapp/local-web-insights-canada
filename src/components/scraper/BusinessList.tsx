@@ -4,10 +4,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, RefreshCw } from 'lucide-react';
-import { Tables } from '@/integrations/supabase/schema';
-
-type Business = Tables['businesses'];
+import { ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
+import { Business } from '@/services/scraperService';
 
 interface BusinessListProps {
   businesses: Business[];
@@ -25,9 +23,9 @@ const BusinessList: React.FC<BusinessListProps> = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Recent Businesses</CardTitle>
+        <CardTitle>Recently Discovered Businesses</CardTitle>
         <CardDescription>
-          Recently discovered businesses
+          Businesses found by the scraper
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -36,45 +34,67 @@ const BusinessList: React.FC<BusinessListProps> = ({
             {businesses.map((business) => (
               <div 
                 key={business.id} 
-                className="p-4 border rounded-md space-y-2"
+                className="p-4 border rounded-md"
               >
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-medium">{business.name}</h3>
-                    <p className="text-sm text-muted-foreground">{business.city}</p>
-                    {business.website && (
-                      <a 
-                        href={business.website} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-sm text-blue-600 hover:underline"
-                      >
-                        {business.website}
-                      </a>
+                    <p className="text-sm text-muted-foreground">
+                      {business.address || business.city || 'No location data'}
+                    </p>
+                    {business.category && (
+                      <Badge variant="outline" className="mt-1">
+                        {business.category}
+                      </Badge>
                     )}
                   </div>
                   <div className="text-right">
                     {business.scores?.overall ? (
-                      <Badge variant="outline">
-                        Score: {business.scores.overall}
-                      </Badge>
+                      <div className="text-sm">
+                        <span className="font-medium">Score: </span>
+                        <Badge 
+                          variant={
+                            business.scores.overall >= 80 ? 'default' :
+                            business.scores.overall >= 60 ? 'secondary' :
+                            'destructive'
+                          }
+                        >
+                          {business.scores.overall}
+                        </Badge>
+                      </div>
                     ) : (
-                      <Badge variant="outline" className="bg-amber-50">
-                        No Audit
-                      </Badge>
+                      <Badge variant="outline">Not audited</Badge>
                     )}
                   </div>
                 </div>
                 
-                <div className="flex justify-end space-x-2">
-                  <Button 
-                    size="sm" 
-                    variant="secondary"
-                    onClick={() => onRunAudit(business.id, business.website)}
-                    disabled={!business.website}
-                  >
-                    Run Audit
-                  </Button>
+                <div className="mt-3 flex justify-between items-center">
+                  <div className="text-sm">
+                    {business.website ? (
+                      <a 
+                        href={business.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center text-blue-500 hover:underline"
+                      >
+                        <ExternalLink className="h-3 w-3 mr-1" />
+                        Visit Website
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground">No website</span>
+                    )}
+                  </div>
+                  
+                  {business.website && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onRunAudit(business.id, business.website || '')}
+                      disabled={!business.website}
+                    >
+                      Run Website Audit
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
@@ -98,7 +118,7 @@ const BusinessList: React.FC<BusinessListProps> = ({
       <CardFooter>
         <Button variant="outline" className="w-full" onClick={onRefresh}>
           <RefreshCw className="mr-2 h-4 w-4" />
-          Refresh List
+          Refresh Businesses
         </Button>
       </CardFooter>
     </Card>

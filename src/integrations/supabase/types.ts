@@ -9,7 +9,461 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      analysis_reports: {
+        Row: {
+          chart_configs: Json | null
+          created_at: string | null
+          data: Json
+          description: string | null
+          filters: Json | null
+          id: string
+          name: string
+          report_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          chart_configs?: Json | null
+          created_at?: string | null
+          data: Json
+          description?: string | null
+          filters?: Json | null
+          id?: string
+          name: string
+          report_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          chart_configs?: Json | null
+          created_at?: string | null
+          data?: Json
+          description?: string | null
+          filters?: Json | null
+          id?: string
+          name?: string
+          report_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      audit_errors: {
+        Row: {
+          business_id: string | null
+          created_at: string | null
+          error: string
+          id: string
+          occurred_at: string | null
+          resolution_notes: string | null
+          resolved: boolean | null
+          updated_at: string | null
+          url: string
+        }
+        Insert: {
+          business_id?: string | null
+          created_at?: string | null
+          error: string
+          id?: string
+          occurred_at?: string | null
+          resolution_notes?: string | null
+          resolved?: boolean | null
+          updated_at?: string | null
+          url: string
+        }
+        Update: {
+          business_id?: string | null
+          created_at?: string | null
+          error?: string
+          id?: string
+          occurred_at?: string | null
+          resolution_notes?: string | null
+          resolved?: boolean | null
+          updated_at?: string | null
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_errors_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_comparisons: {
+        Row: {
+          analysis_date: string | null
+          business_id: string | null
+          comparison_data: Json
+          created_at: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          analysis_date?: string | null
+          business_id?: string | null
+          comparison_data: Json
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          analysis_date?: string | null
+          business_id?: string | null
+          comparison_data?: Json
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_comparisons_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      businesses: {
+        Row: {
+          address: string | null
+          audit_date: string | null
+          category: string | null
+          city: string | null
+          created_at: string | null
+          description: string | null
+          desktop_screenshot: string | null
+          external_id: string | null
+          id: string
+          image: string | null
+          is_upgraded: boolean | null
+          mobile_screenshot: string | null
+          name: string
+          phone: string | null
+          scores: Json | null
+          source_id: string | null
+          suggested_improvements: string[] | null
+          updated_at: string | null
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          audit_date?: string | null
+          category?: string | null
+          city?: string | null
+          created_at?: string | null
+          description?: string | null
+          desktop_screenshot?: string | null
+          external_id?: string | null
+          id?: string
+          image?: string | null
+          is_upgraded?: boolean | null
+          mobile_screenshot?: string | null
+          name: string
+          phone?: string | null
+          scores?: Json | null
+          source_id?: string | null
+          suggested_improvements?: string[] | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          audit_date?: string | null
+          category?: string | null
+          city?: string | null
+          created_at?: string | null
+          description?: string | null
+          desktop_screenshot?: string | null
+          external_id?: string | null
+          id?: string
+          image?: string | null
+          is_upgraded?: boolean | null
+          mobile_screenshot?: string | null
+          name?: string
+          phone?: string | null
+          scores?: Json | null
+          source_id?: string | null
+          suggested_improvements?: string[] | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
+      category_insights: {
+        Row: {
+          analysis_date: string | null
+          category: string
+          city: string | null
+          created_at: string | null
+          data: Json
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          analysis_date?: string | null
+          category: string
+          city?: string | null
+          created_at?: string | null
+          data: Json
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          analysis_date?: string | null
+          category?: string
+          city?: string | null
+          created_at?: string | null
+          data?: Json
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      geo_grids: {
+        Row: {
+          bounds: Json
+          city: string
+          created_at: string | null
+          id: string
+          last_scraped: string | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          bounds: Json
+          city: string
+          created_at?: string | null
+          id?: string
+          last_scraped?: string | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          bounds?: Json
+          city?: string
+          created_at?: string | null
+          id?: string
+          last_scraped?: string | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      geographic_insights: {
+        Row: {
+          analysis_date: string | null
+          created_at: string | null
+          data: Json
+          id: string
+          region: string
+          region_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          analysis_date?: string | null
+          created_at?: string | null
+          data: Json
+          id?: string
+          region: string
+          region_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          analysis_date?: string | null
+          created_at?: string | null
+          data?: Json
+          id?: string
+          region?: string
+          region_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      raw_business_data: {
+        Row: {
+          created_at: string | null
+          error: string | null
+          external_id: string
+          id: string
+          processed: boolean | null
+          raw_data: Json
+          source_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error?: string | null
+          external_id: string
+          id?: string
+          processed?: boolean | null
+          raw_data: Json
+          source_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error?: string | null
+          external_id?: string
+          id?: string
+          processed?: boolean | null
+          raw_data?: Json
+          source_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "raw_business_data_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "scraper_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scraper_runs: {
+        Row: {
+          businessesfound: number | null
+          created_at: string | null
+          error: string | null
+          id: string
+          location: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          businessesfound?: number | null
+          created_at?: string | null
+          error?: string | null
+          id?: string
+          location: string
+          status: string
+          updated_at?: string | null
+        }
+        Update: {
+          businessesfound?: number | null
+          created_at?: string | null
+          error?: string | null
+          id?: string
+          location?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      scraper_sources: {
+        Row: {
+          config: Json | null
+          created_at: string | null
+          enabled: boolean | null
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string | null
+          enabled?: boolean | null
+          id: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      user_profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          preferences: Json | null
+          role: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          first_name?: string | null
+          id: string
+          last_name?: string | null
+          preferences?: Json | null
+          role?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          preferences?: Json | null
+          role?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      website_audits: {
+        Row: {
+          audit_date: string | null
+          business_id: string | null
+          created_at: string | null
+          error: string | null
+          id: string
+          lighthouse_data: Json | null
+          recommendations: string[] | null
+          scores: Json
+          screenshots: Json | null
+          technology_stack: Json | null
+          updated_at: string | null
+          url: string
+        }
+        Insert: {
+          audit_date?: string | null
+          business_id?: string | null
+          created_at?: string | null
+          error?: string | null
+          id?: string
+          lighthouse_data?: Json | null
+          recommendations?: string[] | null
+          scores?: Json
+          screenshots?: Json | null
+          technology_stack?: Json | null
+          updated_at?: string | null
+          url: string
+        }
+        Update: {
+          audit_date?: string | null
+          business_id?: string | null
+          created_at?: string | null
+          error?: string | null
+          id?: string
+          lighthouse_data?: Json | null
+          recommendations?: string[] | null
+          scores?: Json
+          screenshots?: Json | null
+          technology_stack?: Json | null
+          updated_at?: string | null
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "website_audits_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
