@@ -40,6 +40,21 @@
 - User interface improvements
 - Documentation updates
 
+## Development Environment Strategy
+- **Lovable.dev** - Used for frontend development:
+  - UI component development and styling
+  - Frontend integration with backend APIs
+  - User experience testing and refinement
+  - Frontend build and deployment processes
+  - Frontend routing and state management
+
+- **Cursor** - Used for backend development:
+  - Scraper service development and deployment
+  - Database schema and migration management
+  - Environment configuration and Docker setup
+  - API service development and testing
+  - Redis configuration and job queue management
+
 ## Technical Debt
 - Add comprehensive test coverage
 - Implement proper rate limiting
@@ -79,6 +94,7 @@
 - Need to focus on API integration and frontend dashboard next
 - Consider implementing caching for analysis results
 - May need to optimize geographic calculations for larger datasets
+- We've established a clear division of work between Lovable.dev (frontend) and Cursor (backend)
 
 ## Completed Features
 - Admin Authentication

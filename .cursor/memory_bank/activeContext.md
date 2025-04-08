@@ -1,9 +1,29 @@
 
 # Active Context: Local Web Insights Canada
 
-## Current Focus: Railway Deployment & Production Configuration
+## Current Focus: Railway Deployment & Development Environment Strategy
 
 We've successfully configured the Railway deployment for the scraper service. Our immediate focus is now on deploying the service, setting up Redis, and completing the integration with the frontend application.
+
+## Development Environment Strategy
+
+We've established a clear division of responsibilities between development environments:
+
+1. **Lovable.dev** - Used for frontend development:
+   - UI component development and styling
+   - Frontend integration with backend APIs
+   - User experience testing and refinement
+   - Frontend build and deployment processes
+   - Frontend routing and state management
+
+2. **Cursor** - Used for backend development:
+   - Scraper service development and deployment
+   - Database schema and migration management
+   - Environment configuration and Docker setup
+   - API service development and testing
+   - Redis configuration and job queue management
+
+This approach allows us to leverage the strengths of each environment while maintaining a cohesive development workflow.
 
 ## Recent Changes
 
@@ -50,22 +70,22 @@ We've successfully configured the Railway deployment for the scraper service. Ou
 
 ## Immediate Next Steps
 
-1. **Deploy Scraper Service to Railway**
+1. **Deploy Scraper Service to Railway** (Cursor)
    - Push code with railway.toml to repository
    - Deploy using Railway dashboard or CLI
    - Verify health check is working
 
-2. **Add Redis Service in Railway**
+2. **Add Redis Service in Railway** (Cursor)
    - Create Redis service in Railway dashboard
    - Link Redis to scraper service
    - Verify REDIS_URL is correctly injected
 
-3. **Update Frontend Configuration**
+3. **Update Frontend Configuration** (Lovable.dev)
    - Get deployed service URL
    - Update vite.config.ts proxy configuration
    - Test end-to-end functionality
    
-4. **Implement Data Processing Pipeline**
+4. **Implement Data Processing Pipeline** (Cursor)
    - Create ETL processes for raw data
    - Implement error handling and recovery
    - Build monitoring system for job status
@@ -77,4 +97,3 @@ We've successfully configured the Railway deployment for the scraper service. Ou
 2. What monitoring metrics should we implement for the deployed service?
 3. How should we handle automatic scaling for the scraper service?
 4. What backup strategy should we implement for the Redis queue?
-

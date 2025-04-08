@@ -1,9 +1,37 @@
 
 # Action Plan: April 2025
 
+## Development Environment Allocation
+
+We've established a clear division of responsibilities between development environments:
+
+### Lovable.dev Tasks
+- Frontend UI component development
+- Integration with backend APIs
+- User experience refinement
+- Frontend routing and navigation
+- State management implementation
+- Frontend build optimization
+- Client-side validation and error handling
+
+### Cursor Tasks
+- Scraper service development and deployment
+- Railway configuration and deployment
+- Redis service setup and configuration
+- Database schema management
+- API endpoint implementation
+- Environment configuration
+- Docker setup and orchestration
+
+### Coordination Approach
+- Regular synchronization of API contracts
+- Shared documentation of endpoints
+- Consistent error handling patterns
+- Agreed authentication flow
+
 ## Current Action Items
 
-1. **Deploy Scraper Service to Railway**
+1. **Deploy Scraper Service to Railway** (Cursor)
    - **Description**: Push code with railway.toml and deploy the scraper service
    - **Tasks**:
      - [ ] Push updated code with railway.toml to repository
@@ -14,7 +42,7 @@
    - **Expected Timeline**: 1-2 days
    - **Success Criteria**: Service successfully deployed and health check passing
 
-2. **Set Up Redis in Railway**
+2. **Set Up Redis in Railway** (Cursor)
    - **Description**: Create Redis service and link it to the scraper service
    - **Tasks**:
      - [ ] Create Redis service from Railway dashboard
@@ -25,7 +53,7 @@
    - **Expected Timeline**: 1 day
    - **Success Criteria**: Redis service running and linked to scraper
 
-3. **Update Frontend Configuration**
+3. **Update Frontend Configuration** (Lovable.dev)
    - **Description**: Update frontend to use deployed scraper service
    - **Tasks**:
      - [ ] Get deployed service URL from Railway
@@ -36,7 +64,7 @@
    - **Expected Timeline**: 1 day
    - **Success Criteria**: Frontend successfully communicates with deployed service
 
-4. **Implement Data Processing Pipeline**
+4. **Implement Data Processing Pipeline** (Cursor)
    - **Description**: Create ETL processes for raw business data with error handling and monitoring
    - **Tasks**:
      - [ ] Design data normalization workflow
@@ -80,19 +108,19 @@
 
 ## Implementation Notes
 
-### Railway Deployment
+### Railway Deployment (Cursor)
 - Use `railway up` or the Railway dashboard to deploy the service
 - Set required environment variables in Railway dashboard
 - Monitor logs after deployment for any issues
 - Test health check endpoint immediately after deployment
 
-### Redis Setup
+### Redis Setup (Cursor)
 - Create Redis service from Railway dashboard
 - Use the "Add Service" button and select Redis
 - Link to scraper service using the Railway dashboard
 - Test connection using a simple job
 
-### Frontend Integration
+### Frontend Integration (Lovable.dev)
 - Update vite.config.ts with the deployed service URL
 - Keep local development proxy fallback for development
 - Test both development and production configurations
@@ -122,9 +150,8 @@
 
 ## Next Immediate Steps
 
-1. Push updated code with railway.toml to repository
-2. Deploy scraper service to Railway
-3. Verify health check endpoint is working
-4. Create and link Redis service in Railway
-5. Get deployed service URL and update frontend configuration
-
+1. Push updated code with railway.toml to repository (Cursor)
+2. Deploy scraper service to Railway (Cursor)
+3. Verify health check endpoint is working (Cursor)
+4. Create and link Redis service in Railway (Cursor)
+5. Get deployed service URL and update frontend configuration (Lovable.dev)
