@@ -1,7 +1,7 @@
 
 // Define Supabase database schema types
 
-export interface Tables {
+export type Tables = {
   businesses: {
     id: string;
     name: string;
@@ -64,7 +64,7 @@ export interface Tables {
   };
 }
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
       businesses: {
@@ -96,7 +96,7 @@ export interface Database {
 }
 
 // Types for mocking storage errors
-export interface StorageErrorMock {
+export type StorageErrorMock = {
   name: string;
   message: string;
   status?: number;

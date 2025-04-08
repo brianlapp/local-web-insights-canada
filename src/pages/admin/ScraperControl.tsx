@@ -12,9 +12,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { AlertCircle, Search, RefreshCw } from 'lucide-react';
 import { Tables } from '@/integrations/supabase/schema';
 
-interface Business extends Tables['businesses'] {}
-
-interface ScraperJob extends Tables['scraper_runs'] {}
+type Business = Tables['businesses'];
+type ScraperJob = Tables['scraper_runs'];
 
 export default function ScraperControl() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
