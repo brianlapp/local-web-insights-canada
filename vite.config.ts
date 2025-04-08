@@ -10,12 +10,12 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     proxy: {
-      // Forward all requests to /api/scraper to the scraper service
+      // Forward all requests to /api/scraper to the Railway-hosted scraper service
       '/api/scraper': {
-        target: 'http://localhost:3000',
+        target: 'https://local-web-insights-scraper.up.railway.app',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/scraper/, '/api'),
-        secure: false,
+        secure: true,
       },
     },
   },
