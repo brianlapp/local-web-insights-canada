@@ -1,5 +1,4 @@
 
-
 // Define Supabase database schema types
 
 export interface Tables {
@@ -24,6 +23,10 @@ export interface Tables {
     suggestedImprovements: string[];
     isUpgraded: boolean;
     auditDate: string;
+    created_at?: string;
+    source_id?: string;
+    external_id?: string;
+    phone?: string;
   };
   audits: {
     id?: string;
@@ -51,6 +54,14 @@ export interface Tables {
     message: string | null;
     created_at?: string;
   };
+  scraper_runs: {
+    id: string;
+    status: 'pending' | 'running' | 'completed' | 'failed';
+    location: string;
+    businessesFound?: number;
+    error?: string;
+    created_at: string;
+  };
 }
 
 export interface Database {
@@ -70,6 +81,11 @@ export interface Database {
         Row: Tables['petition_signatures'];
         Insert: Tables['petition_signatures'];
         Update: Partial<Tables['petition_signatures']>;
+      };
+      scraper_runs: {
+        Row: Tables['scraper_runs'];
+        Insert: Tables['scraper_runs'];
+        Update: Partial<Tables['scraper_runs']>;
       };
     };
     Views: {};

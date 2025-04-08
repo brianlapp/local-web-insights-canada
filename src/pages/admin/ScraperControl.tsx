@@ -122,34 +122,36 @@ export default function ScraperControl() {
         .single();
 
       if (error) throw error;
-
-      // Set the current job
-      setCurrentJob(data);
       
-      // Call the scraper API endpoint
-      const response = await fetch('/api/scraper/start', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          location,
-          jobId: data.id
-        }),
-      });
+      // Set the current job
+      if (data) {
+        setCurrentJob(data);
+        
+        // Call the scraper API endpoint
+        const response = await fetch('/api/scraper/start', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            location,
+            jobId: data.id
+          }),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to start scraper');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to start scraper');
+        }
+
+        toast({
+          title: 'Scraper started',
+          description: `Started scraping businesses in ${location}`,
+        });
+
+        // Refresh the job list
+        fetchJobs();
       }
-
-      toast({
-        title: 'Scraper started',
-        description: `Started scraping businesses in ${location}`,
-      });
-
-      // Refresh the job list
-      fetchJobs();
     } catch (error: any) {
       toast({
         title: 'Error starting scraper',

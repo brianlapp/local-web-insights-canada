@@ -22,3 +22,56 @@ BEGIN
   RETURN new_value;
 END;
 $$;
+
+-- Create the scraper_runs table if it doesn't exist
+CREATE TABLE IF NOT EXISTS scraper_runs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  status VARCHAR(50) NOT NULL, -- 'running', 'completed', 'failed'
+  location VARCHAR(255) NOT NULL,
+  businessesFound INTEGER DEFAULT 0,
+  error TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Ensure the businesses table has the necessary columns
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT FROM information_schema.columns 
+    WHERE table_name = 'businesses' AND column_name = 'source_id'
+  ) THEN
+    ALTER TABLE businesses ADD COLUMN source_id VARCHAR(255);
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT FROM information_schema.columns 
+    WHERE table_name = 'businesses' AND column_name = 'external_id'
+  ) THEN
+    ALTER TABLE businesses ADD COLUMN external_id VARCHAR(255);
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT FROM information_schema.columns 
+    WHERE table_name = 'businesses' AND column_name = 'phone'
+  ) THEN
+    ALTER TABLE businesses ADD COLUMN phone VARCHAR(255);
+  END IF;
+END $$;
+
+-- Add unique constraint to avoid duplicate businesses from same source
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'businesses_source_external_id_key'
+  ) THEN
+    ALTER TABLE businesses ADD CONSTRAINT businesses_source_external_id_key 
+      UNIQUE (source_id, external_id);
+  END IF;
+EXCEPTION
+  WHEN duplicate_table THEN
+    -- Do nothing, the constraint already exists
+  WHEN others THEN
+    RAISE;
+END $$;
