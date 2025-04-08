@@ -14,6 +14,11 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Log environment info
+logger.info(`Starting scraper service in ${process.env.NODE_ENV || 'development'} mode`);
+logger.info(`Node.js version: ${process.version}`);
+logger.info(`Memory limits: ${JSON.stringify(process.memoryUsage())}`);
+
 // Middleware
 app.use(express.json());
 
@@ -71,4 +76,13 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 // Start server
 app.listen(port, () => {
   logger.info(`Server listening on port ${port}`);
+  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  
+  // In production, log less verbose info
+  if (process.env.NODE_ENV === 'production') {
+    logger.info('Running in production mode - performance optimized');
+  } else {
+    logger.info('Running in development mode - for testing and debugging');
+    logger.info(`Test routes ${process.env.ENABLE_TEST_ROUTES === 'true' ? 'enabled' : 'disabled'}`);
+  }
 }); 

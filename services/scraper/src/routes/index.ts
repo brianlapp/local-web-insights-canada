@@ -3,6 +3,7 @@ import express from 'express';
 import Queue from 'bull';
 import { logger } from '../utils/logger';
 import dataProcessingRoutes from './dataProcessingRoutes';
+import testRoutes from './testRoutes';
 
 export function setupRoutes(
   scraperQueue: Queue.Queue,
@@ -61,6 +62,11 @@ export function setupRoutes(
 
   // Add data processing routes
   router.use('/data-processing', dataProcessingRoutes);
+  
+  // Add test routes only in development or test environments
+  if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_TEST_ROUTES === 'true') {
+    router.use('/test', testRoutes);
+  }
 
   // Queue status endpoints
   router.get('/queue-status', async (req, res) => {

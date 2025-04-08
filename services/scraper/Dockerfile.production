@@ -13,7 +13,7 @@ COPY --chown=pptruser:pptruser package*.json ./
 RUN npm ci --only=production
 
 # Install dev dependencies for building TypeScript
-RUN npm install typescript @types/node --no-save
+RUN npm install typescript @types/node node-fetch --no-save
 
 # Copy source code
 COPY --chown=pptruser:pptruser tsconfig.json ./
@@ -22,8 +22,13 @@ COPY --chown=pptruser:pptruser src ./src
 # Build TypeScript code
 RUN npm run build
 
-# Remove source code and dev dependencies to reduce image size
-RUN rm -rf src node_modules/typescript node_modules/@types
+# Add script to run tests when container starts in test mode
+COPY --chown=pptruser:pptruser scripts/docker-entrypoint.sh ./
+RUN chmod +x ./docker-entrypoint.sh
+
+# Remove source code but keep dist folder and test scripts
+RUN rm -rf src/controllers src/models src/utils/*.ts src/queues/*.ts src/types \
+    && find ./src -name "*.ts" -not -name "*.d.ts" -not -path "./src/scripts/*" | xargs rm -f
 
 # Set environment to production
 ENV NODE_ENV=production
@@ -31,5 +36,8 @@ ENV NODE_ENV=production
 # Expose port
 EXPOSE 3000
 
-# Use node directly to run the built code
-CMD ["node", "dist/index.js"] 
+# Use entrypoint script to handle startup modes
+ENTRYPOINT ["./docker-entrypoint.sh"]
+
+# Default command is to run the server
+CMD ["node", "dist/index.js"]
