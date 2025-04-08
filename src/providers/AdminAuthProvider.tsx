@@ -23,6 +23,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session ? 'Logged in' : 'No session');
       setSession(session)
       setLoading(false)
     })
@@ -31,6 +32,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('Auth state changed:', _event);
       setSession(session)
       setLoading(false)
     })
@@ -40,13 +42,16 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      console.log('Attempting to sign in with email:', email);
+      const { error, data } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
       if (error) throw error
 
+      console.log('Sign in successful, session:', data.session);
+      
       toast({
         title: "Welcome back!",
         description: "Successfully signed in to admin panel",
@@ -54,6 +59,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       
       navigate('/admin/dashboard')
     } catch (error) {
+      console.error('Sign in error:', error);
       toast({
         variant: "destructive",
         title: "Authentication failed",

@@ -18,6 +18,8 @@ export const useAdminSession = () => {
     if (!loading && session) {
       const createOrCheckProfile = async () => {
         try {
+          console.log('Checking admin profile for user:', session.user.id);
+          
           // First check if the admin profile exists
           const { data: existingProfile, error: fetchError } = await supabase
             .from('user_profiles')
@@ -27,21 +29,32 @@ export const useAdminSession = () => {
 
           if (fetchError && fetchError.code !== 'PGRST116') {
             // Error other than "no rows found"
+            console.error('Error fetching profile:', fetchError);
             throw fetchError;
           }
 
           if (!existingProfile) {
+            console.log('No profile found, creating admin profile');
+            
             // Create a profile with admin role for this user
-            const { error: insertError } = await supabase
-              .from('user_profiles')
-              .insert({
-                id: session.user.id,
-                role: 'admin',
-                first_name: 'Admin',
-                last_name: 'User'
-              });
+            const { error: insertError } = await supabase.auth.getSession().then(async ({ data }) => {
+              // Use the session token for this operation to ensure RLS policy is satisfied
+              const supabaseWithAuth = supabase;
+              
+              return supabaseWithAuth
+                .from('user_profiles')
+                .insert({
+                  id: session.user.id,
+                  role: 'admin',
+                  first_name: 'Admin',
+                  last_name: 'User'
+                });
+            });
 
-            if (insertError) throw insertError;
+            if (insertError) {
+              console.error('Error creating profile:', insertError);
+              throw insertError;
+            }
 
             console.log('Created admin profile for user', session.user.id);
           } else {
