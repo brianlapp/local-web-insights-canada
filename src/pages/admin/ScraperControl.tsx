@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,26 +10,11 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { AlertCircle, Search, RefreshCw } from 'lucide-react';
+import { Tables } from '@/integrations/supabase/schema';
 
-interface Business {
-  id: string;
-  name: string;
-  website: string;
-  city: string;
-  scores?: {
-    overall: number;
-  };
-  auditDate?: string;
-}
+interface Business extends Tables['businesses'] {}
 
-interface ScraperJob {
-  id: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  created_at: string;
-  location: string;
-  businessesFound?: number;
-  error?: string;
-}
+interface ScraperJob extends Tables['scraper_runs'] {}
 
 export default function ScraperControl() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -114,7 +98,7 @@ export default function ScraperControl() {
       const { data, error } = await supabase
         .from('scraper_runs')
         .insert({
-          status: 'running',
+          status: 'running' as const,
           location,
           businessesFound: 0
         })
