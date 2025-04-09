@@ -1,15 +1,14 @@
 # Railway configuration for Local Web Insights Canada
 # Settings are primarily managed in the Railway UI dashboard
-# Using ts-node-dev for deployment to bypass build errors
 
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm install"
+buildCommand = "npm install && npm run build"
 
 [deploy]
 runtime = "V2"
 numReplicas = 1
-startCommand = "cd services/scraper && ts-node-dev --respawn --transpile-only src/index.ts"
+startCommand = "cd services/scraper && node dist/index.js"
 healthcheckPath = "/health"
 sleepApplication = false
 restartPolicyType = "ON_FAILURE"
@@ -17,7 +16,7 @@ restartPolicyMaxRetries = 10
 rootDirectory = "services/scraper"
 
 [variables]
-NODE_ENV = "development" # Use development mode for ts-node-dev
+NODE_ENV = "development"
 PORT = "8080"
 LOG_LEVEL = "info"
 # Other variables like REDIS_URL, SUPABASE_URL etc. should be set 
