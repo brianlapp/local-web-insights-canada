@@ -1,4 +1,3 @@
-
 import express from 'express';
 import Queue from 'bull';
 import dotenv from 'dotenv';
@@ -22,6 +21,19 @@ logger.info(`Memory limits: ${JSON.stringify(process.memoryUsage())}`);
 
 // Middleware
 app.use(express.json());
+
+// CORS configuration for API access
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
 
 // Initialize queues
 if (!process.env.REDIS_URL) {

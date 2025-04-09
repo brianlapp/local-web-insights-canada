@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/schema';
 
@@ -190,12 +189,20 @@ export const runWebsiteAudit = async (businessId: string, website: string): Prom
 // Add a health check function to verify API connection
 export const checkScraperHealth = async (): Promise<boolean> => {
   try {
-    const response = await fetch('/api/scraper/health');
-    if (!response.ok) return false;
+    // Add timestamp to prevent caching
+    const timestamp = new Date().getTime();
+    const response = await fetch(`/api/scraper/health?t=${timestamp}`);
+    
+    if (!response.ok) {
+      console.error(`Health check failed with status: ${response.status} ${response.statusText}`);
+      return false;
+    }
+    
     const data = await response.json();
-    return data.status === 'ok';
+    console.log('Health check response:', data);
+    return data && data.status === 'ok';
   } catch (error) {
-    console.error('Health check failed:', error);
+    console.error('Health check failed with error:', error);
     return false;
   }
 };
