@@ -206,3 +206,45 @@ export const checkScraperHealth = async (): Promise<boolean> => {
     return false;
   }
 };
+
+// Reset a specific job status or all running jobs
+export const resetJobStatus = async (jobId?: string): Promise<void> => {
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    
+    if (!sessionData.session) {
+      console.error('No auth session found');
+      throw new Error('Authentication required to reset job status');
+    }
+
+    console.log(`Resetting job status${jobId ? ` for job ${jobId}` : ' for all running jobs'}`);
+    
+    // Build the update query
+    let query = supabase
+      .from('scraper_runs')
+      .update({ 
+        status: 'cancelled',
+        error: 'Job was manually reset by user'
+      });
+      
+    // If a specific job ID is provided, only update that job
+    if (jobId) {
+      query = query.eq('id', jobId);
+    } else {
+      // Otherwise, update all running jobs
+      query = query.eq('status', 'running');
+    }
+    
+    const { error } = await query;
+    
+    if (error) {
+      console.error('Error resetting job status:', error);
+      throw error;
+    }
+    
+    console.log('Successfully reset job status');
+  } catch (error) {
+    console.error('Error in resetJobStatus:', error);
+    throw error;
+  }
+};
