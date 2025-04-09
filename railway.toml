@@ -9,7 +9,7 @@ buildCommand = "npm install"
 [deploy]
 runtime = "V2"
 numReplicas = 1
-startCommand = "npm run dev"
+startCommand = "ts-node-dev --respawn --transpile-only src/index.ts"
 healthcheckPath = "/health"
 sleepApplication = false
 restartPolicyType = "ON_FAILURE"
