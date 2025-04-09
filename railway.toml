@@ -1,8 +1,9 @@
 # Railway configuration for Scraper Service
-# Simplified configuration for direct service deployment
+# Using service path to point to the correct directory
 
 [build]
 builder = "NIXPACKS"
+servicePath = "services/scraper"
 buildCommand = "npm install && npm run build"
 
 [deploy]
