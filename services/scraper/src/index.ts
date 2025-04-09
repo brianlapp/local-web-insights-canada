@@ -7,6 +7,7 @@ import { processWebsiteAudit } from './queues/processors/websiteAudit.js';
 import { setupDataProcessingQueue } from './processors/dataProcessor.js';
 import { getSupabaseClient } from './utils/database.js';
 import { scraperQueue, auditQueue, setupQueues } from './queues/index.js';
+import Redis from 'ioredis';
 
 // Load environment variables
 dotenv.config();
@@ -117,10 +118,84 @@ app.get('/status', (req, res) => {
   res.status(200).json(statusInfo);
 });
 
-// Add Redis connectivity diagnostic endpoint
-app.get('/debug-redis', (req, res) => {
+// Add a simple test endpoint that bypasses queues to directly test Redis connectivity
+app.get('/test-redis-connection', async (req, res) => {
   const redisUrl = process.env.REDIS_URL || '';
-  const externalUrl = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:6379";
+  const externalUrl = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781";
+  
+  const results = {
+    direct_connection: false,
+    error: null as any,
+    redis_info: null
+  };
+  
+  // Try to connect directly to Redis
+  const redis = new Redis(externalUrl, {
+    connectTimeout: 10000, // 10 seconds
+    maxRetriesPerRequest: 3,
+    retryStrategy: (times: number) => {
+      const delay = Math.min(Math.exp(times), 5) * 1000; // Exponential with max 5 seconds
+      return delay;
+    }
+  });
+  
+  try {
+    // Test Redis connection with a simple ping
+    const pingResult = await redis.ping();
+    results.direct_connection = pingResult === 'PONG';
+    
+    // Get basic Redis info
+    const info = await redis.info();
+    results.redis_info = info.split('\n').slice(0, 10).join('\n');
+  } catch (error: any) {
+    results.error = {
+      message: error.message,
+      code: error.code,
+      errno: error.errno,
+      syscall: error.syscall
+    };
+  } finally {
+    // Always close Redis connection
+    redis.disconnect();
+  }
+  
+  res.status(200).json(results);
+});
+
+// Enhance the debug-redis endpoint with more diagnostics
+app.get('/debug-redis', async (req, res) => {
+  const redisUrl = process.env.REDIS_URL || '';
+  const externalUrl = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781";
+  
+  // Setup direct connection test
+  let directConnectionTest = { 
+    success: false, 
+    ping_time_ms: 0, 
+    error: null as any 
+  };
+  
+  const redis = new Redis(externalUrl, {
+    connectTimeout: 10000, 
+    maxRetriesPerRequest: 3
+  });
+  
+  try {
+    const startTime = Date.now();
+    const pingResult = await redis.ping();
+    const endTime = Date.now();
+    directConnectionTest = {
+      success: pingResult === 'PONG',
+      ping_time_ms: endTime - startTime,
+      error: null
+    };
+  } catch (error: any) {
+    directConnectionTest.error = {
+      message: error.message,
+      code: error.code || 'unknown'
+    };
+  } finally {
+    redis.disconnect();
+  }
   
   const diagnosticInfo = {
     redis_url_exists: !!process.env.REDIS_URL,
@@ -128,10 +203,17 @@ app.get('/debug-redis', (req, res) => {
     redis_url_hostname: redisUrl.match(/@([^:]+):/)?.[1] || 'not-found',
     external_url_masked: externalUrl.replace(/\/\/.*@/, '//***@'),
     external_url_hostname: externalUrl.match(/@([^:]+):/)?.[1] || 'not-found',
+    external_url_port: externalUrl.match(/:(\d+)$/)?.[1] || 'not-found',
     is_using_external_url: true,
+    direct_connection_test: directConnectionTest,
     queue_status: {
       scraper_queue: scraperQueue.client.status || 'unknown',
       audit_queue: auditQueue.client.status || 'unknown'
+    },
+    network_info: {
+      env: process.env.NODE_ENV,
+      railway_public_domain: process.env.RAILWAY_PUBLIC_DOMAIN || 'not-set',
+      railway_service_id: process.env.RAILWAY_SERVICE_ID || 'not-set'
     }
   };
   
