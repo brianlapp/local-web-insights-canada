@@ -1,10 +1,12 @@
-# Minimal Railway configuration for scraper service
+# Railway configuration for scraper service
 
 [build]
 rootDirectory = "services/scraper"
+buildCommand = "npm install"
 
 [deploy]
 rootDirectory = "services/scraper"
+startCommand = "npm run dev"
 restartPolicyType = "ON_FAILURE"
 
 [variables]
