@@ -75,7 +75,7 @@ router.post('/test-performance', async (req, res) => {
     const { test_type = 'small' } = req.body;
     const startTime = process.hrtime();
     
-    let result;
+    let result: any = {};
     
     // Perform a lightweight test based on the test type
     switch(test_type) {
@@ -83,11 +83,7 @@ router.post('/test-performance', async (req, res) => {
         // Allocate some memory and release it to test GC
         const arr = new Array(1000000).fill('test');
         const memoryBefore = process.memoryUsage().heapUsed / 1024 / 1024;
-        const result: { 
-          memoryAllocated: string; 
-          memoryBefore: number;
-          memoryAfter?: number;  // Make it optional to avoid initialization issues
-        } = {
+        result = {
           memoryAllocated: `${Math.round(arr.length * 2 / 1024)} KB`,
           memoryBefore: memoryBefore
         };
@@ -100,7 +96,7 @@ router.post('/test-performance', async (req, res) => {
         for (let i = 0; i < 1000000; i++) {
           sum += Math.sqrt(i);
         }
-        result = { calculation: 'completed', sum: sum.toFixed(2) };
+        result.calculation = sum.toFixed(2);
         break;
         
       case 'database':
@@ -111,19 +107,15 @@ router.post('/test-performance', async (req, res) => {
           .select('id')
           .limit(10);
           
-        result = { 
-          success: !error,
-          recordsRetrieved: data?.length || 0,
-          error: error?.message
-        };
+        result.success = !error;
+        result.recordsRetrieved = data?.length || 0;
+        result.error = error?.message;
         break;
         
       default:
         // Default light test
-        result = { 
-          status: 'ok',
-          timestamp: new Date().toISOString()
-        };
+        result.status = 'ok';
+        result.timestamp = new Date().toISOString();
     }
     
     // Calculate response time

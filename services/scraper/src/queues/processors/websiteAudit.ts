@@ -243,7 +243,7 @@ export const processWebsiteAudit = async (job: Job<AuditJobData>): Promise<Valid
     // Clean up temp files
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (e) {}
     
-    return savedAudit as ValidationResult | AuditResult;
+    return savedAudit as unknown as ValidationResult | AuditResult;
   } catch (error: any) {
     logger.error(`Error processing website audit for ${url}:`, error);
     
