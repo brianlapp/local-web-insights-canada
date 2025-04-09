@@ -119,6 +119,22 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Scraper service is running' });
 });
 
+// Add detailed status endpoint for troubleshooting
+app.get('/status', (req, res) => {
+  const statusInfo = {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    redisConnected: !!process.env.REDIS_URL,
+    version: process.version,
+    memory: process.memoryUsage(),
+    uptime: process.uptime(),
+    headers: req.headers,
+  };
+  
+  res.status(200).json(statusInfo);
+});
+
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error('Unhandled error:', err);
