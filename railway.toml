@@ -3,14 +3,13 @@
 # Using ts-node-dev for deployment to bypass build errors
 
 [build]
-builder = "nixpacks" 
-# rootDirectory is set in the Railway UI
-# buildCommand is set in the Railway UI (should be just 'npm install')
+builder = "nixpacks"
+buildCommand = "npm install"
 
 [deploy]
 restartPolicyType = "ON_FAILURE"
-# rootDirectory is set in the Railway UI
-startCommand = "npm run dev" # Use dev command to bypass tsc build
+startCommand = "npm run dev"
+rootDirectory = "services/scraper"
 # healthcheckPath is set in the Railway UI
 
 [variables]
