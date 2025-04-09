@@ -1,14 +1,14 @@
 # Railway configuration for Scraper Service
-# Using root directory for monorepo setup
+# Using workspace scripts for build and deployment
 
 [build]
 builder = "NIXPACKS"
-buildCommand = "cd services/scraper && npm install && npm run build"
+buildCommand = "npm run scraper:build"
 
 [deploy]
 runtime = "V2"
 numReplicas = 1
-startCommand = "cd services/scraper && node dist/index.js"
+startCommand = "npm run scraper:start"
 healthcheckPath = "/health"
 sleepApplication = false
 restartPolicyType = "ON_FAILURE"

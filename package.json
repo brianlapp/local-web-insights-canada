@@ -12,7 +12,9 @@
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
     "test:ui": "vitest --ui",
-    "start": "vite preview --host 0.0.0.0 --port $PORT"
+    "start": "vite preview --host 0.0.0.0 --port $PORT",
+    "scraper:build": "cd services/scraper && npm install && npm run build",
+    "scraper:start": "cd services/scraper && node dist/index.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
