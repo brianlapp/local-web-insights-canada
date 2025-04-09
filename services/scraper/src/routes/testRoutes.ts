@@ -1,7 +1,6 @@
-
 import express from 'express';
-import { logger } from '../utils/logger';
-import { getSupabaseClient } from '../utils/database';
+import { logger } from '../utils/logger.js';
+import { getSupabaseClient } from '../utils/database.js';
 import os from 'os';
 
 const router = express.Router();
@@ -83,14 +82,15 @@ router.post('/test-performance', async (req, res) => {
       case 'memory':
         // Allocate some memory and release it to test GC
         const arr = new Array(1000000).fill('test');
-        result = { 
+        const memoryBefore = process.memoryUsage().heapUsed / 1024 / 1024;
+        const result: { 
+          memoryAllocated: string; 
+          memoryBefore: number;
+          memoryAfter?: number;  // Make it optional to avoid initialization issues
+        } = {
           memoryAllocated: `${Math.round(arr.length * 2 / 1024)} KB`,
-          memoryBefore: process.memoryUsage().heapUsed / 1024 / 1024
+          memoryBefore: memoryBefore
         };
-        // Force garbage collection if available (only in specific Node.js modes)
-        if (global.gc) {
-          global.gc();
-        }
         result.memoryAfter = process.memoryUsage().heapUsed / 1024 / 1024;
         break;
         
