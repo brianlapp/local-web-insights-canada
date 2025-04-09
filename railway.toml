@@ -22,4 +22,6 @@ watchPatterns = [
 [variables]
 NODE_ENV = "development"
 PORT = "8080"
-LOG_LEVEL = "info" 
+LOG_LEVEL = "info"
+# Update Redis URL to use the external hostname instead of internal DNS
+REDIS_URL = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:6379" 
