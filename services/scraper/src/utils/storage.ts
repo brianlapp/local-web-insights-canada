@@ -1,7 +1,6 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { Storage } from '@google-cloud/storage';
-import { logger } from './logger';
+import { logger } from './logger.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -25,7 +24,7 @@ export const initializeStorage = () => {
   
   // Check and initialize GCS
   const gcsCredentials = process.env.GCS_CREDENTIALS;
-  gcsBucketName = process.env.GCS_BUCKET_NAME;
+  gcsBucketName = process.env.GCS_BUCKET_NAME ?? null;
   
   if (!gcsCredentials || !gcsBucketName) {
     logger.warn('GCS environment variables not set, screenshot storage to GCS will be disabled');

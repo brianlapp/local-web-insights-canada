@@ -13,7 +13,7 @@ import * as fs from 'fs';
 import { Page } from 'puppeteer';
 // Import types dynamically to handle CJS/ESM issues
 // import type { LH } from 'lighthouse';
-import { logger } from './logger';
+import { logger } from './logger.js';
 
 // Type for the lighthouse function, assuming dynamic import
 // We'll use 'any' for now to avoid complex type issues with dynamic imports

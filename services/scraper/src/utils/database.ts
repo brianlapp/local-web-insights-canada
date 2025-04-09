@@ -1,6 +1,5 @@
-
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { logger } from './logger';
+import { logger } from './logger.js';
 
 // Initialize Supabase client
 let supabaseClient: SupabaseClient | null = null;
@@ -32,15 +31,13 @@ export const saveAuditResults = async (auditData: any) => {
     const supabase = getSupabaseClient();
     
     // Extract data from the audit result
-    const {
-      businessId,
-      url,
-      scores,
-      lighthouseData,
-      technologies,
-      screenshots,
-      recommendations,
-    } = auditData;
+    const businessId: string = auditData.businessId;
+    const url = auditData.url;
+    const scores = auditData.scores;
+    const lighthouseData = auditData.lighthouseData;
+    const technologies = auditData.technologies;
+    const screenshots = auditData.screenshots;
+    const recommendations = auditData.recommendations;
     
     // Check if we already have an audit entry for this business
     const { data: existingAudits, error: auditQueryError } = await supabase
@@ -56,7 +53,7 @@ export const saveAuditResults = async (auditData: any) => {
     }
     
     // Insert the audit record
-    const { data: auditData, error: auditInsertError } = await supabase
+    const { data: insertedAuditData, error: auditInsertError } = await supabase
       .from('website_audits')
       .insert({
         business_id: businessId,
@@ -80,7 +77,7 @@ export const saveAuditResults = async (auditData: any) => {
       .update({
         website: url,
         overall_score: scores.overall,
-        latest_audit_id: auditData.id,
+        latest_audit_id: insertedAuditData.id,
         last_scanned: new Date().toISOString(),
       })
       .eq('id', businessId)
@@ -95,7 +92,7 @@ export const saveAuditResults = async (auditData: any) => {
     logger.info(`Successfully saved audit results for business ${businessId}`);
     
     return {
-      audit: auditData,
+      audit: insertedAuditData,
       business: businessData,
     };
   } catch (error) {
@@ -281,3 +278,14 @@ export const markRawBusinessDataProcessed = async (id: string, success: boolean,
     throw error;
   }
 };
+
+function doSomethingForBusiness(businessId: string) {
+  let auditData: any;  // or a more specific type
+
+  logger.info(`Processing business: ${businessId}`);
+
+  // Make sure auditData is declared before usage
+  auditData = { example: 'data' };
+
+  return { businessId, auditData };
+}

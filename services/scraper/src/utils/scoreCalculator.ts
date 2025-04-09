@@ -1,5 +1,5 @@
-import { DetailedMetrics } from '../queues/processors/websiteAuditUtils';
-import { TechnologyCategory } from './techDetector';
+import { DetailedMetrics } from '../queues/processors/websiteAuditUtils.js';
+import { TechnologyCategory } from './techDetector.js';
 
 export interface WebsiteScore {
   overall: number;

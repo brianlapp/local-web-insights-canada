@@ -1,7 +1,7 @@
 import { Client, PlacesNearbyRanking, TextSearchResponse } from '@googlemaps/google-maps-services-js';
-import { logger } from './logger';
-import { placesApiConfig } from './placesApiConfig';
-import { Coordinates, SubGrid } from './gridCalculator';
+import { logger } from './logger.js';
+import { placesApiConfig } from './placesApiConfig.js';
+import { Coordinates, SubGrid, calculateOptimalGridSystem } from './gridCalculator.js';
 
 /**
  * Interface for business data from Google Places API

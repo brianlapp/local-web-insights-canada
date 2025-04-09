@@ -1,6 +1,6 @@
-import { logger } from './logger';
+import { logger } from './logger.js';
 import axios from 'axios';
-import { normalizeUrl } from './urlValidator';
+import { normalizeUrl } from './urlValidator.js';
 
 /**
  * Interface for detected technologies
