@@ -50,7 +50,8 @@ const JobList: React.FC<JobListProps> = ({
                       variant={
                         job.status === 'completed' ? 'default' :
                         job.status === 'running' ? 'secondary' :
-                        job.status === 'failed' || job.status === 'cancelled' ? 'destructive' : 'outline'
+                        job.status === 'failed' ? 'destructive' :
+                        job.status === 'cancelled' ? 'destructive' : 'outline'
                       }
                     >
                       {job.status}
