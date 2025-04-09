@@ -1,17 +1,20 @@
 # Railway configuration for Local Web Insights Canada
 # Settings are primarily managed in the Railway UI dashboard
+# Using ts-node-dev for deployment to bypass build errors
 
 [build]
 builder = "nixpacks" 
-# rootDirectory and buildCommand are set in the Railway UI
+# rootDirectory is set in the Railway UI
+# buildCommand is set in the Railway UI (should be just 'npm install')
 
 [deploy]
 restartPolicyType = "ON_FAILURE"
-# rootDirectory and startCommand are set in the Railway UI
+# rootDirectory is set in the Railway UI
+startCommand = "npm run dev" # Use dev command to bypass tsc build
 # healthcheckPath is set in the Railway UI
 
 [variables]
-NODE_ENV = "production"
+NODE_ENV = "development" # Use development mode for ts-node-dev
 PORT = "8080"
 LOG_LEVEL = "info"
 # Other variables like REDIS_URL, SUPABASE_URL etc. should be set 

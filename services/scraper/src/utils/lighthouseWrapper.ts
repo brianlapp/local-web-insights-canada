@@ -6,34 +6,18 @@
  * is loaded.
  */
 
-import type { RunnerResult } from 'lighthouse';
+import { launch } from 'puppeteer';
+import * as path from 'path';
+import * as os from 'os';
+import * as fs from 'fs';
+import { Page } from 'puppeteer';
+// Import types dynamically to handle CJS/ESM issues
+// import type { LH } from 'lighthouse';
 import { logger } from './logger';
 
-// Define the type for the Lighthouse function
-type LighthouseFunction = (
-  url: string,
-  options?: {
-    port?: number;
-    output?: string;
-    logLevel?: string;
-    formFactor?: 'desktop' | 'mobile';
-    throttling?: {
-      cpuSlowdownMultiplier?: number;
-      requestLatencyMs?: number;
-      downloadThroughputKbps?: number;
-      uploadThroughputKbps?: number;
-    };
-    screenEmulation?: {
-      width?: number;
-      height?: number;
-      deviceScaleFactor?: number;
-      mobile?: boolean;
-      disabled?: boolean;
-    };
-    onlyCategories?: string[];
-    [key: string]: any;
-  }
-) => Promise<RunnerResult>;
+// Type for the lighthouse function, assuming dynamic import
+// We'll use 'any' for now to avoid complex type issues with dynamic imports
+type LighthouseFunction = (url?: string, flags?: any, config?: any, page?: Page) => Promise<any | undefined>;
 
 /**
  * Load Lighthouse module using different approaches
@@ -93,14 +77,57 @@ async function getLighthouse(): Promise<LighthouseFunction> {
 }
 
 /**
- * Run Lighthouse audit with proper module loading
+ * Runs Lighthouse audit on a given URL.
  */
-export async function runLighthouse(
+export const runLighthouse = async (
   url: string,
-  options: any
-): Promise<RunnerResult> {
-  logger.info(`Running Lighthouse audit for ${url} with wrapper`);
-  const lighthouse = await getLighthouse();
-  logger.info('Lighthouse function loaded, starting audit');
-  return lighthouse(url, options);
-} 
+  options: any = {},
+  config: any = null
+): Promise<any | undefined> => {
+  let browser = null;
+  const tempProfileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lighthouse-profile-'));
+
+  try {
+    // Dynamically import Lighthouse
+    const { default: lighthouse } = await import('lighthouse');
+    const lighthouseFunction = lighthouse as unknown as LighthouseFunction;
+
+    // Use Puppeteer to control Chrome
+    browser = await launch({
+      headless: true, // Run in headless mode
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+      ],
+      userDataDir: tempProfileDir,
+    });
+
+    const flags: any = {
+      port: +(new URL(browser.wsEndpoint())).port, // Ensure port is a number
+      output: 'json', // Output format
+      logLevel: 'info',
+      ...options, // Allow overriding default flags
+    };
+
+    // Run Lighthouse
+    const runnerResult = await lighthouseFunction(url, flags, config || undefined);
+    
+    return runnerResult;
+
+  } catch (error) {
+    logger.error('Error running Lighthouse:', error);
+    return undefined;
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+    // Clean up temporary profile directory
+    try {
+      fs.rmSync(tempProfileDir, { recursive: true, force: true });
+    } catch (e: any) {
+      logger.error(`Error removing temporary profile directory ${tempProfileDir}:`, e);
+    }
+  }
+}; 

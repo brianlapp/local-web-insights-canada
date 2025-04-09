@@ -1,14 +1,15 @@
-
 import { Job } from 'bull';
 import puppeteer from 'puppeteer';
 import { logger } from '../../utils/logger';
-import { runLighthouse } from '../../utils/lighthouse';
-import { detectTechnologies } from '../../utils/technologies';
+import { runLighthouse } from '../../utils/lighthouseWrapper';
+import { detectTechnologies } from '../../utils/techDetector';
 import { saveAuditResults } from '../../utils/database';
 import { uploadScreenshot } from '../../utils/storage';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import { getSupabaseClient } from '../../utils/database';
+import { calculateSeoScore } from '../../utils/scoreCalculator';
 
 // Interface for the job data
 interface AuditJobData {
@@ -25,7 +26,7 @@ interface AuditJobData {
 /**
  * Process a website audit job
  */
-export const processWebsiteAudit = async (job: Job<AuditJobData>) => {
+export const processWebsiteAudit = async (job: Job<AuditJobData>): Promise<void> => {
   const { businessId, url, options = {} } = job.data;
   logger.info(`Starting website audit for business ${businessId} at URL: ${url}`);
 
@@ -43,7 +44,8 @@ export const processWebsiteAudit = async (job: Job<AuditJobData>) => {
   const desktopScreenshotPath = path.join(tmpDir, 'desktop.png');
   const mobileScreenshotPath = path.join(tmpDir, 'mobile.png');
 
-  let browser;
+  let browser: puppeteer.Browser | null = null;
+  let page: puppeteer.Page | null = null;
   let lighthouseResults = null;
   let technologies = null;
   let desktopScreenshotUrl = null;
@@ -66,12 +68,12 @@ export const processWebsiteAudit = async (job: Job<AuditJobData>) => {
     });
 
     // 1. Validate the URL works
-    const page = await browser.newPage();
+    page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 800 });
     
     try {
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error accessing URL ${url}:`, error);
       await browser.close();
       
@@ -121,7 +123,7 @@ export const processWebsiteAudit = async (job: Job<AuditJobData>) => {
           scores.bestPractices = Math.round(lighthouseResults.lhr.categories['best-practices'].score * 100);
           scores.seo = Math.round(lighthouseResults.lhr.categories.seo.score * 100);
         }
-      } catch (error) {
+      } catch (error: any) {
         logger.error('Lighthouse audit failed:', error);
       }
     }
@@ -154,7 +156,7 @@ export const processWebsiteAudit = async (job: Job<AuditJobData>) => {
         if (mobileLighthouse && mobileLighthouse.lhr) {
           scores.mobile = Math.round(mobileLighthouse.lhr.categories.performance.score * 100);
         }
-      } catch (error) {
+      } catch (error: any) {
         logger.error('Mobile Lighthouse audit failed:', error);
         scores.mobile = Math.round(scores.performance * 0.7); // Fallback approximation
       }
@@ -208,7 +210,7 @@ export const processWebsiteAudit = async (job: Job<AuditJobData>) => {
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (e) {}
     
     return savedAudit;
-  } catch (error) {
+  } catch (error: any) {
     logger.error(`Error processing website audit for ${url}:`, error);
     
     // Ensure browser is closed
@@ -218,6 +220,17 @@ export const processWebsiteAudit = async (job: Job<AuditJobData>) => {
     
     // Clean up temp files
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (e) {}
+    
+    // Update the audit record with failure status
+    try {
+      await saveAuditResults(businessId, {
+        status: 'failed',
+        error_message: error.message || 'Unknown error during audit',
+        last_audited_at: new Date().toISOString(),
+      });
+    } catch (dbError: any) {
+      logger.error(`Failed to update audit status to failed for business ${businessId}:`, dbError);
+    }
     
     throw error;
   }
