@@ -1,15 +1,15 @@
 import { Job } from 'bull';
 import puppeteer from 'puppeteer';
-import { logger } from '../../utils/logger';
-import { runLighthouse } from '../../utils/lighthouseWrapper';
-import { detectTechnologies } from '../../utils/techDetector';
-import { saveAuditResults } from '../../utils/database';
-import { uploadScreenshot } from '../../utils/storage';
+import { logger } from '../../utils/logger.js';
+import { runLighthouse } from '../../utils/lighthouseWrapper.js';
+import { detectTechnologies } from '../../utils/techDetector.js';
+import { saveAuditResults } from '../../utils/database.js';
+import { uploadScreenshot } from '../../utils/storage.js';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { getSupabaseClient } from '../../utils/database';
-import { calculateSeoScore } from '../../utils/scoreCalculator';
+import { getSupabaseClient } from '../../utils/database.js';
+import { calculateSeoScore } from '../../utils/scoreCalculator.js';
 
 // Interface for the job data
 interface AuditJobData {
@@ -23,10 +23,44 @@ interface AuditJobData {
   };
 }
 
+interface AuditScores {
+  performance: number;
+  accessibility: number;
+  bestPractices: number;
+  seo: number;
+  mobile: number;
+  technical: number;
+  overall: number;
+}
+
+interface ValidationResult {
+  valid: boolean;
+  error?: string;
+  url?: string;
+  scores?: AuditScores;
+  screenshots?: {
+    desktop: string | null;
+    mobile: string | null;
+  };
+}
+
+interface AuditResult {
+  businessId: string;
+  url: string;
+  scores: AuditScores;
+  lighthouseData: any;
+  technologies: any;
+  screenshots: {
+    desktop: string | null;
+    mobile: string | null;
+  };
+  recommendations: string[];
+}
+
 /**
  * Process a website audit job
  */
-export const processWebsiteAudit = async (job: Job<AuditJobData>): Promise<void> => {
+export const processWebsiteAudit = async (job: Job<AuditJobData>): Promise<ValidationResult | AuditResult> => {
   const { businessId, url, options = {} } = job.data;
   logger.info(`Starting website audit for business ${businessId} at URL: ${url}`);
 

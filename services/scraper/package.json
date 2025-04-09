@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Business discovery and website audit service for LocalWebsiteAudit.ca",
   "main": "dist/index.js",
+  "type": "module",
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
@@ -31,6 +32,7 @@
     "@types/jest": "^29.5.12",
     "@types/node": "^20.11.24",
     "@types/node-fetch": "^2.6.12",
+    "@types/puppeteer": "^7.0.0",
     "@types/supertest": "^6.0.2",
     "@typescript-eslint/eslint-plugin": "^7.1.1",
     "@typescript-eslint/parser": "^7.1.1",
