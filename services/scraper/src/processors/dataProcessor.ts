@@ -8,13 +8,17 @@ import { QUEUE_NAMES } from '../queues/index.js';
 // Data processing queue name
 const DATA_PROCESSING_QUEUE = 'data-processing';
 
+// Ensure we use the external Redis URL, not the internal DNS
+// This overrides any automatically set environment variables
+const EXTERNAL_REDIS_URL = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:6379";
+const redisUrl = EXTERNAL_REDIS_URL;
+
 // Log Redis connection info
-const redisUrl = process.env.REDIS_URL || '';
-logger.info(`Data processor Redis URL configured: ${redisUrl.replace(/\/\/.*@/, '//***@')}`);
+logger.info(`Data processor using explicit Redis URL: ${redisUrl.replace(/\/\/.*@/, '//***@')}`);
 logger.info(`Data processor Redis hostname: ${redisUrl.match(/@([^:]+):/)?.[1] || 'not-found'}`);
 
-// Initialize the data processing queue
-const dataProcessingQueue = new Queue(DATA_PROCESSING_QUEUE, process.env.REDIS_URL as string);
+// Initialize the data processing queue with explicit Redis URL
+const dataProcessingQueue = new Queue(DATA_PROCESSING_QUEUE, redisUrl);
 
 // Configure queue settings
 dataProcessingQueue.on('error', (error) => {

@@ -119,10 +119,15 @@ app.get('/status', (req, res) => {
 // Add Redis connectivity diagnostic endpoint
 app.get('/debug-redis', (req, res) => {
   const redisUrl = process.env.REDIS_URL || '';
+  const externalUrl = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:6379";
+  
   const diagnosticInfo = {
     redis_url_exists: !!process.env.REDIS_URL,
     redis_url_masked: redisUrl.replace(/\/\/.*@/, '//***@'),
-    redis_hostname: redisUrl.match(/@([^:]+):/)?.[1] || 'not-found',
+    redis_url_hostname: redisUrl.match(/@([^:]+):/)?.[1] || 'not-found',
+    external_url_masked: externalUrl.replace(/\/\/.*@/, '//***@'),
+    external_url_hostname: externalUrl.match(/@([^:]+):/)?.[1] || 'not-found',
+    is_using_external_url: true,
     queue_status: {
       scraper_queue: scraperQueue.client.status || 'unknown',
       audit_queue: auditQueue.client.status || 'unknown'

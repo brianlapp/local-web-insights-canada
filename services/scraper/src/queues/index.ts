@@ -9,14 +9,18 @@ export const QUEUE_NAMES = {
   AUDIT: 'audit'
 };
 
+// Ensure we use the external Redis URL, not the internal DNS
+// This overrides any automatically set environment variables
+const EXTERNAL_REDIS_URL = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:6379";
+const redisUrl = EXTERNAL_REDIS_URL;
+
 // Log Redis connection info (with credentials masked)
-const redisUrl = process.env.REDIS_URL || '';
-logger.info(`Redis URL configured: ${redisUrl.replace(/\/\/.*@/, '//***@')}`);
+logger.info(`Using explicit Redis URL: ${redisUrl.replace(/\/\/.*@/, '//***@')}`);
 logger.info(`Redis hostname: ${redisUrl.match(/@([^:]+):/)?.[1] || 'not-found'}`);
 
-// Queue instances
-export const scraperQueue = new Queue(QUEUE_NAMES.SCRAPER, process.env.REDIS_URL as string);
-export const auditQueue = new Queue(QUEUE_NAMES.AUDIT, process.env.REDIS_URL as string);
+// Queue instances with explicit Redis URL
+export const scraperQueue = new Queue(QUEUE_NAMES.SCRAPER, redisUrl);
+export const auditQueue = new Queue(QUEUE_NAMES.AUDIT, redisUrl);
 
 export async function setupQueues() {
   logger.info('Setting up job queues...');
