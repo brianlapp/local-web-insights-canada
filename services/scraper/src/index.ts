@@ -114,6 +114,11 @@ auditQueue.on('failed', (job, error) => {
 // Set up routes
 app.use('/api', setupRoutes(scraperQueue, auditQueue, dataProcessingQueue));
 
+// Add a root health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'Scraper service is running' });
+});
+
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error('Unhandled error:', err);
