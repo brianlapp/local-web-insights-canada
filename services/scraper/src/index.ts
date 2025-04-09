@@ -36,11 +36,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// Initialize queues
-// Remove environment variable check and use explicit URL
-// if (!process.env.REDIS_URL) {
-//   throw new Error('REDIS_URL environment variable is required');
-// }
+// Get Redis URL from environment variable or use default
+const REDIS_URL = process.env.REDIS_URL || "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781";
+logger.info(`Main app using Redis URL: ${REDIS_URL.replace(/\/\/.*@/, '//***@')}`);
 
 // Initialize and set up queues from the centralized queue module
 setupQueues().catch(error => {
@@ -109,6 +107,7 @@ app.get('/status', (req, res) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
     redisConnected: !!process.env.REDIS_URL,
+    redisUrl: REDIS_URL.replace(/\/\/.*@/, '//***@'),
     version: process.version,
     memory: process.memoryUsage(),
     uptime: process.uptime(),
@@ -118,70 +117,52 @@ app.get('/status', (req, res) => {
   res.status(200).json(statusInfo);
 });
 
-// Add a simple test endpoint that bypasses queues to directly test Redis connectivity
+// Enhanced Redis connection test endpoint
 app.get('/test-redis-connection', async (req, res) => {
-  const internalUrl = "redis://redis.railway.internal:6379";
-  const externalUrl = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781";
+  const testRedisUrl = REDIS_URL;
   
   const results = {
-    internal_connection: {
+    connection_test: {
       success: false,
-      error: null as any
+      error: null as any,
+      ping_time_ms: 0
     },
-    external_connection: {
-      success: false,
-      error: null as any
-    },
-    redis_info: null
+    redis_info: null,
+    queue_configs: {
+      scraper_queue: scraperQueue.opts,
+      audit_queue: auditQueue.opts,
+      data_processing_queue: dataProcessingQueue.opts
+    }
   };
   
-  // Try to connect to internal Redis first
+  // Try to connect to Redis
   try {
-    const internalRedis = new Redis(internalUrl, {
+    logger.info(`Testing Redis connection to: ${testRedisUrl.replace(/\/\/.*@/, '//***@')}`);
+    
+    const redis = new Redis(testRedisUrl, {
       connectTimeout: 10000, // 10 seconds
       maxRetriesPerRequest: 3
     });
     
-    // Test internal Redis connection with a simple ping
-    const pingResult = await internalRedis.ping();
-    results.internal_connection.success = pingResult === 'PONG';
+    // Test Redis connection with a simple ping
+    const startTime = Date.now();
+    const pingResult = await redis.ping();
+    const endTime = Date.now();
     
-    // If internal connection works, get basic Redis info
-    if (results.internal_connection.success) {
-      const info = await internalRedis.info();
+    results.connection_test.success = pingResult === 'PONG';
+    results.connection_test.ping_time_ms = endTime - startTime;
+    
+    // If connection works, get basic Redis info
+    if (results.connection_test.success) {
+      const info = await redis.info();
       results.redis_info = info.split('\n').slice(0, 10).join('\n');
+      logger.info(`Successfully connected to Redis: ping time ${results.connection_test.ping_time_ms}ms`);
     }
     
-    internalRedis.disconnect();
+    redis.disconnect();
   } catch (error: any) {
-    results.internal_connection.error = {
-      message: error.message,
-      code: error.code,
-      errno: error.errno,
-      syscall: error.syscall
-    };
-  }
-  
-  // Always try external Redis too
-  try {
-    const externalRedis = new Redis(externalUrl, {
-      connectTimeout: 10000, // 10 seconds
-      maxRetriesPerRequest: 3
-    });
-    
-    // Test external Redis connection
-    const pingResult = await externalRedis.ping();
-    results.external_connection.success = pingResult === 'PONG';
-    
-    // If external connection works and we don't have Redis info yet, get it
-    if (results.external_connection.success && !results.redis_info) {
-      const info = await externalRedis.info();
-      results.redis_info = info.split('\n').slice(0, 10).join('\n');
-    }
-    
-    externalRedis.disconnect();
-  } catch (error: any) {
-    results.external_connection.error = {
+    logger.error(`Redis connection test failed: ${error.message}`, { error });
+    results.connection_test.error = {
       message: error.message,
       code: error.code,
       errno: error.errno,
@@ -192,62 +173,14 @@ app.get('/test-redis-connection', async (req, res) => {
   res.status(200).json(results);
 });
 
-// Enhance the debug-redis endpoint with more diagnostics
-app.get('/debug-redis', async (req, res) => {
-  const redisUrl = process.env.REDIS_URL || '';
-  const externalUrl = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781";
-  
-  // Setup direct connection test
-  let directConnectionTest = { 
-    success: false, 
-    ping_time_ms: 0, 
-    error: null as any 
+// Also update the railway.toml file with the correct port
+app.get('/update-railway-config', (req, res) => {
+  const railwayConfig = {
+    current_redis_url: REDIS_URL.replace(/\/\/.*@/, '//***@'),
+    suggested_update: "Update the REDIS_URL in railway.toml to use port 13781 instead of 6379"
   };
   
-  const redis = new Redis(externalUrl, {
-    connectTimeout: 10000, 
-    maxRetriesPerRequest: 3
-  });
-  
-  try {
-    const startTime = Date.now();
-    const pingResult = await redis.ping();
-    const endTime = Date.now();
-    directConnectionTest = {
-      success: pingResult === 'PONG',
-      ping_time_ms: endTime - startTime,
-      error: null
-    };
-  } catch (error: any) {
-    directConnectionTest.error = {
-      message: error.message,
-      code: error.code || 'unknown'
-    };
-  } finally {
-    redis.disconnect();
-  }
-  
-  const diagnosticInfo = {
-    redis_url_exists: !!process.env.REDIS_URL,
-    redis_url_masked: redisUrl.replace(/\/\/.*@/, '//***@'),
-    redis_url_hostname: redisUrl.match(/@([^:]+):/)?.[1] || 'not-found',
-    external_url_masked: externalUrl.replace(/\/\/.*@/, '//***@'),
-    external_url_hostname: externalUrl.match(/@([^:]+):/)?.[1] || 'not-found',
-    external_url_port: externalUrl.match(/:(\d+)$/)?.[1] || 'not-found',
-    is_using_external_url: true,
-    direct_connection_test: directConnectionTest,
-    queue_status: {
-      scraper_queue: scraperQueue.client.status || 'unknown',
-      audit_queue: auditQueue.client.status || 'unknown'
-    },
-    network_info: {
-      env: process.env.NODE_ENV,
-      railway_public_domain: process.env.RAILWAY_PUBLIC_DOMAIN || 'not-set',
-      railway_service_id: process.env.RAILWAY_SERVICE_ID || 'not-set'
-    }
-  };
-  
-  res.status(200).json(diagnosticInfo);
+  res.status(200).json(railwayConfig);
 });
 
 // Error handling middleware
@@ -268,4 +201,4 @@ app.listen(port, () => {
     logger.info('Running in development mode - for testing and debugging');
     logger.info(`Test routes ${process.env.ENABLE_TEST_ROUTES === 'true' ? 'enabled' : 'disabled'}`);
   }
-}); 
+});

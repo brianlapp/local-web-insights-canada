@@ -1,3 +1,4 @@
+
 # Railway configuration for Scraper Service
 # Using workspace scripts for build and deployment
 
@@ -23,5 +24,5 @@ watchPatterns = [
 NODE_ENV = "development"
 PORT = "8080"
 LOG_LEVEL = "info"
-# Update Redis URL to use the external hostname instead of internal DNS
-REDIS_URL = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:6379" 
+# Update Redis URL to use the external hostname with correct port
+REDIS_URL = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781"

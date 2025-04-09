@@ -5,23 +5,27 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Job, JobId } from 'bull';
 import { QUEUE_NAMES } from '../queues/index.js';
 
-// Data processing queue name
-const DATA_PROCESSING_QUEUE = 'data-processing';
+// Use the data processing queue name from centralized configuration
+const DATA_PROCESSING_QUEUE = QUEUE_NAMES.DATA_PROCESSING;
 
-// Define connection options for both internal and external Redis
-const INTERNAL_REDIS_URL = "redis://redis.railway.internal:6379";
-const EXTERNAL_REDIS_URL = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781";
+// Use environment variable or fall back to default URL with correct port
+const REDIS_URL = process.env.REDIS_URL || "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781";
 
-// Try to use internal DNS first, fall back to external URL
-const redisUrl = INTERNAL_REDIS_URL;
+// Log which Redis URL we're using (masking credentials)
+logger.info(`Data processor using Redis URL: ${REDIS_URL.replace(/\/\/.*@/, '//***@')}`);
 
-// Log which Redis URL we're trying to use
-logger.info(`Data processor using internal Redis URL: ${INTERNAL_REDIS_URL}`);
-logger.info(`Data processor fallback Redis URL (external): ${EXTERNAL_REDIS_URL.replace(/\/\/.*@/, '//***@')}`);
-logger.info(`Data processor Redis hostname: ${redisUrl.match(/@([^:]+):/)?.[1] || 'internal'}`);
-
-// Initialize the data processing queue with explicit Redis URL
-const dataProcessingQueue = new Queue(DATA_PROCESSING_QUEUE, redisUrl);
+// Initialize the data processing queue with Redis URL and options
+const dataProcessingQueue = new Queue(DATA_PROCESSING_QUEUE, REDIS_URL, {
+  redis: {
+    connectTimeout: 30000, // 30 seconds connection timeout
+    maxRetriesPerRequest: 5, // Max retries for Redis commands
+  },
+  settings: {
+    lockDuration: 30000, // 30 seconds
+    stalledInterval: 15000, // Check for stalled jobs every 15 seconds
+    maxStalledCount: 2, // Maximum number of times a job can be marked as stalled
+  }
+});
 
 // Configure queue settings
 dataProcessingQueue.on('error', (error) => {
@@ -146,11 +150,11 @@ async function transformBusinessData(rawData: any, supabase: SupabaseClient) {
   // Different transformation logic based on source type
   switch (sourceData.type) {
     case 'google_places':
-      return transformGooglePlacesData(raw_data, source_id, external_id);
+      return transformGooglePlacesData(rawData, source_id, external_id);
     case 'yelp':
-      return transformYelpData(raw_data, source_id, external_id);
+      return transformYelpData(rawData, source_id, external_id);
     default:
-      return transformGenericData(raw_data, source_id, external_id);
+      return transformGenericData(rawData, source_id, external_id);
   }
 }
 

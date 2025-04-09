@@ -1,3 +1,4 @@
+
 import Queue from 'bull';
 import { logger } from '../utils/logger.js';
 import { processGridSearch } from './processors/gridSearch.js';
@@ -11,22 +12,18 @@ export const QUEUE_NAMES = {
   DATA_PROCESSING: 'data_processing'
 };
 
-// Define connection options for both internal and external Redis
-const INTERNAL_REDIS_URL = "redis://redis.railway.internal:6379";
-const EXTERNAL_REDIS_URL = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781";
+// Use environment variable or fall back to default URL with correct port
+const REDIS_URL = process.env.REDIS_URL || "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781";
 
-// Try to use internal DNS first, fall back to external URL
-// This should allow service discovery to work properly
-const redisUrl = INTERNAL_REDIS_URL;
-
-// Log which Redis URL we're using
-logger.info(`Attempting Redis connection using internal DNS: ${INTERNAL_REDIS_URL}`);
-logger.info(`Fallback Redis URL (external): ${EXTERNAL_REDIS_URL.replace(/\/\/.*@/, '//***@')}`);
+// Log which Redis URL we're using (masking credentials)
+logger.info(`Using Redis URL: ${REDIS_URL.replace(/\/\/.*@/, '//***@')}`);
 
 // Connection options for Bull queues
 const bullOptions = {
   redis: {
     // No specific Redis options here - using the URL handles it
+    connectTimeout: 30000, // 30 seconds connection timeout
+    maxRetriesPerRequest: 5, // Max retries for Redis commands
   },
   // Bull-specific settings
   settings: {
@@ -49,7 +46,7 @@ const CIRCUIT_RESET_INTERVAL = 30000; // 30 seconds
 
 // Create queues with proper error handling
 function createQueue(name: string) {
-  const queue = new Queue(name, redisUrl);
+  const queue = new Queue(name, REDIS_URL, bullOptions);
   
   queue.on('error', (error) => {
     const now = Date.now();
@@ -77,7 +74,7 @@ export const auditQueue = createQueue(QUEUE_NAMES.AUDIT);
 
 export async function setupQueues() {
   logger.info('Setting up job queues...');
-  logger.info(`Using queue names: ${QUEUE_NAMES.SCRAPER}, ${QUEUE_NAMES.AUDIT}`);
+  logger.info(`Using queue names: ${QUEUE_NAMES.SCRAPER}, ${QUEUE_NAMES.AUDIT}, ${QUEUE_NAMES.DATA_PROCESSING}`);
 
   // Set up scraper queue processor
   scraperQueue.process('search-grid', processGridSearch);
@@ -113,4 +110,4 @@ export async function setupQueues() {
   });
 
   logger.info('Job queues setup complete');
-} 
+}
