@@ -84,6 +84,45 @@
      └─── Webhook Integration
 ```
 
+## New Section: Deployment Patterns
+
+### Railway Deployment Pattern
+```
+┌─ Railway Configuration
+├─── railway.toml (Source of Truth)
+│    ├─── Build Configuration
+│    ├─── Deploy Settings
+│    └─── Environment Variables
+│
+├─── Build Process
+│    ├─── Nixpacks Detection
+│    ├─── TypeScript Compilation
+│    └─── Directory Management
+│
+└─── Service Management
+     ├─── Health Checks
+     ├─── Restart Policies
+     └─── Log Management
+```
+
+### Module System Pattern
+```
+┌─ ESM Architecture
+├─── TypeScript Configuration
+│    ├─── NodeNext Module
+│    └─── ESM Interop
+│
+├─── Import Structure
+│    ├─── .js Extensions
+│    ├─── Package Types
+│    └─── Module Resolution
+│
+└─── Compatibility Layer
+     ├─── CommonJS Integration
+     ├─── Dynamic Imports
+     └─── Type Definitions
+```
+
 ## Key Design Patterns
 
 ### Authentication Pattern
@@ -152,6 +191,18 @@
    - Relative scoring
    - Trend identification
    - Ranking system
+
+### Deployment Pattern
+- Railway.toml as configuration source
+- Explicit directory management
+- Health check monitoring
+- Restart policy handling
+
+### Module System Pattern
+- ESM throughout services
+- TypeScript ESM configuration
+- Import path management
+- Compatibility handling
 
 ## Technical Decisions
 

@@ -6,6 +6,7 @@ Key implementation examples are available in:
 - `docs/complete-lighthouse-audit-example.js`: Example implementation of the website audit service
 - `docs/admin-ui-components.txt`: Example UI components for the scraper control panel
 - `services/analysis/IMPLEMENTATION.md`: Summary of the data analysis service implementation
+- `services/scraper/railway.toml`: Example Railway deployment configuration
 
 ## Technology Stack
 
@@ -20,12 +21,13 @@ Key implementation examples are available in:
 
 ### Backend
 - Supabase for database and authentication
-- Node.js scraper services
+- Node.js scraper services (ESM)
 - Node.js analysis services
 - Bull for job queue management
 - Express for API endpoints
 - Redis for caching and job state
 - Docker for containerization
+- Railway for deployment
 
 ### APIs and Services
 - Google Places API for business discovery
@@ -39,7 +41,7 @@ Key implementation examples are available in:
 ### Development Tools
 - Vite for development and building
 - ESLint and Prettier for code quality
-- TypeScript for type safety
+- TypeScript with ESM support
 - Git for version control
 - GitHub Actions for CI/CD
 
@@ -104,6 +106,7 @@ Key implementation examples are available in:
 - Git
 - Redis
 - Supabase CLI (optional)
+- Railway CLI
 
 ### Environment Variables
 ```env
@@ -123,6 +126,45 @@ SUPABASE_URL=your_supabase_url
 SUPABASE_API_KEY=your_supabase_service_key
 REDIS_URL=redis://localhost:6379
 PORT=3001
+```
+
+### Railway Configuration
+```toml
+# Example railway.toml structure
+[build]
+builder = "NIXPACKS"
+buildCommand = "cd services/scraper && npm install && npm run build"
+
+[deploy]
+startCommand = "cd services/scraper && node dist/index.js"
+healthcheckPath = "/health"
+restartPolicyType = "ON_FAILURE"
+
+[variables]
+NODE_ENV = "development"
+```
+
+### TypeScript Configuration
+```json
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2020",
+    "esModuleInterop": true
+  }
+}
+```
+
+### Package.json Configuration
+```json
+{
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  }
+}
 ```
 
 ### Local Development
@@ -235,3 +277,30 @@ npm run migrations
 - Data validation
 - Error handling 
 - Service authentication 
+
+## New Section: Deployment Configuration
+
+### Railway Deployment
+1. Configuration Hierarchy
+   - railway.toml is the source of truth
+   - UI settings are overridden by TOML
+   - Root directory requires careful handling
+   - Build detection occurs before TOML application
+
+2. Module System
+   - ESM throughout scraper service
+   - .js extensions required in imports
+   - TypeScript configured for ESM
+   - CommonJS compatibility considerations
+
+3. Build Process
+   - Nixpacks builder
+   - TypeScript compilation
+   - Directory context management
+   - Environment variable handling
+
+4. Monitoring
+   - Health check endpoints
+   - Restart policies
+   - Log access
+   - Error tracking

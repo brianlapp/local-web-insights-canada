@@ -1,7 +1,7 @@
 # Active Development Context
 
 # Current Task
-Implementing the Data Analysis & Insights Layer for the Local Web Insights Canada platform.
+Deploying the scraper service to Railway and resolving TypeScript/ESM build issues.
 
 # Mode
 PLAN mode only unless ACT is typed.
@@ -42,37 +42,32 @@ Cursor should:
 - Maintain a clear separation of concerns between modules
 
 ## Current Focus
-- Implemented the Data Analysis & Insights Layer with comprehensive aggregation modules
-- Created a report generation system with standardized formats and visualization configurations
-- Established a job queue for asynchronous processing with scheduling capabilities
-- Designed a complete database schema for storing analysis results
-- Set up Docker configuration for deployment
+- Resolving Railway deployment issues for the scraper service
+- Fixing TypeScript build errors and ESM compatibility
+- Ensuring proper configuration between Railway UI and railway.toml
 
 ## Recent Changes
-- Created the analysis service with the following components:
-  - Geographic insights aggregator for location-based analysis
-  - Category analysis module for industry benchmarking
-  - Business comparison system for competitive insights
-  - Report generation pipeline with visualization support
-  - Scheduled report processing for automated insights
-- Implemented TypeScript-based service architecture
-- Set up Docker configuration for the analysis service
-- Configured Redis for the job queue system
-- Designed comprehensive database schema for analysis data
-- Added RESTful API endpoints for report access
+- Added railway.toml configuration for scraper service deployment
+- Updated TypeScript configuration for ESM compatibility
+- Added proper module type declarations in package.json
+- Fixed import statements to use .js extensions for ESM
+- Discovered and documented Railway UI vs TOML configuration behavior
 
 ## Current Architecture
 - Microservices:
   - Scraper Service (Node.js/TypeScript)
-    - Business discovery module
-    - Website audit module
-    - Queue processing system
+    - Currently facing deployment issues:
+      - ESM vs CommonJS module conflicts
+      - TypeScript build errors
+      - Railway configuration challenges
+    - Using railway.toml for deployment configuration
+    - Explicit directory management for monorepo structure
   - Analysis Service (Node.js/TypeScript)
     - Data aggregation modules
     - Report generation system
     - Scheduled insight processing
     - RESTful API endpoints
-  - Redis for job queues
+  - Redis for job queues (pending setup)
 - Infrastructure:
   - Docker containers
   - Supabase for data storage
@@ -80,25 +75,22 @@ Cursor should:
   - Bull for job processing
 
 ## Next Steps
-1. Implement the API Endpoints & Integration Layer:
-   - Build RESTful API structure with authentication
-   - Implement query endpoints with filtering capabilities
-   - Create report generation endpoints
-   - Add webhook integration for external systems
-2. Develop the Frontend Dashboard:
-   - Implement interactive map visualization component
-   - Create business performance comparison tools
-   - Develop user-friendly report builder
-   - Design admin interface for configuration
-3. Enhance Business Data Enrichment:
-   - Add social media presence detection
-   - Implement competitor analysis features
-   - Create historical performance tracking
-   - Develop local market penetration metrics
+1. Fix remaining TypeScript errors:
+   - Update all import statements to use .js extensions
+   - Resolve function argument and return type mismatches
+   - Fix CommonJS/ESM module conflicts with lighthouse
+
+2. Complete Railway deployment:
+   - Verify railway.toml configuration
+   - Ensure proper build process
+   - Set up Redis service
+   - Configure environment variables
 
 ## Dependencies
 - Node.js 18
-- Redis 6
+- TypeScript 5.x with ESM support
+- Railway platform
+- Redis (pending)
 - Express 4
 - Bull 4
 - Turf.js
@@ -109,31 +101,43 @@ Cursor should:
 Required environment variables:
 - PORT
 - NODE_ENV
-- REDIS_URL
+- REDIS_URL (pending)
 - SUPABASE_URL
 - SUPABASE_API_KEY
 - LOG_LEVEL
 
 ## Active Decisions
-1. Analysis Architecture
+1. Railway Configuration Strategy
+   - Use railway.toml as single source of truth
+   - Avoid duplicate settings in Railway UI
+   - Use explicit cd commands for directory management
+   - Maintain ESM compatibility in TypeScript config
+
+2. Module System
+   - Use ESM throughout the scraper service
+   - Add .js extensions to all imports
+   - Configure package.json with "type": "module"
+   - Update TypeScript configuration for ESM
+
+3. Analysis Architecture
    - Modular aggregator design
    - Report generation pipeline
    - Job queue implementation
    - Scheduled processing strategy
 
-2. API Design
+4. API Design
    - RESTful endpoint structure
    - Filtering and pagination
    - Authentication approach
    - Response format standardization
 
-3. Database Schema
+5. Database Schema
    - Report storage strategy
    - Insight data modeling
    - Historical trend tracking
    - Performance optimization
 
-4. Integration Approach
+6. Integration Approach
    - Service communication methods
    - Data synchronization
    - Event handling
@@ -141,22 +145,48 @@ Required environment variables:
 
 ## Current Challenges
 1. Technical
-   - Efficient geographic calculations
-   - Complex data aggregation
-   - Report generation performance
-   - Job queue scaling
+   - ESM vs CommonJS module conflicts
+   - TypeScript build errors
+   - Railway deployment configuration
+   - Monorepo service management
 
 2. Infrastructure
-   - Service deployment
-   - Resource optimization
-   - Database scaling
-   - Monitoring implementation
+   - Railway deployment process
+   - Redis service setup
+   - Environment variable management
+   - Build process optimization
 
 3. Data Quality
    - Analysis accuracy
    - Insight relevance
    - Report visualization effectiveness
    - Real-time vs. batch processing
+
+## Recent Learnings
+1. Railway Configuration:
+   - railway.toml OVERRIDES any UI settings
+   - Root directory setting can conflict between UI and TOML
+   - Explicit cd commands more reliable than rootDirectory
+   - Build detection happens before TOML application
+
+2. TypeScript/ESM:
+   - Need .js extensions in import statements
+   - package.json requires "type": "module"
+   - CommonJS/ESM conflicts with certain packages
+   - Build process needs proper module configuration
+
+## Questions Resolved
+1. Technical
+   - Railway.toml takes precedence over UI settings
+   - ESM requires explicit .js extensions
+   - TypeScript needs specific ESM configuration
+   - Monorepo requires explicit directory management
+
+## Next Actions
+1. Fix all TypeScript build errors
+2. Complete Railway deployment
+3. Set up Redis service
+4. Test end-to-end functionality
 
 ## Recent Feedback
 - Need for actionable business insights
