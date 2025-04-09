@@ -1,15 +1,18 @@
-# Railway configuration for the scraper service only
+# Railway configuration for Local Web Insights Canada
+# Settings are primarily managed in the Railway UI dashboard
 
 [build]
-builder = "nixpacks"
-rootDirectory = "services/scraper"
-buildCommand = "npm install"
+builder = "nixpacks" 
+# rootDirectory and buildCommand are set in the Railway UI
 
 [deploy]
-rootDirectory = "services/scraper"
-startCommand = "npm run dev"
 restartPolicyType = "ON_FAILURE"
+# rootDirectory and startCommand are set in the Railway UI
+# healthcheckPath is set in the Railway UI
 
 [variables]
 NODE_ENV = "production"
-PORT = "8080" 
+PORT = "8080"
+LOG_LEVEL = "info"
+# Other variables like REDIS_URL, SUPABASE_URL etc. should be set 
+# in the Railway dashboard (preferably as shared variables) 
