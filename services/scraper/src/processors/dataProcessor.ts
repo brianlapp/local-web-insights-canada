@@ -1,8 +1,8 @@
-
-import { logger } from '../utils/logger';
-import { getSupabaseClient, markRawBusinessDataProcessed, saveBusiness } from '../utils/database';
+import { logger } from '../utils/logger.js';
+import { getSupabaseClient, markRawBusinessDataProcessed, saveBusiness } from '../utils/database.js';
 import Queue from 'bull';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { Job, JobId } from 'bull';
 
 // Initialize the data processing queue
 const dataProcessingQueue = new Queue('data-processing', process.env.REDIS_URL as string);
@@ -19,9 +19,7 @@ dataProcessingQueue.on('failed', (job, error) => {
   if (job.attemptsMade < maxRetries) {
     const backoffDelay = Math.pow(2, job.attemptsMade) * 1000; // Exponential backoff: 2s, 4s, 8s
     logger.info(`Scheduling retry #${job.attemptsMade + 1} for job ${job.id} in ${backoffDelay}ms`);
-    job.retry({
-      delay: backoffDelay
-    });
+    job.retry();
   } else {
     logger.error(`Job ${job.id} exceeded maximum retries (${maxRetries})`);
   }

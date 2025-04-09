@@ -1,4 +1,3 @@
-
 import express from 'express';
 import {
   queueRawDataProcessing,
@@ -6,7 +5,7 @@ import {
   getJobStatus,
   getProcessingMetrics,
   getUnprocessedDataCounts
-} from '../controllers/dataProcessingController';
+} from '../controllers/dataProcessingController.js';
 
 const router = express.Router();
 

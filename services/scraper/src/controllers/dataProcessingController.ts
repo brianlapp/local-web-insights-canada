@@ -1,12 +1,11 @@
-
 import { Request, Response } from 'express';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js';
 import { 
   queueRawBusinessDataProcessing, 
   getDataProcessingMetrics,
   dataProcessingQueue
-} from '../processors/dataProcessor';
-import { getSupabaseClient } from '../utils/database';
+} from '../processors/dataProcessor.js';
+import { getSupabaseClient } from '../utils/database.js';
 
 /**
  * Queue raw business data for processing
@@ -89,9 +88,9 @@ export async function queueBatchRawDataProcessing(req: Request, res: Response) {
     }
     
     // Queue each item
-    const validIds = data.map(item => item.id);
+    const validIds = data.map((item: any) => item.id);
     const queueResults = await Promise.all(
-      validIds.map(id => queueRawBusinessDataProcessing(id, priority))
+      validIds.map((id: string) => queueRawBusinessDataProcessing(id, priority))
     );
     
     res.status(200).json({
@@ -193,7 +192,7 @@ export async function getUnprocessedDataCounts(req: Request, res: Response) {
     
     // Calculate source counts
     const sourceCounts: Record<string, number> = {};
-    sourceBreakdown?.forEach(item => {
+    sourceBreakdown?.forEach((item: any) => {
       const sourceId = item.source_id;
       sourceCounts[sourceId] = (sourceCounts[sourceId] || 0) + 1;
     });

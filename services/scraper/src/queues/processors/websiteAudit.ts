@@ -243,7 +243,7 @@ export const processWebsiteAudit = async (job: Job<AuditJobData>): Promise<Valid
     // Clean up temp files
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (e) {}
     
-    return savedAudit;
+    return savedAudit as ValidationResult | AuditResult;
   } catch (error: any) {
     logger.error(`Error processing website audit for ${url}:`, error);
     
@@ -257,9 +257,10 @@ export const processWebsiteAudit = async (job: Job<AuditJobData>): Promise<Valid
     
     // Update the audit record with failure status
     try {
-      await saveAuditResults(businessId, {
+      await saveAuditResults({
+        businessId,
         status: 'failed',
-        error_message: error.message || 'Unknown error during audit',
+        message: `Failed to process website audit: ${error.message || 'Unknown error during audit'}`,
         last_audited_at: new Date().toISOString(),
       });
     } catch (dbError: any) {

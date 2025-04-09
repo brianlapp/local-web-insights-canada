@@ -1,7 +1,6 @@
-
 import { Job } from 'bull';
-import { logger } from '../../utils/logger';
-import { getSupabaseClient } from '../../utils/database';
+import { logger } from '../../utils/logger.js';
+import { getSupabaseClient } from '../../utils/database.js';
 
 // Placeholder for the actual scraper implementation
 async function scrapeBusiness(location: string, radius: number, searchTerm: string = '') {
@@ -82,6 +81,7 @@ export async function processGridSearch(job: Job) {
     logger.info(`Grid search completed for ${location}, found ${businesses.length} businesses`);
     return businesses;
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(`Error processing grid search for ${location}:`, error);
     
     // Update job status to failed
@@ -91,11 +91,14 @@ export async function processGridSearch(job: Job) {
         .from('scraper_runs')
         .update({ 
           status: 'failed',
-          error: error.message
+          error: errorMessage
         })
         .eq('id', jobId);
     }
     
-    throw error;
+    return {
+      success: false,
+      error: errorMessage
+    };
   }
 }

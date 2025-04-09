@@ -1,12 +1,12 @@
 import express from 'express';
 import Queue from 'bull';
 import dotenv from 'dotenv';
-import { logger } from './utils/logger';
-import { setupRoutes } from './routes';
-import { processGridSearch } from './queues/processors/gridSearch';
-import { processWebsiteAudit } from './queues/processors/websiteAudit';
-import { setupDataProcessingQueue } from './processors/dataProcessor';
-import { getSupabaseClient } from './utils/database';
+import { logger } from './utils/logger.js';
+import { setupRoutes } from './routes/index.js';
+import { processGridSearch } from './queues/processors/gridSearch.js';
+import { processWebsiteAudit } from './queues/processors/websiteAudit.js';
+import { setupDataProcessingQueue } from './processors/dataProcessor.js';
+import { getSupabaseClient } from './utils/database.js';
 
 // Load environment variables
 dotenv.config();

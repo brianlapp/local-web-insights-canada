@@ -1,7 +1,7 @@
 import Queue from 'bull';
-import { logger } from '../utils/logger';
-import { processGridSearch } from './processors/gridSearch';
-import { processWebsiteAudit } from './processors/websiteAudit';
+import { logger } from '../utils/logger.js';
+import { processGridSearch } from './processors/gridSearch.js';
+import { processWebsiteAudit } from './processors/websiteAudit.js';
 
 // Queue instances
 export const scraperQueue = new Queue('business-scraper', process.env.REDIS_URL as string);
