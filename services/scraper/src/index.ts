@@ -1,5 +1,4 @@
 import express from 'express';
-import Queue from 'bull';
 import dotenv from 'dotenv';
 import { logger } from './utils/logger.js';
 import { setupRoutes } from './routes/index.js';
@@ -7,6 +6,7 @@ import { processGridSearch } from './queues/processors/gridSearch.js';
 import { processWebsiteAudit } from './queues/processors/websiteAudit.js';
 import { setupDataProcessingQueue } from './processors/dataProcessor.js';
 import { getSupabaseClient } from './utils/database.js';
+import { scraperQueue, auditQueue, setupQueues } from './queues/index.js';
 
 // Load environment variables
 dotenv.config();
@@ -40,28 +40,17 @@ if (!process.env.REDIS_URL) {
   throw new Error('REDIS_URL environment variable is required');
 }
 
-const scraperQueue = new Queue('scraper', process.env.REDIS_URL as string);
-const auditQueue = new Queue('audit', process.env.REDIS_URL as string);
-
-// Set up queue processors
-scraperQueue.process('search-grid', processGridSearch);
-auditQueue.process('audit-website', processWebsiteAudit);
+// Initialize and set up queues from the centralized queue module
+setupQueues().catch(error => {
+  logger.error(`Failed to set up queues: ${error.message}`, { error });
+});
 
 // Set up data processing queue
 const dataProcessingQueue = setupDataProcessingQueue();
 
-// Handle queue errors
-scraperQueue.on('error', (error) => {
-  logger.error('Scraper queue error:', error);
-});
-
-auditQueue.on('error', (error) => {
-  logger.error('Audit queue error:', error);
-});
-
-// Handle completed jobs
+// Handle completed jobs (additional handlers beyond the basic ones in queues/index.js)
 scraperQueue.on('completed', async (job) => {
-  logger.info(`Completed scraper job ${job.id}`);
+  logger.info(`Processing completed scraper job ${job.id}`);
   
   // If this job is linked to a scraper_run record, update its status
   const jobData = job.data;
@@ -81,13 +70,9 @@ scraperQueue.on('completed', async (job) => {
   }
 });
 
-auditQueue.on('completed', (job) => {
-  logger.info(`Completed audit job ${job.id}`);
-});
-
-// Handle failed jobs
+// Handle failed jobs (additional handlers beyond the basic ones in queues/index.js)
 scraperQueue.on('failed', async (job, error) => {
-  logger.error(`Scraper job ${job.id} failed:`, error);
+  logger.error(`Processing failed scraper job ${job.id}:`, error);
   
   // If this job is linked to a scraper_run record, update its status
   const jobData = job.data;
@@ -105,10 +90,6 @@ scraperQueue.on('failed', async (job, error) => {
       logger.error(`Error updating job status for ${job.id}:`, updateError);
     }
   }
-});
-
-auditQueue.on('failed', (job, error) => {
-  logger.error(`Audit job ${job.id} failed:`, error);
 });
 
 // Set up routes
@@ -133,6 +114,22 @@ app.get('/status', (req, res) => {
   };
   
   res.status(200).json(statusInfo);
+});
+
+// Add Redis connectivity diagnostic endpoint
+app.get('/debug-redis', (req, res) => {
+  const redisUrl = process.env.REDIS_URL || '';
+  const diagnosticInfo = {
+    redis_url_exists: !!process.env.REDIS_URL,
+    redis_url_masked: redisUrl.replace(/\/\/.*@/, '//***@'),
+    redis_hostname: redisUrl.match(/@([^:]+):/)?.[1] || 'not-found',
+    queue_status: {
+      scraper_queue: scraperQueue.client.status || 'unknown',
+      audit_queue: auditQueue.client.status || 'unknown'
+    }
+  };
+  
+  res.status(200).json(diagnosticInfo);
 });
 
 // Error handling middleware

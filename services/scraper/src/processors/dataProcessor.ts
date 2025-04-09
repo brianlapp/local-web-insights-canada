@@ -3,17 +3,26 @@ import { getSupabaseClient, markRawBusinessDataProcessed, saveBusiness } from '.
 import Queue from 'bull';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Job, JobId } from 'bull';
+import { QUEUE_NAMES } from '../queues/index.js';
+
+// Data processing queue name
+const DATA_PROCESSING_QUEUE = 'data-processing';
+
+// Log Redis connection info
+const redisUrl = process.env.REDIS_URL || '';
+logger.info(`Data processor Redis URL configured: ${redisUrl.replace(/\/\/.*@/, '//***@')}`);
+logger.info(`Data processor Redis hostname: ${redisUrl.match(/@([^:]+):/)?.[1] || 'not-found'}`);
 
 // Initialize the data processing queue
-const dataProcessingQueue = new Queue('data-processing', process.env.REDIS_URL as string);
+const dataProcessingQueue = new Queue(DATA_PROCESSING_QUEUE, process.env.REDIS_URL as string);
 
 // Configure queue settings
 dataProcessingQueue.on('error', (error) => {
-  logger.error('Data processing queue error:', error);
+  logger.error(`Data processing queue error: ${error.message}`, { error });
 });
 
 dataProcessingQueue.on('failed', (job, error) => {
-  logger.error(`Data processing job ${job.id} failed:`, error);
+  logger.error(`Data processing job ${job.id} failed: ${error.message}`, { error });
   // Schedule retry with exponential backoff if under max retries
   const maxRetries = 3;
   if (job.attemptsMade < maxRetries) {
@@ -265,46 +274,45 @@ function transformGenericData(rawData: any, sourceId: string, externalId: string
 }
 
 /**
- * Queue a raw business data item for processing
+ * Queue raw business data for processing
  */
 export async function queueRawBusinessDataProcessing(rawDataId: string, priority = 'normal') {
+  logger.info(`Queueing raw business data processing for ID: ${rawDataId} with priority: ${priority}`);
+  
   try {
-    const priorityValue = priority === 'high' ? 1 : priority === 'low' ? 10 : 5;
-    
     const job = await dataProcessingQueue.add(
-      'process-business-data',
+      'process-raw-data',
       { id: rawDataId },
       { 
-        priority: priorityValue,
+        priority: priority === 'high' ? 1 : priority === 'low' ? 10 : 5,
         attempts: 3,
         backoff: {
           type: 'exponential',
-          delay: 2000 // Start with 2 seconds
+          delay: 2000
         },
-        removeOnComplete: 100, // Keep the 100 most recent completed jobs
-        removeOnFail: 100, // Keep the 100 most recent failed jobs
+        removeOnComplete: true,
+        removeOnFail: false
       }
     );
     
-    logger.info(`Queued raw business data ${rawDataId} for processing, job ID: ${job.id}`);
-    
-    return job.id;
-  } catch (error) {
-    logger.error(`Failed to queue raw business data for processing: ${error}`);
+    return {
+      jobId: job.id as string,
+      status: 'queued'
+    };
+  } catch (error: any) {
+    logger.error(`Failed to queue data processing job: ${error.message}`, { error });
     throw error;
   }
 }
 
 /**
- * Setup the data processing queue
+ * Set up the data processing queue
  */
 export function setupDataProcessingQueue() {
-  logger.info('Setting up data processing queue...');
+  logger.info(`Setting up data processing queue: ${DATA_PROCESSING_QUEUE}`);
   
-  // Register the processor
-  dataProcessingQueue.process('process-business-data', processRawBusinessData);
-  
-  logger.info('Data processing queue setup complete');
+  // Register processor
+  dataProcessingQueue.process('process-raw-data', processRawBusinessData);
   
   return dataProcessingQueue;
 }
@@ -332,7 +340,7 @@ export async function getDataProcessingMetrics() {
     ]);
     
     return {
-      queueName: 'data-processing',
+      queueName: DATA_PROCESSING_QUEUE,
       active: activeCount,
       completed: completedCount,
       failed: failedCount,
