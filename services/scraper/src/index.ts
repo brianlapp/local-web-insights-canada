@@ -120,43 +120,73 @@ app.get('/status', (req, res) => {
 
 // Add a simple test endpoint that bypasses queues to directly test Redis connectivity
 app.get('/test-redis-connection', async (req, res) => {
-  const redisUrl = process.env.REDIS_URL || '';
+  const internalUrl = "redis://redis.railway.internal:6379";
   const externalUrl = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781";
   
   const results = {
-    direct_connection: false,
-    error: null as any,
+    internal_connection: {
+      success: false,
+      error: null as any
+    },
+    external_connection: {
+      success: false,
+      error: null as any
+    },
     redis_info: null
   };
   
-  // Try to connect directly to Redis
-  const redis = new Redis(externalUrl, {
-    connectTimeout: 10000, // 10 seconds
-    maxRetriesPerRequest: 3,
-    retryStrategy: (times: number) => {
-      const delay = Math.min(Math.exp(times), 5) * 1000; // Exponential with max 5 seconds
-      return delay;
-    }
-  });
-  
+  // Try to connect to internal Redis first
   try {
-    // Test Redis connection with a simple ping
-    const pingResult = await redis.ping();
-    results.direct_connection = pingResult === 'PONG';
+    const internalRedis = new Redis(internalUrl, {
+      connectTimeout: 10000, // 10 seconds
+      maxRetriesPerRequest: 3
+    });
     
-    // Get basic Redis info
-    const info = await redis.info();
-    results.redis_info = info.split('\n').slice(0, 10).join('\n');
+    // Test internal Redis connection with a simple ping
+    const pingResult = await internalRedis.ping();
+    results.internal_connection.success = pingResult === 'PONG';
+    
+    // If internal connection works, get basic Redis info
+    if (results.internal_connection.success) {
+      const info = await internalRedis.info();
+      results.redis_info = info.split('\n').slice(0, 10).join('\n');
+    }
+    
+    internalRedis.disconnect();
   } catch (error: any) {
-    results.error = {
+    results.internal_connection.error = {
       message: error.message,
       code: error.code,
       errno: error.errno,
       syscall: error.syscall
     };
-  } finally {
-    // Always close Redis connection
-    redis.disconnect();
+  }
+  
+  // Always try external Redis too
+  try {
+    const externalRedis = new Redis(externalUrl, {
+      connectTimeout: 10000, // 10 seconds
+      maxRetriesPerRequest: 3
+    });
+    
+    // Test external Redis connection
+    const pingResult = await externalRedis.ping();
+    results.external_connection.success = pingResult === 'PONG';
+    
+    // If external connection works and we don't have Redis info yet, get it
+    if (results.external_connection.success && !results.redis_info) {
+      const info = await externalRedis.info();
+      results.redis_info = info.split('\n').slice(0, 10).join('\n');
+    }
+    
+    externalRedis.disconnect();
+  } catch (error: any) {
+    results.external_connection.error = {
+      message: error.message,
+      code: error.code,
+      errno: error.errno,
+      syscall: error.syscall
+    };
   }
   
   res.status(200).json(results);

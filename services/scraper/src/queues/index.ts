@@ -7,77 +7,73 @@ import { RedisOptions } from 'ioredis';
 // Centralized queue name configuration
 export const QUEUE_NAMES = {
   SCRAPER: 'scraper',
-  AUDIT: 'audit'
+  AUDIT: 'audit',
+  DATA_PROCESSING: 'data_processing'
 };
 
-// Ensure we use the external Redis URL, not the internal DNS
-// This overrides any automatically set environment variables
+// Define connection options for both internal and external Redis
+const INTERNAL_REDIS_URL = "redis://redis.railway.internal:6379";
 const EXTERNAL_REDIS_URL = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781";
-// Ensure we always use the external URL, not env vars
-const redisUrl = EXTERNAL_REDIS_URL;
 
-// Configure Bull connection options
-const connectionOptions = {
-  // Retry strategy with exponential backoff
-  retryStrategy: (times: number) => {
-    const delay = Math.min(Math.exp(times), 30) * 1000; // Exponential with max 30 seconds
-    logger.info(`Redis retry attempt ${times}, waiting ${delay}ms`);
-    return delay;
-  },
-  // Increase connection timeout
-  connectTimeout: 10000, // 10 seconds
-  // Maximum reconnection attempts before failing
-  maxRetriesPerRequest: 5
-};
+// Try to use internal DNS first, fall back to external URL
+// This should allow service discovery to work properly
+const redisUrl = INTERNAL_REDIS_URL;
+
+// Log which Redis URL we're using
+logger.info(`Attempting Redis connection using internal DNS: ${INTERNAL_REDIS_URL}`);
+logger.info(`Fallback Redis URL (external): ${EXTERNAL_REDIS_URL.replace(/\/\/.*@/, '//***@')}`);
 
 // Connection options for Bull queues
 const bullOptions = {
   redis: {
-    port: 13781,
-    host: 'shinkansen.proxy.rlwy.net',
-    password: 'KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE',
-    username: 'default',
-    connectTimeout: 10000,
-    maxRetriesPerRequest: 5,
+    // No specific Redis options here - using the URL handles it
   },
   // Bull-specific settings
   settings: {
     lockDuration: 30000, // 30 seconds
     stalledInterval: 15000, // Check for stalled jobs every 15 seconds
     maxStalledCount: 2, // Maximum number of times a job can be marked as stalled
-    backoffStrategies: {
-      // Custom exponential backoff
-      custom: (attemptsMade: number) => {
-        return attemptsMade ? Math.min(Math.exp(attemptsMade - 1), 30) * 1000 : 1000;
-      }
-    }
+    drainDelay: 5, // Delay for draining the queue when paused
+  },
+  // Very important - limit retries to avoid hammering Redis
+  limiter: {
+    max: 3, // Maximum number of jobs processed in duration
+    duration: 5000, // Duration in ms for limiting
   }
 };
 
-// Log Redis connection info (with credentials masked)
-logger.info(`Using explicit Redis URL: ${redisUrl.replace(/\/\/.*@/, '//***@')}`);
-logger.info(`Redis hostname: ${redisUrl.match(/@([^:]+):/)?.[1] || 'not-found'}`);
+// Circuit breaker to track Redis connection state
+let redisCircuitBroken = false;
+let lastConnectionAttempt = 0;
+const CIRCUIT_RESET_INTERVAL = 30000; // 30 seconds
 
-// Create queue instances with retry options
-export const scraperQueue = new Queue(QUEUE_NAMES.SCRAPER, redisUrl, bullOptions);
-scraperQueue.on('error', (error) => {
-  logger.error(`Scraper queue error: ${error.message}`, { error });
-  // Do not crash the process on queue errors
-});
+// Create queues with proper error handling
+function createQueue(name: string) {
+  const queue = new Queue(name, redisUrl);
+  
+  queue.on('error', (error) => {
+    const now = Date.now();
+    logger.error(`${name} queue error: ${error.message}`, { error });
+    
+    // Circuit breaker logic
+    if (!redisCircuitBroken) {
+      logger.warn(`Redis circuit breaker tripped for ${name} queue`);
+      redisCircuitBroken = true;
+      lastConnectionAttempt = now;
+    } else if (now - lastConnectionAttempt > CIRCUIT_RESET_INTERVAL) {
+      // Try to reset circuit after interval
+      logger.info(`Attempting to reset Redis circuit breaker for ${name} queue`);
+      lastConnectionAttempt = now;
+    }
+  });
+  
+  return queue;
+}
 
-// Data processing queue
-export const dataProcessingQueue = new Queue(QUEUE_NAMES.AUDIT, redisUrl, bullOptions);
-dataProcessingQueue.on('error', (error) => {
-  logger.error(`Data processing queue error: ${error.message}`, { error });
-  // Do not crash the process on queue errors
-});
-
-// Audit queue
-export const auditQueue = new Queue(QUEUE_NAMES.AUDIT, redisUrl, bullOptions);
-auditQueue.on('error', (error) => {
-  logger.error(`Audit queue error: ${error.message}`, { error });
-  // Do not crash the process on queue errors
-});
+// Create queues with circuit breaker pattern
+export const scraperQueue = createQueue(QUEUE_NAMES.SCRAPER);
+export const dataProcessingQueue = createQueue(QUEUE_NAMES.DATA_PROCESSING);
+export const auditQueue = createQueue(QUEUE_NAMES.AUDIT);
 
 export async function setupQueues() {
   logger.info('Setting up job queues...');

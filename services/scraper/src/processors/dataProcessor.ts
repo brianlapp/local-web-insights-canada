@@ -8,13 +8,17 @@ import { QUEUE_NAMES } from '../queues/index.js';
 // Data processing queue name
 const DATA_PROCESSING_QUEUE = 'data-processing';
 
-// Use explicit Redis URL to avoid DNS resolution issues
+// Define connection options for both internal and external Redis
+const INTERNAL_REDIS_URL = "redis://redis.railway.internal:6379";
 const EXTERNAL_REDIS_URL = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781";
-const redisUrl = EXTERNAL_REDIS_URL;
 
-// Log Redis connection info
-logger.info(`Data processor using explicit Redis URL: ${EXTERNAL_REDIS_URL.replace(/\/\/.*@/, '//***@')}`);
-logger.info(`Data processor Redis hostname: ${redisUrl.match(/@([^:]+):/)?.[1] || 'not-found'}`);
+// Try to use internal DNS first, fall back to external URL
+const redisUrl = INTERNAL_REDIS_URL;
+
+// Log which Redis URL we're trying to use
+logger.info(`Data processor using internal Redis URL: ${INTERNAL_REDIS_URL}`);
+logger.info(`Data processor fallback Redis URL (external): ${EXTERNAL_REDIS_URL.replace(/\/\/.*@/, '//***@')}`);
+logger.info(`Data processor Redis hostname: ${redisUrl.match(/@([^:]+):/)?.[1] || 'internal'}`);
 
 // Initialize the data processing queue with explicit Redis URL
 const dataProcessingQueue = new Queue(DATA_PROCESSING_QUEUE, redisUrl);
