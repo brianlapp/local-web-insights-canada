@@ -22,6 +22,20 @@ const JobList: React.FC<JobListProps> = ({
 }) => {
   const hasRunningJobs = jobs.some(job => job.status === 'running');
 
+  const getBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'default';
+      case 'running':
+        return 'secondary';
+      case 'failed':
+      case 'cancelled':
+        return 'destructive';
+      default:
+        return 'outline';
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -47,12 +61,7 @@ const JobList: React.FC<JobListProps> = ({
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge
-                      variant={
-                        job.status === 'completed' ? 'default' :
-                        job.status === 'running' ? 'secondary' :
-                        job.status === 'failed' ? 'destructive' :
-                        job.status === 'cancelled' ? 'destructive' : 'outline'
-                      }
+                      variant={getBadgeVariant(job.status)}
                     >
                       {job.status}
                     </Badge>
