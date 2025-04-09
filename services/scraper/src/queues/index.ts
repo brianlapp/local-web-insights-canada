@@ -12,6 +12,7 @@ export const QUEUE_NAMES = {
 // Ensure we use the external Redis URL, not the internal DNS
 // This overrides any automatically set environment variables
 const EXTERNAL_REDIS_URL = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:6379";
+// Ensure we always use the external URL, not env vars
 const redisUrl = EXTERNAL_REDIS_URL;
 
 // Log Redis connection info (with credentials masked)

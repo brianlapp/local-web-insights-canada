@@ -36,9 +36,10 @@ app.use((req, res, next) => {
 });
 
 // Initialize queues
-if (!process.env.REDIS_URL) {
-  throw new Error('REDIS_URL environment variable is required');
-}
+// Remove environment variable check and use explicit URL
+// if (!process.env.REDIS_URL) {
+//   throw new Error('REDIS_URL environment variable is required');
+// }
 
 // Initialize and set up queues from the centralized queue module
 setupQueues().catch(error => {
