@@ -1,6 +1,7 @@
-# Railway configuration for scraper service
+# Railway configuration for the scraper service only
 
 [build]
+builder = "nixpacks"
 rootDirectory = "services/scraper"
 buildCommand = "npm install"
 
@@ -10,4 +11,5 @@ startCommand = "npm run dev"
 restartPolicyType = "ON_FAILURE"
 
 [variables]
-NODE_ENV = "production" 
+NODE_ENV = "production"
+PORT = "8080" 
