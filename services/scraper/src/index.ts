@@ -46,6 +46,31 @@ app.use((req, res, next) => {
   next();
 });
 
+// Root health check endpoint (for Railway)
+app.get('/health', (_req, res) => {
+  // For Railway's health check, always return a simple 200 OK
+  // This ensures the container stays running even during initialization
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// API health check endpoint (for detailed status)
+app.get('/api/health', async (_req, res) => {
+  try {
+    const status = await getHealthStatus();
+    res.status(200).json(status);
+  } catch (error: any) {
+    // Even on error, return 200 with error details
+    res.status(200).json({
+      status: 'ok',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Initialize services
 async function initializeServices() {
   let redis = null;
@@ -172,34 +197,6 @@ async function getHealthStatus(): Promise<HealthStatus> {
 
   return healthStatus;
 }
-
-// Start server
-logger.info('Starting server initialization...');
-
-// Root health check endpoint (for Railway)
-app.get('/health', (_req, res) => {
-  // For Railway's health check, always return a simple 200 OK
-  // This ensures the container stays running even during initialization
-  res.status(200).json({
-    status: 'ok',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// API health check endpoint (for detailed status)
-app.get('/api/health', async (_req, res) => {
-  try {
-    const status = await getHealthStatus();
-    res.status(200).json(status);
-  } catch (error: any) {
-    // Even on error, return 200 with error details
-    res.status(200).json({
-      status: 'ok',
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
-  }
-});
 
 // Enhanced Redis test endpoint
 app.get('/test-redis-connection', async (req, res) => {
