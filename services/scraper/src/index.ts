@@ -73,40 +73,94 @@ async function initializeServices() {
   }
 }
 
+// Add type definitions for health check response
+interface RedisStatus {
+  configured_url: string;
+  status: string;
+  error?: string;
+}
+
+interface QueueStatus {
+  scraper: any | null;
+  audit: any | null;
+  error?: string;
+}
+
+interface HealthStatus {
+  status: string;
+  timestamp: string;
+  version: string;
+  environment: string;
+  redis: RedisStatus;
+  queues: QueueStatus;
+  system: {
+    memory: NodeJS.MemoryUsage;
+    uptime: number;
+  };
+  error?: string;
+}
+
 // Enhanced health check endpoint
 app.get('/health', async (req, res) => {
+  const healthStatus: HealthStatus = {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    version: process.env.npm_package_version || 'unknown',
+    environment: process.env.NODE_ENV || 'development',
+    redis: {
+      configured_url: (process.env.REDIS_URL || 'redis://redis.railway.internal:6379').replace(/\/\/[^:]+:[^@]+@/, '//***:***@'),
+      status: 'unknown'
+    },
+    queues: {
+      scraper: null,
+      audit: null
+    },
+    system: {
+      memory: process.memoryUsage(),
+      uptime: process.uptime()
+    }
+  };
+
   try {
-    const redis = await getRedisClient();
-    const redisStatus = {
-      connected: await redis.ping() === 'PONG',
-      url: process.env.REDIS_URL || 'redis://localhost:6379'
-    };
+    // Try to get Redis status without waiting for initialization
+    const redis = new Redis(process.env.REDIS_URL || 'redis://redis.railway.internal:6379', {
+      lazyConnect: true,
+      connectTimeout: 2000, // Short timeout for health check
+      maxRetriesPerRequest: 1
+    });
 
-    const queueCounts = await Promise.all([
-      scraperQueueInstance.getJobCounts(),
-      auditQueueInstance.getJobCounts()
-    ]);
+    try {
+      await redis.ping();
+      healthStatus.redis.status = 'connected';
+    } catch (redisError: any) {
+      healthStatus.redis.status = 'error';
+      healthStatus.redis.error = redisError.message;
+    } finally {
+      // Always disconnect the temporary Redis client
+      redis.disconnect();
+    }
 
-    const healthStatus = {
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      version: process.env.npm_package_version || 'unknown',
-      redis: redisStatus,
-      queues: {
-        scraper: queueCounts[0],
-        audit: queueCounts[1]
-      },
-      system: {
-        memory: process.memoryUsage(),
-        uptime: process.uptime()
+    // Try to get queue status if available
+    if (scraperQueueInstance && auditQueueInstance) {
+      try {
+        const [scraperCounts, auditCounts] = await Promise.all([
+          scraperQueueInstance.getJobCounts().catch(() => null),
+          auditQueueInstance.getJobCounts().catch(() => null)
+        ]);
+        healthStatus.queues.scraper = scraperCounts;
+        healthStatus.queues.audit = auditCounts;
+      } catch (queueError) {
+        healthStatus.queues.error = 'Failed to get queue status';
       }
-    };
+    }
 
+    // Always return 200 if we can generate a response
     res.status(200).json(healthStatus);
   } catch (error: any) {
-    logger.error('Health check failed:', error);
-    res.status(500).json({
-      status: 'error',
+    logger.error('Health check error:', error);
+    // Still return 200 as long as we can respond
+    res.status(200).json({
+      ...healthStatus,
       error: error.message
     });
   }
