@@ -1,8 +1,14 @@
 import { Redis, RedisOptions } from 'ioredis';
 import { logger } from '../utils/logger.js';
 
-// Try Railway's internal Redis first, fallback to env var
-const REDIS_URL = process.env.REDIS_URL || 'redis://redis.railway.internal:6379';
+// Try different Redis URL configurations in order of preference
+const REDIS_URL = process.env.REDIS_URL || // Private URL (preferred)
+                 process.env.REDIS_PRIVATE_URL || // Railway private URL
+                 process.env.REDIS_PUBLIC_URL || // Railway public URL (fallback)
+                 (process.env.NODE_ENV === 'production' ? 
+                   'redis://redis.railway.internal:6379' : // Production internal URL
+                   'redis://localhost:6379'); // Local development
+
 const REDIS_RETRY_STRATEGY_MAX_RETRIES = 5;
 const REDIS_RETRY_STRATEGY_MAX_DELAY = 5000;
 
