@@ -7,6 +7,11 @@ const REDIS_RETRY_STRATEGY_MAX_RETRIES = 5;
 const REDIS_RETRY_STRATEGY_MAX_DELAY = 5000;
 
 export async function getRedisClient(): Promise<Redis> {
+  // Return existing client if available
+  if (global.redisClient) {
+    return global.redisClient;
+  }
+
   // Parse the Redis URL to determine if we're using TLS
   const isSecure = REDIS_URL.startsWith('rediss://');
   const isProd = process.env.NODE_ENV === 'production';
@@ -65,6 +70,7 @@ export async function getRedisClient(): Promise<Redis> {
 
     client.on('close', () => {
       logger.warn('Redis client closed connection');
+      global.redisClient = null; // Clear the global reference when connection closes
     });
 
     client.on('reconnecting', () => {
@@ -73,6 +79,7 @@ export async function getRedisClient(): Promise<Redis> {
 
     client.on('end', () => {
       logger.warn('Redis connection ended');
+      global.redisClient = null; // Clear the global reference when connection ends
     });
 
     // Test the connection
@@ -86,6 +93,7 @@ export async function getRedisClient(): Promise<Redis> {
 
     if (pingResult === 'PONG') {
       logger.info('Redis connection test successful');
+      global.redisClient = client; // Store the client globally
       return client;
     } else {
       throw new Error('Redis ping failed');

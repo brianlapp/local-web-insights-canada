@@ -9,6 +9,11 @@ import { getRedisClient } from './config/redis.js';
 import { Job, Queue } from 'bull';
 import { Redis } from 'ioredis';
 
+// Add at the top of the file, after imports
+declare global {
+  var redisClient: Redis | null;
+}
+
 // Load environment variables
 dotenv.config();
 
@@ -121,8 +126,8 @@ interface HealthStatus {
   error?: string;
 }
 
-// Enhanced health check endpoint
-app.get('/health', async (req, res) => {
+// Health check function that can be reused
+async function getHealthStatus(): Promise<HealthStatus> {
   const healthStatus: HealthStatus = {
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -142,47 +147,53 @@ app.get('/health', async (req, res) => {
     }
   };
 
-  try {
-    // Try to get Redis status without waiting for initialization
-    const redis = new Redis(process.env.REDIS_URL || 'redis://redis.railway.internal:6379', {
-      lazyConnect: true,
-      connectTimeout: 2000, // Short timeout for health check
-      maxRetriesPerRequest: 1
-    });
-
+  // Use existing Redis client if available
+  if (global.redisClient) {
     try {
-      await redis.ping();
+      await global.redisClient.ping();
       healthStatus.redis.status = 'connected';
     } catch (redisError: any) {
       healthStatus.redis.status = 'error';
       healthStatus.redis.error = redisError.message;
-    } finally {
-      // Always disconnect the temporary Redis client
-      redis.disconnect();
     }
+  }
 
-    // Try to get queue status if available
-    if (scraperQueueInstance && auditQueueInstance) {
-      try {
-        const [scraperCounts, auditCounts] = await Promise.all([
-          scraperQueueInstance.getJobCounts().catch(() => null),
-          auditQueueInstance.getJobCounts().catch(() => null)
-        ]);
-        healthStatus.queues.scraper = scraperCounts;
-        healthStatus.queues.audit = auditCounts;
-      } catch (queueError) {
-        healthStatus.queues.error = 'Failed to get queue status';
-      }
+  // Use existing queue instances if available
+  if (scraperQueueInstance && auditQueueInstance) {
+    try {
+      healthStatus.queues = {
+        scraper: scraperQueueInstance.client ? 'connected' : 'disconnected',
+        audit: auditQueueInstance.client ? 'connected' : 'disconnected'
+      };
+    } catch (queueError) {
+      healthStatus.queues.error = 'Failed to get queue status';
     }
+  }
 
-    // Always return 200 if we can generate a response
-    res.status(200).json(healthStatus);
+  return healthStatus;
+}
+
+// Root health check endpoint (for Railway)
+app.get('/health', async (_req, res) => {
+  // For Railway's health check, return a simple 200 OK
+  // This ensures the container stays running while we debug Redis issues
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// API health check endpoint (for detailed status)
+app.get('/api/health', async (_req, res) => {
+  try {
+    const status = await getHealthStatus();
+    res.status(200).json(status);
   } catch (error: any) {
-    logger.error('Health check error:', error);
-    // Still return 200 as long as we can respond
+    // Even on error, return 200 with error details
     res.status(200).json({
-      ...healthStatus,
-      error: error.message
+      status: 'ok',
+      error: error.message,
+      timestamp: new Date().toISOString()
     });
   }
 });

@@ -86,20 +86,6 @@ export const setupRoutes = (
     }
   });
 
-  // Add a health check endpoint for Railway deployment
-  router.get('/health', (req, res) => {
-    const status = {
-      status: 'ok',
-      message: 'Scraper service is running',
-      queues: {
-        scraper: scraperQueue ? 'available' : 'unavailable',
-        audit: auditQueue ? 'available' : 'unavailable',
-        dataProcessing: dataProcessingQueue ? 'available' : 'unavailable'
-      }
-    };
-    res.status(200).json(status);
-  });
-
   return router;
 };
 
