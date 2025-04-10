@@ -239,42 +239,55 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// Start server
-const server = app.listen(port, () => {
-  logger.info(`Server listening on port ${port}`);
-  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  
-  // Initialize services after server is listening
-  initializeServices().then((status) => {
-    logger.info('Service status:', status);
+// Start server first, before any initialization
+try {
+  const server = app.listen(Number(port), '0.0.0.0', () => {
+    logger.info('=== SERVER STARTUP ===');
+    logger.info(`Server starting on port ${port}`);
+    logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    logger.info(`Process ID: ${process.pid}`);
+    logger.info('Initial memory usage:', process.memoryUsage());
     
-    if (process.env.NODE_ENV === 'production') {
-      logger.info('Running in production mode - performance optimized');
-    } else {
-      logger.info('Running in development mode - for testing and debugging');
-    }
-  }).catch((error: any) => {
-    logger.error('Service initialization error:', error);
-    // Don't exit - continue with degraded functionality
+    // Initialize services after server is listening
+    initializeServices().then((status) => {
+      logger.info('=== SERVICES STATUS ===');
+      logger.info('Service initialization complete:', status);
+      
+      if (process.env.NODE_ENV === 'production') {
+        logger.info('Running in production mode - performance optimized');
+      } else {
+        logger.info('Running in development mode - for testing and debugging');
+      }
+    }).catch((error: any) => {
+      logger.error('=== SERVICE INIT ERROR ===');
+      logger.error('Service initialization error:', error);
+      // Don't exit - continue with degraded functionality
+    });
+  }).on('error', (error: any) => {
+    logger.error('=== SERVER ERROR ===');
+    logger.error('Server failed to start:', error);
+    process.exit(1);
   });
-}).on('error', (error: any) => {
-  logger.error('Server failed to start:', error);
+
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    logger.info('SIGTERM received. Starting graceful shutdown...');
+    server.close(() => {
+      logger.info('Server closed. Exiting process.');
+      process.exit(0);
+    });
+  });
+
+  process.on('SIGINT', () => {
+    logger.info('SIGINT received. Starting graceful shutdown...');
+    server.close(() => {
+      logger.info('Server closed. Exiting process.');
+      process.exit(0);
+    });
+  });
+
+} catch (error) {
+  logger.error('=== CRITICAL STARTUP ERROR ===');
+  logger.error('Failed to start server:', error);
   process.exit(1);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received. Starting graceful shutdown...');
-  server.close(() => {
-    logger.info('Server closed. Exiting process.');
-    process.exit(0);
-  });
-});
-
-process.on('SIGINT', () => {
-  logger.info('SIGINT received. Starting graceful shutdown...');
-  server.close(() => {
-    logger.info('Server closed. Exiting process.');
-    process.exit(0);
-  });
-});
+}
