@@ -46,14 +46,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// Root health check endpoint (for Railway)
+// Health check endpoint - must be first
 app.get('/health', (_req, res) => {
-  // For Railway's health check, always return a simple 200 OK
-  // This ensures the container stays running even during initialization
-  res.status(200).json({
-    status: 'ok',
-    timestamp: new Date().toISOString()
-  });
+  res.status(200).json({ status: 'ok' });
 });
 
 // API health check endpoint (for detailed status)
@@ -239,19 +234,15 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// Start the server and initialize services
+// Start server
+logger.info('Starting server...');
 const server = app.listen(Number(port), '0.0.0.0', () => {
   logger.info(`Server is listening on port ${port}`);
   
-  // Initialize services after server is listening
+  // Initialize services in background
   initializeServices()
-    .then((status) => {
-      logger.info('Services initialized:', status);
-    })
-    .catch((error) => {
-      logger.error('Service initialization error:', error);
-      // Don't exit - continue with degraded functionality
-    });
+    .then(status => logger.info('Services initialized:', status))
+    .catch(error => logger.error('Service initialization error:', error));
 });
 
 // Handle server errors
@@ -262,17 +253,11 @@ server.on('error', (error: Error) => {
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  logger.info('SIGTERM received. Starting graceful shutdown...');
-  server.close(() => {
-    logger.info('Server closed. Exiting process.');
-    process.exit(0);
-  });
+  logger.info('SIGTERM received');
+  server.close(() => process.exit(0));
 });
 
 process.on('SIGINT', () => {
-  logger.info('SIGINT received. Starting graceful shutdown...');
-  server.close(() => {
-    logger.info('Server closed. Exiting process.');
-    process.exit(0);
-  });
+  logger.info('SIGINT received');
+  server.close(() => process.exit(0));
 });
