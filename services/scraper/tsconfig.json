@@ -12,6 +12,8 @@
     "moduleResolution": "NodeNext",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "allowJs": true,
+    "checkJs": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]

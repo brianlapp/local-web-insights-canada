@@ -1,15 +1,15 @@
-const Redis = require('ioredis');
-import type { Redis as RedisType, RedisOptions } from 'ioredis';
+import { Redis } from 'ioredis';
+import type { RedisOptions } from 'ioredis';
 import { logger } from '../utils/logger.js';
 
 // Connection URLs
 const REDIS_CONFIG = {
-  INTERNAL_URL: "redis://redis.railway.internal:6379",
-  EXTERNAL_URL: "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781",
-  CONNECTION_TIMEOUT: 10000,
-  MAX_RETRIES: 3,
-  RETRY_DELAY: 1000,
-  CIRCUIT_BREAKER_TIMEOUT: 30000
+  INTERNAL_URL: process.env.REDIS_INTERNAL_URL || "redis://redis.railway.internal:6379",
+  EXTERNAL_URL: process.env.REDIS_URL || "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781",
+  CONNECTION_TIMEOUT: 15000,
+  MAX_RETRIES: 5,
+  RETRY_DELAY: 2000,
+  CIRCUIT_BREAKER_TIMEOUT: 60000
 };
 
 // Redis connection options
@@ -17,8 +17,13 @@ const baseRedisOptions: RedisOptions = {
   connectTimeout: REDIS_CONFIG.CONNECTION_TIMEOUT,
   maxRetriesPerRequest: REDIS_CONFIG.MAX_RETRIES,
   enableReadyCheck: true,
+  lazyConnect: true,
   retryStrategy(times: number) {
-    const delay = Math.min(times * REDIS_CONFIG.RETRY_DELAY, 3000);
+    if (times > REDIS_CONFIG.MAX_RETRIES) {
+      logger.error(`Redis max retries (${REDIS_CONFIG.MAX_RETRIES}) exceeded`);
+      return null; // Stop retrying
+    }
+    const delay = Math.min(times * REDIS_CONFIG.RETRY_DELAY, 5000);
     logger.info(`Redis connection retry attempt ${times} with delay ${delay}ms`);
     return delay;
   },
@@ -36,7 +41,7 @@ let circuitBroken = false;
 
 export class RedisManager {
   private static instance: RedisManager;
-  private client: RedisType | null = null;
+  private client: Redis | null = null;
   private connectionType: 'internal' | 'external' = 'internal';
 
   private constructor() {}
@@ -48,7 +53,7 @@ export class RedisManager {
     return RedisManager.instance;
   }
 
-  async getClient(): Promise<RedisType> {
+  async getClient(): Promise<Redis> {
     if (this.client && isConnected) {
       return this.client;
     }
@@ -57,7 +62,7 @@ export class RedisManager {
     return client;
   }
 
-  private async establishConnection(): Promise<RedisType> {
+  private async establishConnection(): Promise<Redis> {
     const now = Date.now();
 
     // Circuit breaker check
@@ -71,7 +76,10 @@ export class RedisManager {
       // Try internal connection first
       if (this.connectionType === 'internal') {
         try {
-          const internalClient = new Redis(REDIS_CONFIG.INTERNAL_URL, baseRedisOptions);
+          const internalClient = new Redis(REDIS_CONFIG.INTERNAL_URL, {
+            ...baseRedisOptions,
+            connectionName: 'internal'
+          });
           await this.testConnection(internalClient);
           this.client = internalClient;
           logger.info('Successfully connected to Redis using internal URL');
@@ -83,7 +91,10 @@ export class RedisManager {
       }
 
       // Try external connection
-      const externalClient = new Redis(REDIS_CONFIG.EXTERNAL_URL, baseRedisOptions);
+      const externalClient = new Redis(REDIS_CONFIG.EXTERNAL_URL, {
+        ...baseRedisOptions,
+        connectionName: 'external'
+      });
       await this.testConnection(externalClient);
       this.client = externalClient;
       logger.info('Successfully connected to Redis using external URL');
@@ -96,7 +107,7 @@ export class RedisManager {
     }
   }
 
-  private async testConnection(client: RedisType): Promise<void> {
+  private async testConnection(client: Redis): Promise<void> {
     // Set up event handlers
     client.on('connect', () => {
       isConnected = true;
@@ -140,6 +151,6 @@ export class RedisManager {
   }
 }
 
-export const getRedisClient = async (): Promise<RedisType> => {
+export const getRedisClient = async (): Promise<Redis> => {
   return RedisManager.getInstance().getClient();
 };

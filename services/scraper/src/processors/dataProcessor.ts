@@ -2,60 +2,65 @@ import { logger } from '../utils/logger.js';
 import { getSupabaseClient, markRawBusinessDataProcessed, saveBusiness } from '../utils/database.js';
 import Queue from 'bull';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Job, JobId } from 'bull';
+import { Job } from 'bull';
 import { QUEUE_NAMES } from '../queues/index.js';
+import { getRedisClient } from '../config/redis.js';
+import { QUEUE_CONFIG } from '../queues/config.js';
 
 // Use the data processing queue name from centralized configuration
 const DATA_PROCESSING_QUEUE = QUEUE_NAMES.DATA_PROCESSING;
 
-// Use environment variable or fall back to default URL with correct port
-const REDIS_URL = process.env.REDIS_URL || "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781";
-
-// Log Redis connection info (masking credentials)
-logger.info(`Data processor using Redis URL: ${REDIS_URL.replace(/\/\/.*@/, '//***@')}`);
-
-// Create queue with enhanced connection options
-const dataProcessingQueue = new Queue(DATA_PROCESSING_QUEUE, REDIS_URL, {
-  settings: {
-    lockDuration: 30000, // 30 seconds
-    stalledInterval: 30000, // How often check for stalled jobs
-    maxStalledCount: 3, // Max number of times a job can be marked as stalled
-  },
-  redis: {
-    maxRetriesPerRequest: 3,
-    connectTimeout: 15000, // 15 seconds
-    retryStrategy: (times: number) => {
-      if (times > 10) {
-        logger.error('Max Redis connection retries reached');
-        return null; // Stop retrying
-      }
-      const delay = Math.min(times * 1000, 5000); // Exponential backoff with max 5s
-      logger.warn(`Retrying Redis connection in ${delay}ms (attempt ${times})`);
-      return delay;
+// Initialize queue with Redis client from centralized configuration
+export async function setupDataProcessingQueue() {
+  const redis = await getRedisClient();
+  
+  const queue = new Queue(DATA_PROCESSING_QUEUE, {
+    createClient: () => redis,
+    defaultJobOptions: {
+      ...QUEUE_CONFIG.defaultJobOptions,
+      timeout: 600000 // 10 minutes for data processing
     },
-    reconnectOnError: (err: Error) => {
-      const targetError = 'READONLY';
-      if (err.message.includes(targetError)) {
-        logger.warn('Redis connection error, attempting reconnect:', err);
-        return true; // Only reconnect if error matches
-      }
-      return false;
+    settings: QUEUE_CONFIG.settings,
+    limiter: {
+      ...QUEUE_CONFIG.limiter,
+      max: 3, // Lower concurrency for data processing
+      duration: 15000 // Longer duration between jobs
     }
-  }
-});
+  });
 
-// Add event listeners for connection issues
-dataProcessingQueue.on('error', (error: Error) => {
-  logger.error('Data processing queue error:', error);
-});
+  // Set up event handlers with detailed logging
+  queue.on('error', (error: Error) => {
+    logger.error('Data processing queue error:', error);
+  });
 
-dataProcessingQueue.on('failed', (job, error) => {
-  logger.error(`Job ${job.id} failed:`, error);
-});
+  queue.on('failed', (job: Job, error: Error) => {
+    logger.error(`Data processing job ${job.id} failed:`, {
+      error,
+      jobId: job.id,
+      data: job.data,
+      attempts: job.attemptsMade
+    });
+  });
 
-dataProcessingQueue.on('completed', (job) => {
-  logger.info(`Data processing job ${job.id} completed successfully`);
-});
+  queue.on('completed', (job: Job) => {
+    logger.info(`Data processing job ${job.id} completed successfully`, {
+      jobId: job.id,
+      processingTime: job.finishedOn ? job.finishedOn - job.processedOn! : undefined,
+      attempts: job.attemptsMade
+    });
+  });
+
+  queue.on('stalled', (jobId: string) => {
+    logger.warn(`Data processing job ${jobId} has stalled`);
+  });
+
+  // Register the processor
+  queue.process(async (job: Job) => {
+    return processRawBusinessData(job);
+  });
+
+  return queue;
+}
 
 /**
  * Process raw business data from the database
@@ -293,83 +298,58 @@ function transformGenericData(rawData: any, sourceId: string, externalId: string
 }
 
 /**
- * Queue raw business data for processing
+ * Queue raw business data for processing with improved error handling
  */
-export async function queueRawBusinessDataProcessing(rawDataId: string, priority = 'normal') {
-  logger.info(`Queueing raw business data processing for ID: ${rawDataId} with priority: ${priority}`);
-  
+export async function queueRawBusinessDataProcessing(rawDataId: string, priority: 'high' | 'normal' | 'low' = 'normal') {
   try {
-    const job = await dataProcessingQueue.add(
-      'process-raw-data',
-      { id: rawDataId },
-      { 
-        priority: priority === 'high' ? 1 : priority === 'low' ? 10 : 5,
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000
-        },
-        removeOnComplete: true,
-        removeOnFail: false
-      }
-    );
+    const queue = await setupDataProcessingQueue();
     
-    return {
-      jobId: job.id as string,
-      status: 'queued'
+    const jobOptions = {
+      ...QUEUE_CONFIG.defaultJobOptions,
+      priority: priority === 'high' ? 1 : priority === 'normal' ? 2 : 3,
+      jobId: `process_raw_data_${rawDataId}`, // Ensure unique job ID
+      attempts: 5, // More attempts for data processing
+      backoff: {
+        type: 'exponential',
+        delay: 5000 // Start with 5 seconds
+      }
     };
+
+    const job = await queue.add({ id: rawDataId }, jobOptions);
+    
+    logger.info(`Queued raw business data processing`, {
+      rawDataId,
+      jobId: job.id,
+      priority,
+      options: jobOptions
+    });
+
+    return job;
   } catch (error: any) {
-    logger.error(`Failed to queue data processing job: ${error.message}`, { error });
+    logger.error(`Failed to queue raw business data processing:`, {
+      rawDataId,
+      error: error.message,
+      stack: error.stack
+    });
     throw error;
   }
 }
 
 /**
- * Set up the data processing queue
- */
-export function setupDataProcessingQueue() {
-  logger.info(`Setting up data processing queue: ${DATA_PROCESSING_QUEUE}`);
-  
-  // Register processor
-  dataProcessingQueue.process('process-raw-data', processRawBusinessData);
-  
-  return dataProcessingQueue;
-}
-
-/**
- * Get metrics for the data processing queue
+ * Get metrics about the data processing queue
  */
 export async function getDataProcessingMetrics() {
   try {
-    // Queue statistics
-    const [
-      activeCount,
-      completedCount,
-      failedCount,
-      delayedCount,
-      waitingCount,
-      jobCounts,
-    ] = await Promise.all([
-      dataProcessingQueue.getActiveCount(),
-      dataProcessingQueue.getCompletedCount(),
-      dataProcessingQueue.getFailedCount(),
-      dataProcessingQueue.getDelayedCount(),
-      dataProcessingQueue.getWaitingCount(),
-      dataProcessingQueue.getJobCounts(),
-    ]);
+    const queue = await setupDataProcessingQueue();
+    const counts = await queue.getJobCounts();
     
     return {
+      ...counts,
       queueName: DATA_PROCESSING_QUEUE,
-      active: activeCount,
-      completed: completedCount,
-      failed: failedCount,
-      delayed: delayedCount,
-      waiting: waitingCount,
-      jobCounts,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toISOString()
     };
-  } catch (error) {
-    logger.error(`Failed to get data processing metrics: ${error}`);
+  } catch (error: any) {
+    logger.error('Failed to get data processing metrics:', error);
     throw error;
   }
 }

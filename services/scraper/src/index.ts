@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import dotenv from 'dotenv';
 import { logger } from './utils/logger.js';
 import { setupRoutes } from './routes/index.js';
@@ -6,6 +6,7 @@ import { setupQueues, scraperQueue, auditQueue } from './queues/index.js';
 import { setupDataProcessingQueue } from './processors/dataProcessor.js';
 import { getSupabaseClient } from './utils/database.js';
 import { RedisManager } from './config/redis.js';
+import { Job } from 'bull';
 
 // Load environment variables
 dotenv.config();
@@ -58,7 +59,7 @@ async function initializeServices() {
     logger.info('Routes initialized');
 
     // Handle completed jobs
-    scraperQueue().on('completed', async (job) => {
+    scraperQueue().on('completed', async (job: Job) => {
       logger.info(`Processing completed scraper job ${job.id}`);
       
       const jobData = job.data;
@@ -79,7 +80,7 @@ async function initializeServices() {
     });
 
     // Handle failed jobs
-    scraperQueue().on('failed', async (job, error) => {
+    scraperQueue().on('failed', async (job: Job, error: Error) => {
       logger.error(`Processing failed scraper job ${job.id}:`, error);
       
       const jobData = job.data;
@@ -176,7 +177,7 @@ app.get('/test-redis-connection', async (req, res) => {
 });
 
 // Error handling middleware
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   logger.error('Unhandled error:', err);
   res.status(500).json({ error: 'Internal server error' });
 });

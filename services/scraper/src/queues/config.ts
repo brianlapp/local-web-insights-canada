@@ -12,23 +12,29 @@ export const QUEUE_NAMES = {
 // Queue configuration
 export const QUEUE_CONFIG = {
   defaultJobOptions: {
-    attempts: 3,
+    attempts: 5,
     backoff: {
       type: 'exponential',
-      delay: 1000
+      delay: 2000
     },
-    removeOnComplete: true,
+    timeout: 300000, // 5 minutes
+    removeOnComplete: {
+      age: 24 * 3600, // Keep completed jobs for 24 hours
+      count: 1000 // Keep last 1000 completed jobs
+    },
     removeOnFail: false
   },
   settings: {
     lockDuration: 30000,
-    stalledInterval: 15000,
-    maxStalledCount: 2,
-    drainDelay: 5
+    stalledInterval: 30000,
+    maxStalledCount: 3,
+    drainDelay: 5,
+    lockRenewTime: 15000
   },
   limiter: {
-    max: 3,
-    duration: 5000
+    max: 5,
+    duration: 10000,
+    bounceBack: true // Queue jobs that exceed rate limit
   }
 };
 
@@ -54,8 +60,15 @@ export async function createQueue(name: string): Promise<Queue.Queue> {
       queue: name,
       error: error.message,
       stackTrace: error.stack,
-      attempts: job.attemptsMade
+      attempts: job.attemptsMade,
+      data: job.data
     });
+
+    // If job has remaining attempts, log retry information
+    if (job.attemptsMade < QUEUE_CONFIG.defaultJobOptions.attempts) {
+      const nextAttemptDelay = Math.pow(2, job.attemptsMade) * QUEUE_CONFIG.defaultJobOptions.backoff.delay;
+      logger.info(`Job ${job.id} will retry in ${nextAttemptDelay}ms (attempt ${job.attemptsMade + 1}/${QUEUE_CONFIG.defaultJobOptions.attempts})`);
+    }
   });
 
   queue.on('stalled', (jobId: string) => {
@@ -63,13 +76,23 @@ export async function createQueue(name: string): Promise<Queue.Queue> {
   });
 
   queue.on('completed', (job: Queue.Job) => {
-    logger.info(`Job ${job.id} in queue ${name} completed successfully`);
+    logger.info(`Job ${job.id} in queue ${name} completed successfully`, {
+      jobId: job.id,
+      queue: name,
+      processingTime: job.finishedOn ? job.finishedOn - job.processedOn! : undefined,
+      attempts: job.attemptsMade
+    });
   });
 
   // Validate queue is operational
   try {
     await queue.isReady();
-    logger.info(`Queue ${name} initialized successfully`);
+    const counts = await queue.getJobCounts();
+    logger.info(`Queue ${name} initialized successfully`, { 
+      status: 'ready',
+      counts,
+      redis: queue.client ? 'connected' : 'disconnected'
+    });
   } catch (error: any) {
     logger.error(`Failed to initialize queue ${name}: ${error.message}`);
     throw error;
@@ -83,10 +106,18 @@ export async function initializeQueues(): Promise<Record<string, Queue.Queue>> {
   const queues: Record<string, Queue.Queue> = {};
   
   try {
-    for (const [key, name] of Object.entries(QUEUE_NAMES)) {
-      queues[key] = await createQueue(name);
-      logger.info(`Initialized queue: ${name}`);
-    }
+    // Initialize queues in parallel
+    const queuePromises = Object.entries(QUEUE_NAMES).map(async ([key, name]) => {
+      try {
+        queues[key] = await createQueue(name);
+        logger.info(`Initialized queue: ${name}`);
+      } catch (error: any) {
+        logger.error(`Failed to initialize queue ${name}:`, error);
+        throw error;
+      }
+    });
+
+    await Promise.all(queuePromises);
   } catch (error: any) {
     logger.error('Failed to initialize queues:', error);
     throw error;
