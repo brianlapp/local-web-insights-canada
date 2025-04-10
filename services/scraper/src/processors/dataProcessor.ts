@@ -11,38 +11,46 @@ const DATA_PROCESSING_QUEUE = QUEUE_NAMES.DATA_PROCESSING;
 // Use environment variable or fall back to default URL with correct port
 const REDIS_URL = process.env.REDIS_URL || "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781";
 
-// Log which Redis URL we're using (masking credentials)
+// Log Redis connection info (masking credentials)
 logger.info(`Data processor using Redis URL: ${REDIS_URL.replace(/\/\/.*@/, '//***@')}`);
 
-// Initialize the data processing queue with Redis URL and options
+// Create queue with enhanced connection options
 const dataProcessingQueue = new Queue(DATA_PROCESSING_QUEUE, REDIS_URL, {
-  redis: {
-    connectTimeout: 30000, // 30 seconds connection timeout
-    maxRetriesPerRequest: 5, // Max retries for Redis commands
-  },
   settings: {
     lockDuration: 30000, // 30 seconds
-    stalledInterval: 15000, // Check for stalled jobs every 15 seconds
-    maxStalledCount: 2, // Maximum number of times a job can be marked as stalled
+    stalledInterval: 30000, // How often check for stalled jobs
+    maxStalledCount: 3, // Max number of times a job can be marked as stalled
+  },
+  redis: {
+    maxRetriesPerRequest: 3,
+    connectTimeout: 15000, // 15 seconds
+    retryStrategy: (times: number) => {
+      if (times > 10) {
+        logger.error('Max Redis connection retries reached');
+        return null; // Stop retrying
+      }
+      const delay = Math.min(times * 1000, 5000); // Exponential backoff with max 5s
+      logger.warn(`Retrying Redis connection in ${delay}ms (attempt ${times})`);
+      return delay;
+    },
+    reconnectOnError: (err: Error) => {
+      const targetError = 'READONLY';
+      if (err.message.includes(targetError)) {
+        logger.warn('Redis connection error, attempting reconnect:', err);
+        return true; // Only reconnect if error matches
+      }
+      return false;
+    }
   }
 });
 
-// Configure queue settings
-dataProcessingQueue.on('error', (error) => {
-  logger.error(`Data processing queue error: ${error.message}`, { error });
+// Add event listeners for connection issues
+dataProcessingQueue.on('error', (error: Error) => {
+  logger.error('Data processing queue error:', error);
 });
 
 dataProcessingQueue.on('failed', (job, error) => {
-  logger.error(`Data processing job ${job.id} failed: ${error.message}`, { error });
-  // Schedule retry with exponential backoff if under max retries
-  const maxRetries = 3;
-  if (job.attemptsMade < maxRetries) {
-    const backoffDelay = Math.pow(2, job.attemptsMade) * 1000; // Exponential backoff: 2s, 4s, 8s
-    logger.info(`Scheduling retry #${job.attemptsMade + 1} for job ${job.id} in ${backoffDelay}ms`);
-    job.retry();
-  } else {
-    logger.error(`Job ${job.id} exceeded maximum retries (${maxRetries})`);
-  }
+  logger.error(`Job ${job.id} failed:`, error);
 });
 
 dataProcessingQueue.on('completed', (job) => {
