@@ -25,10 +25,9 @@ watchPatterns = [
 redis = "services/redis"
 
 [variables]
-NODE_ENV = "development"
+NODE_ENV = "production"
 PORT = "8080"
 LOG_LEVEL = "info"
-# Update Redis URL to use the external hostname with correct port
 REDIS_URL = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781"
 
 # Redis configuration will be automatically injected by Railway
