@@ -20,10 +20,10 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Queue instances
-let scraperQueueInstance: Queue;
-let auditQueueInstance: Queue;
-let dataProcessingQueueInstance: Queue;
+// Health check endpoint - MUST be first, before any middleware or initialization
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
 
 // Add this at the very top of the file
 console.log('=== Startup Verification ===');
@@ -37,6 +37,11 @@ console.log('Process info:', {
     PORT: process.env.PORT
   }
 });
+
+// Queue instances
+let scraperQueueInstance: Queue;
+let auditQueueInstance: Queue;
+let dataProcessingQueueInstance: Queue;
 
 // Log environment info
 logger.info(`Starting scraper service in ${process.env.NODE_ENV || 'development'} mode`);
@@ -68,11 +73,6 @@ app.use((req, res, next) => {
   }
   
   next();
-});
-
-// Health check endpoint - must be first
-app.get('/health', (_req, res) => {
-  res.status(200).json({ status: 'ok' });
 });
 
 // API health check endpoint (for detailed status)

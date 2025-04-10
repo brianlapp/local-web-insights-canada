@@ -1,6 +1,9 @@
 import express, { Request, Response } from 'express';
 import Queue from 'bull';
 import { logger } from '../utils/logger.js';
+import { getSupabaseClient } from '../utils/database.js';
+import os from 'os';
+import { getRedisClient } from '../config/redis.js';
 
 export const setupRoutes = (
   scraperQueue: Queue.Queue | null,
@@ -10,7 +13,81 @@ export const setupRoutes = (
   const router = express.Router();
 
   router.get('/health', (req: Request, res: Response) => {
-    res.status(200).json({ status: 'ok' });
+    res.json({ status: 'ok' });
+  });
+
+  router.get('/api/health', async (req, res) => {
+    try {
+      const startTime = process.hrtime();
+      
+      // Check system resources
+      const memoryUsage = process.memoryUsage();
+      const cpuInfo = os.cpus();
+      const freeMemory = os.freemem();
+      const totalMemory = os.totalmem();
+      
+      // Check Redis connection
+      let redisStatus = { connected: false, error: null };
+      try {
+        const redis = getRedisClient();
+        if (redis) {
+          redisStatus.connected = true;
+        }
+      } catch (error: any) {
+        redisStatus.error = error.message;
+      }
+      
+      // Test database connection
+      const supabase = getSupabaseClient();
+      const { error: dbError } = await supabase.from('health_checks')
+        .select('count(*)', { count: 'exact', head: true });
+      
+      // Calculate response time
+      const endTime = process.hrtime(startTime);
+      const responseTimeMs = (endTime[0] * 1000 + endTime[1] / 1000000).toFixed(2);
+      
+      const healthData = {
+        status: 'ok',
+        version: process.env.npm_package_version || 'unknown',
+        environment: process.env.NODE_ENV,
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        memory: {
+          rss: `${Math.round(memoryUsage.rss / 1024 / 1024)} MB`,
+          heapTotal: `${Math.round(memoryUsage.heapTotal / 1024 / 1024)} MB`,
+          heapUsed: `${Math.round(memoryUsage.heapUsed / 1024 / 1024)} MB`,
+          external: `${Math.round(memoryUsage.external / 1024 / 1024)} MB`,
+          systemTotal: `${Math.round(totalMemory / 1024 / 1024)} MB`,
+          systemFree: `${Math.round(freeMemory / 1024 / 1024)} MB`,
+          systemUsagePercent: `${(100 - (freeMemory / totalMemory) * 100).toFixed(1)}%`
+        },
+        cpu: {
+          cores: cpuInfo.length,
+          model: cpuInfo[0]?.model || 'unknown',
+          speed: `${cpuInfo[0]?.speed || 0} MHz`
+        },
+        redis: redisStatus,
+        database: {
+          connected: !dbError,
+          error: dbError ? dbError.message : null
+        },
+        responseTime: `${responseTimeMs} ms`
+      };
+      
+      // Log metrics for monitoring
+      logger.info('Health check metrics', { metrics: healthData });
+      
+      // Always return 200 OK to prevent service disruption
+      res.json(healthData);
+    } catch (error: any) {
+      logger.error('Health check failed', error);
+      // Still return 200 OK with error details
+      res.json({
+        status: 'degraded',
+        error: error.message || 'Internal server error',
+        timestamp: new Date().toISOString()
+      });
+    }
   });
 
   router.get('/start', async (req, res) => {

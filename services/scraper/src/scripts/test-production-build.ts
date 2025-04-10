@@ -1,4 +1,3 @@
-
 import fetch from 'node-fetch';
 import { logger } from '../utils/logger';
 
@@ -16,7 +15,7 @@ async function testProductionBuild() {
   try {
     // Test 1: Health Check
     logger.info('Running health check test...');
-    const healthResponse = await fetch(`${SERVICE_URL}/api/test/health-check`);
+    const healthResponse = await fetch(`${SERVICE_URL}/api/health`);
     
     if (!healthResponse.ok) {
       throw new Error(`Health check failed with status: ${healthResponse.status}`);
