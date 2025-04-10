@@ -47,58 +47,17 @@ async function initializeServices() {
     logger.info('Job queues initialized');
 
     // Set up data processing queue
-    const dataProcessingQueue = setupDataProcessingQueue();
+    const dataProcessingQueue = await setupDataProcessingQueue();
+    logger.info('Data processing queue initialized');
 
     // Initialize Supabase client
     getSupabaseClient();
     logger.info('Supabase client initialized');
 
-    // Set up routes
+    // Set up routes with initialized queues
     const router = setupRoutes(scraperQueue(), auditQueue(), dataProcessingQueue);
     app.use('/api', router);
     logger.info('Routes initialized');
-
-    // Handle completed jobs
-    scraperQueue().on('completed', async (job: Job) => {
-      logger.info(`Processing completed scraper job ${job.id}`);
-      
-      const jobData = job.data;
-      if (jobData.jobId) {
-        try {
-          const supabase = getSupabaseClient();
-          await supabase
-            .from('scraper_runs')
-            .update({ 
-              status: 'completed',
-              businessesFound: jobData.businesses?.length || 0
-            })
-            .eq('id', jobData.jobId);
-        } catch (error) {
-          logger.error(`Error updating job status for ${job.id}:`, error);
-        }
-      }
-    });
-
-    // Handle failed jobs
-    scraperQueue().on('failed', async (job: Job, error: Error) => {
-      logger.error(`Processing failed scraper job ${job.id}:`, error);
-      
-      const jobData = job.data;
-      if (jobData.jobId) {
-        try {
-          const supabase = getSupabaseClient();
-          await supabase
-            .from('scraper_runs')
-            .update({ 
-              status: 'failed',
-              error: error.message
-            })
-            .eq('id', jobData.jobId);
-        } catch (updateError) {
-          logger.error(`Error updating job status for ${job.id}:`, updateError);
-        }
-      }
-    });
 
   } catch (error: any) {
     logger.error('Failed to initialize services:', error);

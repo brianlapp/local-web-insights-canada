@@ -1,6 +1,7 @@
 import Queue from 'bull';
 import { logger } from '../utils/logger.js';
 import { getRedisClient } from '../config/redis.js';
+import { getSupabaseClient } from '../utils/database.js';
 
 // Queue names
 export const QUEUE_NAMES = {
@@ -12,77 +13,109 @@ export const QUEUE_NAMES = {
 // Queue configuration
 export const QUEUE_CONFIG = {
   defaultJobOptions: {
-    attempts: 5,
+    attempts: 3,
     backoff: {
       type: 'exponential',
-      delay: 2000
+      delay: 5000
     },
-    timeout: 300000, // 5 minutes
-    removeOnComplete: {
-      age: 24 * 3600, // Keep completed jobs for 24 hours
-      count: 1000 // Keep last 1000 completed jobs
-    },
-    removeOnFail: false
+    removeOnComplete: 100,
+    removeOnFail: 100,
+    timeout: 300000 // 5 minutes
   },
   settings: {
-    lockDuration: 30000,
-    stalledInterval: 30000,
-    maxStalledCount: 3,
-    drainDelay: 5,
-    lockRenewTime: 15000
+    lockDuration: 300000, // 5 minutes
+    stalledInterval: 30000, // Check for stalled jobs every 30 seconds
+    maxStalledCount: 2,
+    guardInterval: 5000, // Poll interval for delayed jobs
+    retryProcessDelay: 5000, // Delay before retrying job if process crashes
+    drainDelay: 5000 // Delay between processing jobs when queue is being drained
   },
   limiter: {
     max: 5,
-    duration: 10000,
+    duration: 5000,
     bounceBack: true // Queue jobs that exceed rate limit
   }
 };
 
-// Queue creation with proper error handling
-export async function createQueue(name: string): Promise<Queue.Queue> {
-  const redis = await getRedisClient();
-  
-  const queue = new Queue(name, {
-    createClient: () => redis,
-    defaultJobOptions: QUEUE_CONFIG.defaultJobOptions,
-    settings: QUEUE_CONFIG.settings,
-    limiter: QUEUE_CONFIG.limiter
-  });
-
-  // Set up event handlers
+// Queue event handlers
+const setupQueueEventHandlers = (queue: Queue.Queue, queueName: string) => {
   queue.on('error', (error: Error) => {
-    logger.error(`Queue ${name} error: ${error.message}`, { error });
+    logger.error(`Queue ${queueName} error:`, error);
   });
 
-  queue.on('failed', (job: Queue.Job, error: Error) => {
-    logger.error(`Job ${job.id} in queue ${name} failed: ${error.message}`, {
+  queue.on('failed', async (job: Queue.Job, error: Error) => {
+    logger.error(`Job ${job.id} in queue ${queueName} failed:`, {
       jobId: job.id,
-      queue: name,
+      queue: queueName,
       error: error.message,
       stackTrace: error.stack,
       attempts: job.attemptsMade,
       data: job.data
     });
 
-    // If job has remaining attempts, log retry information
-    if (job.attemptsMade < QUEUE_CONFIG.defaultJobOptions.attempts) {
-      const nextAttemptDelay = Math.pow(2, job.attemptsMade) * QUEUE_CONFIG.defaultJobOptions.backoff.delay;
-      logger.info(`Job ${job.id} will retry in ${nextAttemptDelay}ms (attempt ${job.attemptsMade + 1}/${QUEUE_CONFIG.defaultJobOptions.attempts})`);
+    // Update job status in database if it's a scraper job
+    if (queueName === QUEUE_NAMES.SCRAPER && job.data.jobId) {
+      try {
+        const supabase = getSupabaseClient();
+        await supabase
+          .from('scraper_runs')
+          .update({ 
+            status: 'failed',
+            error: error.message
+          })
+          .eq('id', job.data.jobId);
+      } catch (updateError: any) {
+        logger.error(`Failed to update job status for ${job.id}:`, updateError);
+      }
+    }
+  });
+
+  queue.on('completed', async (job: Queue.Job) => {
+    logger.info(`Job ${job.id} in queue ${queueName} completed successfully`, {
+      jobId: job.id,
+      queue: queueName,
+      processingTime: job.finishedOn ? job.finishedOn - job.processedOn! : undefined,
+      attempts: job.attemptsMade
+    });
+
+    // Update job status in database if it's a scraper job
+    if (queueName === QUEUE_NAMES.SCRAPER && job.data.jobId) {
+      try {
+        const supabase = getSupabaseClient();
+        await supabase
+          .from('scraper_runs')
+          .update({ 
+            status: 'completed',
+            businessesFound: job.data.businesses?.length || 0
+          })
+          .eq('id', job.data.jobId);
+      } catch (error: any) {
+        logger.error(`Failed to update job status for ${job.id}:`, error);
+      }
     }
   });
 
   queue.on('stalled', (jobId: string) => {
-    logger.warn(`Job ${jobId} in queue ${name} has stalled`);
+    logger.warn(`Job ${jobId} in queue ${queueName} has stalled`);
   });
 
-  queue.on('completed', (job: Queue.Job) => {
-    logger.info(`Job ${job.id} in queue ${name} completed successfully`, {
-      jobId: job.id,
-      queue: name,
-      processingTime: job.finishedOn ? job.finishedOn - job.processedOn! : undefined,
-      attempts: job.attemptsMade
-    });
+  return queue;
+};
+
+// Queue creation with proper error handling
+export async function createQueue(name: string, options: Partial<Queue.QueueOptions> = {}): Promise<Queue.Queue> {
+  const redis = await getRedisClient();
+  
+  const queue = new Queue(name, {
+    createClient: () => redis,
+    defaultJobOptions: QUEUE_CONFIG.defaultJobOptions,
+    settings: QUEUE_CONFIG.settings,
+    limiter: QUEUE_CONFIG.limiter,
+    ...options
   });
+
+  // Set up event handlers
+  setupQueueEventHandlers(queue, name);
 
   // Validate queue is operational
   try {

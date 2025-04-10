@@ -32,11 +32,23 @@ RUN chmod +x ./docker-entrypoint.sh
 RUN rm -rf src/controllers src/models src/utils/*.ts src/queues/*.ts src/types \
     && find ./src -name "*.ts" -not -name "*.d.ts" -not -path "./src/scripts/*" | xargs rm -f
 
-# Set environment to production
-ENV NODE_ENV=production
+# Set production environment variables with defaults
+ENV NODE_ENV=production \
+    PORT=3000 \
+    LOG_LEVEL=info \
+    QUEUE_CONCURRENCY=3 \
+    QUEUE_LIMITER_MAX=5 \
+    QUEUE_LIMITER_DURATION=10000 \
+    CIRCUIT_BREAKER_TIMEOUT=60000 \
+    MAX_RETRIES=5 \
+    RETRY_DELAY=2000
+
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${PORT}/health || exit 1
 
 # Expose port
-EXPOSE 3000
+EXPOSE ${PORT}
 
 # Use entrypoint script to handle startup modes
 ENTRYPOINT ["./docker-entrypoint.sh"]

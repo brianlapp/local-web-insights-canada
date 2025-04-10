@@ -216,19 +216,18 @@ export function splitLargeGrid(subGrid: SubGrid): SubGrid[] {
  * Calculate a grid system that provides optimal coverage for the given bounds
  */
 export function calculateOptimalGridSystem(bounds: Bounds): SubGrid[] {
-  // Generate basic grid
-  const subGrids = generateSubGrids(bounds);
+  const dimensions = calculateBoundsDimensions(bounds);
+  const maxDimension = Math.max(dimensions.width, dimensions.height);
   
-  // Split any grids that are too large
-  let optimizedGrids: SubGrid[] = [];
-  for (const grid of subGrids) {
-    if (grid.radius > OPTIMAL_RADIUS) {
-      optimizedGrids = [...optimizedGrids, ...splitLargeGrid(grid)];
-    } else {
-      optimizedGrids.push(grid);
-    }
+  // Calculate optimal grid size based on area dimensions
+  let gridSize = OPTIMAL_RADIUS;
+  if (maxDimension > MAX_SEARCH_RADIUS * 2) {
+    gridSize = Math.min(MAX_SEARCH_RADIUS, Math.max(MIN_RADIUS, maxDimension / 10));
   }
   
-  logger.info(`Generated ${optimizedGrids.length} optimized sub-grids from bounds`);
-  return optimizedGrids;
+  return generateSubGrids(bounds);
+}
+
+function toRadians(degrees: number): number {
+    return degrees * Math.PI / 180;
 } 

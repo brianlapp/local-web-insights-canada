@@ -7,6 +7,52 @@ import { QUEUE_NAMES } from '../queues/index.js';
 import { getRedisClient } from '../config/redis.js';
 import { QUEUE_CONFIG } from '../queues/config.js';
 
+// Define interfaces for our data structures
+interface RawBusinessData {
+  id: string;
+  raw_data: any;
+  source_id: string;
+  external_id: string;
+  processed: boolean;
+  error?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ProcessedBusinessData {
+  name: string;
+  address: string;
+  phone: string | null;
+  website: string | null;
+  categories: string[];
+  location: {
+    lat: number;
+    lng: number;
+  } | null;
+  status: string;
+  hours: string[] | null;
+  photo_urls: string[];
+  rating: number | null;
+  rating_count: number;
+  source_id: string;
+  external_id: string;
+  last_scanned: string;
+  raw_data: any;
+}
+
+interface JobData {
+  id: string;
+}
+
+interface JobResult {
+  businessId: string;
+  metrics: {
+    processingTimeMs: number;
+    status: 'success' | 'failed';
+    errorType: string | null;
+  };
+}
+
 // Use the data processing queue name from centralized configuration
 const DATA_PROCESSING_QUEUE = QUEUE_NAMES.DATA_PROCESSING;
 
@@ -54,8 +100,8 @@ export async function setupDataProcessingQueue() {
     logger.warn(`Data processing job ${jobId} has stalled`);
   });
 
-  // Register the processor
-  queue.process(async (job: Job) => {
+  // Register the processor with proper typing
+  queue.process(async (job: Job<JobData>): Promise<JobResult> => {
     return processRawBusinessData(job);
   });
 
@@ -65,45 +111,66 @@ export async function setupDataProcessingQueue() {
 /**
  * Process raw business data from the database
  */
-export async function processRawBusinessData(job: any) {
+export async function processRawBusinessData(job: Job<JobData>): Promise<JobResult> {
   const { id } = job.data;
   const startTime = Date.now();
   let metrics = {
     processingTimeMs: 0,
-    status: 'failed',
-    errorType: null,
+    status: 'failed' as 'success' | 'failed',
+    errorType: null as string | null,
   };
 
-  logger.info(`Processing raw business data with ID: ${id}`);
+  logger.info(`Processing raw business data with ID: ${id}`, {
+    jobId: job.id,
+    attempt: job.attemptsMade + 1
+  });
   
   try {
     const supabase = getSupabaseClient();
     
-    // Fetch the raw business data
-    const { data: rawData, error: fetchError } = await supabase
-      .from('raw_business_data')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
+    // Set a timeout for the entire processing
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Processing timeout exceeded'));
+      }, 240000); // 4 minutes (less than the queue timeout)
+    });
+
+    // Fetch and process data with timeout
+    const processingPromise = async () => {
+      // Fetch the raw business data
+      const { data: rawData, error: fetchError } = await supabase
+        .from('raw_business_data')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+      
+      if (fetchError) {
+        throw new Error(`Failed to fetch raw business data: ${fetchError.message}`);
+      }
+      
+      if (!rawData) {
+        throw new Error(`Raw business data with ID ${id} not found`);
+      }
+      
+      // Process the data
+      const processedData = await transformBusinessData(rawData, supabase);
+      
+      // Save the processed data
+      const savedBusiness = await saveBusiness(processedData);
+      
+      // Mark the raw data as processed
+      await markRawBusinessDataProcessed(id, true);
+      
+      return savedBusiness;
+    };
+
+    // Race between processing and timeout
+    const savedBusiness = await Promise.race([
+      processingPromise(),
+      timeoutPromise
+    ]);
     
-    if (fetchError) {
-      throw new Error(`Failed to fetch raw business data: ${fetchError.message}`);
-    }
-    
-    if (!rawData) {
-      throw new Error(`Raw business data with ID ${id} not found`);
-    }
-    
-    // Process the data
-    const processedData = await transformBusinessData(rawData, supabase);
-    
-    // Save the processed data
-    const savedBusiness = await saveBusiness(processedData);
-    
-    // Mark the raw data as processed
-    await markRawBusinessDataProcessed(id, true);
-    
-    // Update metrics
+    // Update metrics for success
     metrics.processingTimeMs = Date.now() - startTime;
     metrics.status = 'success';
     
@@ -113,34 +180,49 @@ export async function processRawBusinessData(job: any) {
       metrics,
     };
   } catch (error: any) {
-    // Update metrics
+    // Update metrics for failure
     metrics.processingTimeMs = Date.now() - startTime;
     metrics.status = 'failed';
     metrics.errorType = error.name || 'UnknownError';
     
-    // Log the error
+    // Log detailed error information
     logger.error(`Error processing raw business data: ${error.message}`, { 
       error,
       rawDataId: id,
+      jobId: job.id,
+      attempt: job.attemptsMade + 1,
       metrics,
+      stack: error.stack
     });
     
     // Mark as processed with error
     try {
       await markRawBusinessDataProcessed(id, false, error.message);
-    } catch (markError) {
-      logger.error(`Failed to mark raw data as processed with error: ${markError}`);
+    } catch (markError: any) {
+      logger.error(`Failed to mark raw data as processed with error: ${markError.message}`, {
+        originalError: error,
+        markError
+      });
     }
     
-    // Rethrow to trigger the failed event
-    throw error;
+    // Determine if we should retry based on the error type
+    if (error.message.includes('timeout') && job.attemptsMade < job.opts.attempts! - 1) {
+      logger.info(`Scheduling retry for job ${job.id} due to timeout`);
+      throw error; // This will trigger a retry
+    }
+    
+    // For other errors or final attempts, mark as failed
+    return {
+      businessId: '',
+      metrics,
+    };
   }
 }
 
 /**
  * Transform raw business data into processed business data
  */
-async function transformBusinessData(rawData: any, supabase: SupabaseClient) {
+async function transformBusinessData(rawData: RawBusinessData, supabase: SupabaseClient): Promise<ProcessedBusinessData> {
   const { raw_data, source_id, external_id } = rawData;
   
   // Get source information
@@ -163,18 +245,18 @@ async function transformBusinessData(rawData: any, supabase: SupabaseClient) {
   // Different transformation logic based on source type
   switch (sourceData.type) {
     case 'google_places':
-      return transformGooglePlacesData(rawData, source_id, external_id);
+      return transformGooglePlacesData(raw_data, source_id, external_id);
     case 'yelp':
-      return transformYelpData(rawData, source_id, external_id);
+      return transformYelpData(raw_data, source_id, external_id);
     default:
-      return transformGenericData(rawData, source_id, external_id);
+      return transformGenericData(raw_data, source_id, external_id);
   }
 }
 
 /**
  * Transform Google Places data
  */
-function transformGooglePlacesData(rawData: any, sourceId: string, externalId: string) {
+function transformGooglePlacesData(rawData: any, sourceId: string, externalId: string): ProcessedBusinessData {
   // Extract the relevant fields from the Google Places data
   const {
     name,
@@ -220,7 +302,7 @@ function transformGooglePlacesData(rawData: any, sourceId: string, externalId: s
 /**
  * Transform Yelp data
  */
-function transformYelpData(rawData: any, sourceId: string, externalId: string) {
+function transformYelpData(rawData: any, sourceId: string, externalId: string): ProcessedBusinessData {
   // Extract the relevant fields from the Yelp data
   const {
     name,
@@ -271,7 +353,7 @@ function transformYelpData(rawData: any, sourceId: string, externalId: string) {
 /**
  * Transform generic business data
  */
-function transformGenericData(rawData: any, sourceId: string, externalId: string) {
+function transformGenericData(rawData: any, sourceId: string, externalId: string): ProcessedBusinessData {
   // Basic transformation for generic data sources
   // Use raw properties directly if they match our schema
   const transformedData = {
@@ -343,16 +425,26 @@ export async function getDataProcessingMetrics() {
     const queue = await setupDataProcessingQueue();
     const counts = await queue.getJobCounts();
     
+    const [active, delayed, waiting, completed, failed] = await Promise.all([
+      queue.getActive(),
+      queue.getDelayed(),
+      queue.getWaiting(),
+      queue.getCompleted(),
+      queue.getFailed()
+    ]);
+    
     return {
       ...counts,
       queueName: DATA_PROCESSING_QUEUE,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      activeJobs: active.length,
+      delayedJobs: delayed.length,
+      waitingJobs: waiting.length,
+      completedJobs: completed.length,
+      failedJobs: failed.length
     };
   } catch (error: any) {
     logger.error('Failed to get data processing metrics:', error);
     throw error;
   }
 }
-
-// Export the queue for use in other modules
-export { dataProcessingQueue };
