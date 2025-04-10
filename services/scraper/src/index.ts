@@ -30,6 +30,17 @@ logger.info(`Starting scraper service in ${process.env.NODE_ENV || 'development'
 logger.info(`Node.js version: ${process.version}`);
 logger.info(`Memory limits: ${JSON.stringify(process.memoryUsage())}`);
 
+// Add startup diagnostics logging
+logger.info('=== STARTUP DIAGNOSTICS ===');
+logger.info(`Process ID: ${process.pid}`);
+logger.info(`Working Directory: ${process.cwd()}`);
+logger.info(`Node Version: ${process.version}`);
+logger.info(`Platform: ${process.platform}`);
+logger.info(`Architecture: ${process.arch}`);
+logger.info(`Memory Usage: ${JSON.stringify(process.memoryUsage())}`);
+logger.info(`Environment Variables: PORT=${process.env.PORT}`);
+logger.info('=== END DIAGNOSTICS ===');
+
 // Middleware
 app.use(express.json());
 
@@ -234,30 +245,49 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// Start server
+// Start server with detailed error handling
 logger.info('Starting server...');
 const server = app.listen(Number(port), '0.0.0.0', () => {
-  logger.info(`Server is listening on port ${port}`);
+  logger.info('=== SERVER STARTED ===');
+  logger.info(`Server listening on port ${port}`);
+  logger.info(`Server address: ${JSON.stringify(server.address())}`);
+  logger.info('=== END SERVER INFO ===');
   
   // Initialize services in background
   initializeServices()
-    .then(status => logger.info('Services initialized:', status))
-    .catch(error => logger.error('Service initialization error:', error));
-});
-
-// Handle server errors
-server.on('error', (error: Error) => {
-  logger.error('Server error:', error);
+    .then(status => {
+      logger.info('=== SERVICES STATUS ===');
+      logger.info('Services initialized:', status);
+      logger.info('=== END SERVICES STATUS ===');
+    })
+    .catch(error => {
+      logger.error('=== SERVICE ERROR ===');
+      logger.error('Service initialization error:', error);
+      logger.error('Stack trace:', error.stack);
+      logger.error('=== END SERVICE ERROR ===');
+    });
+}).on('error', (error: Error) => {
+  logger.error('=== SERVER ERROR ===');
+  logger.error('Server failed to start:', error);
+  logger.error('Error name:', error.name);
+  logger.error('Error message:', error.message);
+  logger.error('Stack trace:', error.stack);
+  logger.error('=== END SERVER ERROR ===');
   process.exit(1);
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received');
-  server.close(() => process.exit(0));
+// Enhanced error handling
+process.on('uncaughtException', (error: Error) => {
+  logger.error('=== UNCAUGHT EXCEPTION ===');
+  logger.error('Uncaught exception:', error);
+  logger.error('Stack trace:', error.stack);
+  logger.error('=== END UNCAUGHT EXCEPTION ===');
+  process.exit(1);
 });
 
-process.on('SIGINT', () => {
-  logger.info('SIGINT received');
-  server.close(() => process.exit(0));
+process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+  logger.error('=== UNHANDLED REJECTION ===');
+  logger.error('Unhandled rejection at:', promise);
+  logger.error('Reason:', reason);
+  logger.error('=== END UNHANDLED REJECTION ===');
 });
