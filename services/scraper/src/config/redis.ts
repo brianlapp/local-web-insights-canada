@@ -17,18 +17,22 @@ export async function getRedisClient(): Promise<Redis> {
       logger.info(`Retrying Redis connection in ${delay}ms (attempt ${times})`);
       return delay;
     },
-    connectTimeout: 10000,
-    commandTimeout: 5000,
+    connectTimeout: 30000, // Increased timeout for Railway
+    commandTimeout: 10000, // Increased timeout for Railway
     enableOfflineQueue: true,
+    enableReadyCheck: true,
     reconnectOnError(err: Error) {
-      const targetError = 'READONLY';
-      if (err.message.includes(targetError)) {
+      const targetErrors = ['READONLY', 'ETIMEDOUT', 'ECONNRESET', 'ENOTFOUND'];
+      if (targetErrors.some(e => err.message.includes(e))) {
+        logger.warn(`Reconnecting due to error: ${err.message}`);
         return true;
       }
       return false;
-    }
+    },
+    tls: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
   };
 
+  logger.info(`Initializing Redis connection to ${REDIS_URL}`);
   const client = new Redis(REDIS_URL, options);
 
   // Add event listeners for better monitoring
@@ -52,9 +56,18 @@ export async function getRedisClient(): Promise<Redis> {
     logger.info('Redis client reconnecting');
   });
 
-  // Test the connection
+  client.on('end', () => {
+    logger.warn('Redis connection ended');
+  });
+
+  // Test the connection with a longer timeout
   try {
-    await client.ping();
+    const pingPromise = client.ping();
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Redis ping timeout')), 20000);
+    });
+
+    await Promise.race([pingPromise, timeoutPromise]);
     logger.info('Redis connection test successful');
   } catch (error) {
     logger.error('Redis connection test failed:', error);
