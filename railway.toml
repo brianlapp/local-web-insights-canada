@@ -28,7 +28,8 @@ redis = "services/redis"
 NODE_ENV = "production"
 PORT = "8080"
 LOG_LEVEL = "info"
-REDIS_URL = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781"
+# Use Railway's internal Redis URL since both services are in the same network
+REDIS_URL = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@redis.railway.internal:6379"
 
 # Redis configuration will be automatically injected by Railway
 # Remove hardcoded Redis URL and use Railway's service linking
