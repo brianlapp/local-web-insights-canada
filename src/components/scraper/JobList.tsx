@@ -4,20 +4,38 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, TimerReset } from 'lucide-react';
 import { ScraperJob } from '@/services/scraperService';
 
 interface JobListProps {
   jobs: ScraperJob[];
   loading: boolean;
   onRefresh: () => void;
+  onResetStatus?: (jobId?: string) => void;
 }
 
 const JobList: React.FC<JobListProps> = ({
   jobs,
   loading,
-  onRefresh
+  onRefresh,
+  onResetStatus
 }) => {
+  const hasRunningJobs = jobs.some(job => job.status === 'running');
+
+  const getBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'default';
+      case 'running':
+        return 'secondary';
+      case 'failed':
+      case 'cancelled':
+        return 'destructive';
+      default:
+        return 'outline';
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -41,15 +59,24 @@ const JobList: React.FC<JobListProps> = ({
                       Started: {new Date(job.created_at).toLocaleString()}
                     </p>
                   </div>
-                  <Badge
-                    variant={
-                      job.status === 'completed' ? 'default' :
-                      job.status === 'running' ? 'secondary' :
-                      job.status === 'failed' ? 'destructive' : 'outline'
-                    }
-                  >
-                    {job.status}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={getBadgeVariant(job.status)}
+                    >
+                      {job.status}
+                    </Badge>
+                    
+                    {job.status === 'running' && onResetStatus && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => onResetStatus(job.id)}
+                        title="Reset this job's status"
+                      >
+                        <TimerReset className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="mt-2">
@@ -81,11 +108,22 @@ const JobList: React.FC<JobListProps> = ({
           </div>
         )}
       </CardContent>
-      <CardFooter>
-        <Button variant="outline" className="w-full" onClick={onRefresh}>
+      <CardFooter className="flex justify-between">
+        <Button variant="outline" onClick={onRefresh}>
           <RefreshCw className="mr-2 h-4 w-4" />
           Refresh Jobs
         </Button>
+        
+        {hasRunningJobs && onResetStatus && (
+          <Button 
+            variant="secondary" 
+            onClick={() => onResetStatus()}
+            title="Reset all running jobs' status"
+          >
+            <TimerReset className="mr-2 h-4 w-4" />
+            Reset Running Jobs
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );

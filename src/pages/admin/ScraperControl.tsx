@@ -20,6 +20,7 @@ export default function ScraperControl() {
     fetchJobs,
     handleStartScraper,
     handleRunWebsiteAudit,
+    handleResetJobStatus,
   } = useScraper();
 
   return (
@@ -32,6 +33,7 @@ export default function ScraperControl() {
         onLocationChange={setLocation}
         onStartScraper={handleStartScraper}
         onRefreshJobs={fetchJobs}
+        onResetStatus={handleResetJobStatus}
         apiAvailable={apiAvailable}
       />
 
@@ -55,6 +57,7 @@ export default function ScraperControl() {
             jobs={jobs}
             loading={jobLoading}
             onRefresh={fetchJobs}
+            onResetStatus={handleResetJobStatus}
           />
         </TabsContent>
       </Tabs>

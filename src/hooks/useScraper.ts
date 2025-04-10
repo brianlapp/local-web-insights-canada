@@ -7,6 +7,7 @@ import {
   startScraper, 
   runWebsiteAudit,
   checkScraperHealth,
+  resetJobStatus,
   Business,
   ScraperJob
 } from '@/services/scraperService';
@@ -142,6 +143,31 @@ export const useScraper = () => {
     }
   }, [toast, apiAvailable]);
   
+  // Add the reset job status handler
+  const handleResetJobStatus = useCallback(async (jobId?: string) => {
+    try {
+      await resetJobStatus(jobId);
+      
+      toast({
+        title: 'Job status reset',
+        description: jobId 
+          ? 'The selected job status has been reset' 
+          : 'All running job statuses have been reset',
+      });
+      
+      // Refresh the jobs list
+      fetchJobs();
+      // Clear current job state
+      setCurrentJob(null);
+    } catch (error: any) {
+      toast({
+        title: 'Error resetting job status',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  }, [toast, fetchJobs]);
+  
   useEffect(() => {
     checkApiHealth();
     fetchBusinesses();
@@ -161,5 +187,6 @@ export const useScraper = () => {
     fetchJobs,
     handleStartScraper,
     handleRunWebsiteAudit,
+    handleResetJobStatus,
   };
 };

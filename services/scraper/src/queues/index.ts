@@ -1,64 +1,29 @@
+
 import Queue from 'bull';
 import { logger } from '../utils/logger.js';
 import { processGridSearch } from './processors/gridSearch.js';
 import { processWebsiteAudit } from './processors/websiteAudit.js';
 import { RedisOptions } from 'ioredis';
-import { QUEUE_NAMES, initializeQueues } from './config.js';
-
-// Queue instances
-let queues: Record<string, Queue.Queue> = {};
-
-// Initialize queues
-export async function setupQueues(): Promise<void> {
-  try {
-    queues = await initializeQueues();
-    logger.info('All queues initialized successfully');
-  } catch (error: any) {
-    logger.error('Failed to set up queues:', error);
-    throw error;
-  }
-}
-
-// Get queue by name
-export function getQueue(name: string): Queue.Queue {
-  const queue = queues[name];
-  if (!queue) {
-    throw new Error(`Queue ${name} not found`);
-  }
-  return queue;
-}
-
-// Export queue instances
-export const scraperQueue = () => getQueue(QUEUE_NAMES.SCRAPER);
-export const auditQueue = () => getQueue(QUEUE_NAMES.AUDIT);
-export const dataProcessingQueue = () => getQueue(QUEUE_NAMES.DATA_PROCESSING);
-
-// Export queue names for consistency
-export { QUEUE_NAMES };
 
 // Centralized queue name configuration
-export const QUEUE_NAMES_OLD = {
+export const QUEUE_NAMES = {
   SCRAPER: 'scraper',
   AUDIT: 'audit',
   DATA_PROCESSING: 'data_processing'
 };
 
-// Define connection options for both internal and external Redis
-const INTERNAL_REDIS_URL = "redis://redis.railway.internal:6379";
-const EXTERNAL_REDIS_URL = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781";
+// Use environment variable or fall back to default URL with correct port
+const REDIS_URL = process.env.REDIS_URL || "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781";
 
-// Try to use internal DNS first, fall back to external URL
-// This should allow service discovery to work properly
-const redisUrl = INTERNAL_REDIS_URL;
-
-// Log which Redis URL we're using
-logger.info(`Attempting Redis connection using internal DNS: ${INTERNAL_REDIS_URL}`);
-logger.info(`Fallback Redis URL (external): ${EXTERNAL_REDIS_URL.replace(/\/\/.*@/, '//***@')}`);
+// Log which Redis URL we're using (masking credentials)
+logger.info(`Using Redis URL: ${REDIS_URL.replace(/\/\/.*@/, '//***@')}`);
 
 // Connection options for Bull queues
 const bullOptions = {
   redis: {
     // No specific Redis options here - using the URL handles it
+    connectTimeout: 30000, // 30 seconds connection timeout
+    maxRetriesPerRequest: 5, // Max retries for Redis commands
   },
   // Bull-specific settings
   settings: {
@@ -81,7 +46,7 @@ const CIRCUIT_RESET_INTERVAL = 30000; // 30 seconds
 
 // Create queues with proper error handling
 function createQueue(name: string) {
-  const queue = new Queue(name, redisUrl);
+  const queue = new Queue(name, REDIS_URL, bullOptions);
   
   queue.on('error', (error) => {
     const now = Date.now();
@@ -103,46 +68,46 @@ function createQueue(name: string) {
 }
 
 // Create queues with circuit breaker pattern
-export const scraperQueueOld = createQueue(QUEUE_NAMES_OLD.SCRAPER);
-export const dataProcessingQueueOld = createQueue(QUEUE_NAMES_OLD.DATA_PROCESSING);
-export const auditQueueOld = createQueue(QUEUE_NAMES_OLD.AUDIT);
+export const scraperQueue = createQueue(QUEUE_NAMES.SCRAPER);
+export const dataProcessingQueue = createQueue(QUEUE_NAMES.DATA_PROCESSING);
+export const auditQueue = createQueue(QUEUE_NAMES.AUDIT);
 
-export async function setupQueuesOld() {
+export async function setupQueues() {
   logger.info('Setting up job queues...');
-  logger.info(`Using queue names: ${QUEUE_NAMES_OLD.SCRAPER}, ${QUEUE_NAMES_OLD.AUDIT}`);
+  logger.info(`Using queue names: ${QUEUE_NAMES.SCRAPER}, ${QUEUE_NAMES.AUDIT}, ${QUEUE_NAMES.DATA_PROCESSING}`);
 
   // Set up scraper queue processor
-  scraperQueueOld.process('search-grid', processGridSearch);
+  scraperQueue.process('search-grid', processGridSearch);
 
   // Set up audit queue processor
-  auditQueueOld.process('audit-website', processWebsiteAudit);
+  auditQueue.process('audit-website', processWebsiteAudit);
 
   // Global error handlers
-  scraperQueueOld.on('error', (error) => {
+  scraperQueue.on('error', (error) => {
     logger.error(`Scraper queue error: ${error.message}`, { error });
   });
 
-  auditQueueOld.on('error', (error) => {
+  auditQueue.on('error', (error) => {
     logger.error(`Audit queue error: ${error.message}`, { error });
   });
 
   // Job completion handlers
-  scraperQueueOld.on('completed', (job) => {
+  scraperQueue.on('completed', (job) => {
     logger.info(`Completed scraper job ${job.id}`);
   });
 
-  auditQueueOld.on('completed', (job) => {
+  auditQueue.on('completed', (job) => {
     logger.info(`Completed audit job ${job.id}`);
   });
 
   // Job failure handlers
-  scraperQueueOld.on('failed', (job, error) => {
+  scraperQueue.on('failed', (job, error) => {
     logger.error(`Failed scraper job ${job?.id}: ${error.message}`, { error });
   });
 
-  auditQueueOld.on('failed', (job, error) => {
+  auditQueue.on('failed', (job, error) => {
     logger.error(`Failed audit job ${job?.id}: ${error.message}`, { error });
   });
 
   logger.info('Job queues setup complete');
-} 
+}
