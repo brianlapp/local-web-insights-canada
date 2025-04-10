@@ -43,34 +43,55 @@ app.use((req, res, next) => {
 
 // Initialize services
 async function initializeServices() {
+  let redis = null;
+  let queuesInitialized = false;
+
   try {
     // Initialize Redis connection
-    const redis = await getRedisClient();
+    redis = await getRedisClient();
     logger.info('Redis connection initialized');
 
     // Initialize queues
     await setupQueues();
     scraperQueueInstance = scraperQueue();
     auditQueueInstance = auditQueue();
-    logger.info('Job queues initialized');
-
-    // Set up data processing queue
     dataProcessingQueueInstance = await setupDataProcessingQueue();
-    logger.info('Data processing queue initialized');
+    queuesInitialized = true;
+    logger.info('Job queues initialized');
+  } catch (error: any) {
+    logger.error('Failed to initialize Redis and queues:', error);
+    // Don't exit - continue with degraded functionality
+  }
 
+  try {
     // Initialize Supabase client
     getSupabaseClient();
     logger.info('Supabase client initialized');
+  } catch (error: any) {
+    logger.error('Failed to initialize Supabase:', error);
+    // Don't exit - continue with degraded functionality
+  }
 
-    // Set up routes with initialized queues
-    const router = setupRoutes(scraperQueueInstance, auditQueueInstance, dataProcessingQueueInstance);
+  try {
+    // Set up routes with initialized queues (might be null if initialization failed)
+    const router = setupRoutes(
+      queuesInitialized ? scraperQueueInstance : null,
+      queuesInitialized ? auditQueueInstance : null,
+      queuesInitialized ? dataProcessingQueueInstance : null
+    );
     app.use('/api', router);
     logger.info('Routes initialized');
-
   } catch (error: any) {
-    logger.error('Failed to initialize services:', error);
-    process.exit(1);
+    logger.error('Failed to initialize routes:', error);
+    // Don't exit - continue with basic endpoints
   }
+
+  // Return initialization status
+  return {
+    redis: redis !== null,
+    queues: queuesInitialized,
+    supabase: true // We can add more detailed status if needed
+  };
 }
 
 // Add type definitions for health check response
@@ -208,10 +229,11 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start server
-initializeServices().then(() => {
+initializeServices().then((status) => {
   app.listen(port, () => {
     logger.info(`Server listening on port ${port}`);
     logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    logger.info('Service status:', status);
     
     if (process.env.NODE_ENV === 'production') {
       logger.info('Running in production mode - performance optimized');
@@ -220,6 +242,6 @@ initializeServices().then(() => {
     }
   });
 }).catch((error: any) => {
-  logger.error('Failed to start server:', error);
+  logger.error('Critical error starting server:', error);
   process.exit(1);
 });
