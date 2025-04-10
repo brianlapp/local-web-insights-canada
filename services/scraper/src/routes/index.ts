@@ -29,10 +29,9 @@ export const setupRoutes = (
       // Check Redis connection
       let redisStatus = { connected: false, error: null };
       try {
-        const redis = getRedisClient();
-        if (redis) {
-          redisStatus.connected = true;
-        }
+        const redis = await getRedisClient();
+        await redis.ping();  // Actually test the connection
+        redisStatus.connected = true;
       } catch (error: any) {
         redisStatus.error = error.message;
       }
