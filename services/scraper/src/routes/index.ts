@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import Queue from 'bull';
 import { logger } from '../utils/logger.js';
 
@@ -8,6 +8,10 @@ export const setupRoutes = (
   dataProcessingQueue: Queue.Queue | null
 ) => {
   const router = express.Router();
+
+  router.get('/health', (req: Request, res: Response) => {
+    res.status(200).send('OK');
+  });
 
   router.get('/start', async (req, res) => {
     if (!scraperQueue) {
