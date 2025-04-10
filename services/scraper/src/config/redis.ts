@@ -1,4 +1,5 @@
-import { Redis, RedisOptions } from 'ioredis';
+const Redis = require('ioredis');
+import type { Redis as RedisType, RedisOptions } from 'ioredis';
 import { logger } from '../utils/logger.js';
 
 // Connection URLs
@@ -35,7 +36,7 @@ let circuitBroken = false;
 
 export class RedisManager {
   private static instance: RedisManager;
-  private client: Redis | null = null;
+  private client: RedisType | null = null;
   private connectionType: 'internal' | 'external' = 'internal';
 
   private constructor() {}
@@ -47,7 +48,7 @@ export class RedisManager {
     return RedisManager.instance;
   }
 
-  async getClient(): Promise<Redis> {
+  async getClient(): Promise<RedisType> {
     if (this.client && isConnected) {
       return this.client;
     }
@@ -56,7 +57,7 @@ export class RedisManager {
     return client;
   }
 
-  private async establishConnection(): Promise<Redis> {
+  private async establishConnection(): Promise<RedisType> {
     const now = Date.now();
 
     // Circuit breaker check
@@ -70,7 +71,8 @@ export class RedisManager {
       // Try internal connection first
       if (this.connectionType === 'internal') {
         try {
-          const internalClient = await this.tryConnection(REDIS_CONFIG.INTERNAL_URL);
+          const internalClient = new Redis(REDIS_CONFIG.INTERNAL_URL, baseRedisOptions);
+          await this.testConnection(internalClient);
           this.client = internalClient;
           logger.info('Successfully connected to Redis using internal URL');
           return internalClient;
@@ -81,7 +83,8 @@ export class RedisManager {
       }
 
       // Try external connection
-      const externalClient = await this.tryConnection(REDIS_CONFIG.EXTERNAL_URL);
+      const externalClient = new Redis(REDIS_CONFIG.EXTERNAL_URL, baseRedisOptions);
+      await this.testConnection(externalClient);
       this.client = externalClient;
       logger.info('Successfully connected to Redis using external URL');
       return externalClient;
@@ -93,17 +96,12 @@ export class RedisManager {
     }
   }
 
-  private async tryConnection(url: string): Promise<Redis> {
-    const client = new Redis(url, {
-      ...baseRedisOptions,
-      lazyConnect: true
-    });
-
+  private async testConnection(client: RedisType): Promise<void> {
     // Set up event handlers
     client.on('connect', () => {
       isConnected = true;
       circuitBroken = false;
-      logger.info(`Redis connected to ${url.replace(/\/\/.*@/, '//***@')}`);
+      logger.info('Redis connected');
     });
 
     client.on('error', (error: Error) => {
@@ -117,13 +115,10 @@ export class RedisManager {
     });
 
     // Test connection
-    await client.connect();
     const pingResult = await client.ping();
     if (pingResult !== 'PONG') {
       throw new Error('Redis ping failed');
     }
-
-    return client;
   }
 
   async disconnect(): Promise<void> {
@@ -145,6 +140,6 @@ export class RedisManager {
   }
 }
 
-export const getRedisClient = async (): Promise<Redis> => {
+export const getRedisClient = async (): Promise<RedisType> => {
   return RedisManager.getInstance().getClient();
 };
