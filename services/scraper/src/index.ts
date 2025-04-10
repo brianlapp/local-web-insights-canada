@@ -173,10 +173,13 @@ async function getHealthStatus(): Promise<HealthStatus> {
   return healthStatus;
 }
 
+// Start server
+logger.info('Starting server initialization...');
+
 // Root health check endpoint (for Railway)
-app.get('/health', async (_req, res) => {
-  // For Railway's health check, return a simple 200 OK
-  // This ensures the container stays running while we debug Redis issues
+app.get('/health', (_req, res) => {
+  // For Railway's health check, always return a simple 200 OK
+  // This ensures the container stays running even during initialization
   res.status(200).json({
     status: 'ok',
     timestamp: new Date().toISOString()
@@ -239,55 +242,40 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// Start server first, before any initialization
-try {
-  const server = app.listen(Number(port), '0.0.0.0', () => {
-    logger.info('=== SERVER STARTUP ===');
-    logger.info(`Server starting on port ${port}`);
-    logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-    logger.info(`Process ID: ${process.pid}`);
-    logger.info('Initial memory usage:', process.memoryUsage());
-    
-    // Initialize services after server is listening
-    initializeServices().then((status) => {
-      logger.info('=== SERVICES STATUS ===');
-      logger.info('Service initialization complete:', status);
-      
-      if (process.env.NODE_ENV === 'production') {
-        logger.info('Running in production mode - performance optimized');
-      } else {
-        logger.info('Running in development mode - for testing and debugging');
-      }
-    }).catch((error: any) => {
-      logger.error('=== SERVICE INIT ERROR ===');
+// Start the server and initialize services
+const server = app.listen(Number(port), '0.0.0.0', () => {
+  logger.info(`Server is listening on port ${port}`);
+  
+  // Initialize services after server is listening
+  initializeServices()
+    .then((status) => {
+      logger.info('Services initialized:', status);
+    })
+    .catch((error) => {
       logger.error('Service initialization error:', error);
       // Don't exit - continue with degraded functionality
     });
-  }).on('error', (error: any) => {
-    logger.error('=== SERVER ERROR ===');
-    logger.error('Server failed to start:', error);
-    process.exit(1);
-  });
+});
 
-  // Graceful shutdown
-  process.on('SIGTERM', () => {
-    logger.info('SIGTERM received. Starting graceful shutdown...');
-    server.close(() => {
-      logger.info('Server closed. Exiting process.');
-      process.exit(0);
-    });
-  });
-
-  process.on('SIGINT', () => {
-    logger.info('SIGINT received. Starting graceful shutdown...');
-    server.close(() => {
-      logger.info('Server closed. Exiting process.');
-      process.exit(0);
-    });
-  });
-
-} catch (error) {
-  logger.error('=== CRITICAL STARTUP ERROR ===');
-  logger.error('Failed to start server:', error);
+// Handle server errors
+server.on('error', (error: Error) => {
+  logger.error('Server error:', error);
   process.exit(1);
-}
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received. Starting graceful shutdown...');
+  server.close(() => {
+    logger.info('Server closed. Exiting process.');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  logger.info('SIGINT received. Starting graceful shutdown...');
+  server.close(() => {
+    logger.info('Server closed. Exiting process.');
+    process.exit(0);
+  });
+});
