@@ -3,9 +3,41 @@ import { logger } from '../utils/logger.js';
 import { processGridSearch } from './processors/gridSearch.js';
 import { processWebsiteAudit } from './processors/websiteAudit.js';
 import { RedisOptions } from 'ioredis';
+import { QUEUE_NAMES, initializeQueues } from './config.js';
+
+// Queue instances
+let queues: Record<string, Queue.Queue> = {};
+
+// Initialize queues
+export async function setupQueues(): Promise<void> {
+  try {
+    queues = await initializeQueues();
+    logger.info('All queues initialized successfully');
+  } catch (error: any) {
+    logger.error('Failed to set up queues:', error);
+    throw error;
+  }
+}
+
+// Get queue by name
+export function getQueue(name: string): Queue.Queue {
+  const queue = queues[name];
+  if (!queue) {
+    throw new Error(`Queue ${name} not found`);
+  }
+  return queue;
+}
+
+// Export queue instances
+export const scraperQueue = () => getQueue(QUEUE_NAMES.SCRAPER);
+export const auditQueue = () => getQueue(QUEUE_NAMES.AUDIT);
+export const dataProcessingQueue = () => getQueue(QUEUE_NAMES.DATA_PROCESSING);
+
+// Export queue names for consistency
+export { QUEUE_NAMES };
 
 // Centralized queue name configuration
-export const QUEUE_NAMES = {
+export const QUEUE_NAMES_OLD = {
   SCRAPER: 'scraper',
   AUDIT: 'audit',
   DATA_PROCESSING: 'data_processing'
@@ -71,44 +103,44 @@ function createQueue(name: string) {
 }
 
 // Create queues with circuit breaker pattern
-export const scraperQueue = createQueue(QUEUE_NAMES.SCRAPER);
-export const dataProcessingQueue = createQueue(QUEUE_NAMES.DATA_PROCESSING);
-export const auditQueue = createQueue(QUEUE_NAMES.AUDIT);
+export const scraperQueueOld = createQueue(QUEUE_NAMES_OLD.SCRAPER);
+export const dataProcessingQueueOld = createQueue(QUEUE_NAMES_OLD.DATA_PROCESSING);
+export const auditQueueOld = createQueue(QUEUE_NAMES_OLD.AUDIT);
 
-export async function setupQueues() {
+export async function setupQueuesOld() {
   logger.info('Setting up job queues...');
-  logger.info(`Using queue names: ${QUEUE_NAMES.SCRAPER}, ${QUEUE_NAMES.AUDIT}`);
+  logger.info(`Using queue names: ${QUEUE_NAMES_OLD.SCRAPER}, ${QUEUE_NAMES_OLD.AUDIT}`);
 
   // Set up scraper queue processor
-  scraperQueue.process('search-grid', processGridSearch);
+  scraperQueueOld.process('search-grid', processGridSearch);
 
   // Set up audit queue processor
-  auditQueue.process('audit-website', processWebsiteAudit);
+  auditQueueOld.process('audit-website', processWebsiteAudit);
 
   // Global error handlers
-  scraperQueue.on('error', (error) => {
+  scraperQueueOld.on('error', (error) => {
     logger.error(`Scraper queue error: ${error.message}`, { error });
   });
 
-  auditQueue.on('error', (error) => {
+  auditQueueOld.on('error', (error) => {
     logger.error(`Audit queue error: ${error.message}`, { error });
   });
 
   // Job completion handlers
-  scraperQueue.on('completed', (job) => {
+  scraperQueueOld.on('completed', (job) => {
     logger.info(`Completed scraper job ${job.id}`);
   });
 
-  auditQueue.on('completed', (job) => {
+  auditQueueOld.on('completed', (job) => {
     logger.info(`Completed audit job ${job.id}`);
   });
 
   // Job failure handlers
-  scraperQueue.on('failed', (job, error) => {
+  scraperQueueOld.on('failed', (job, error) => {
     logger.error(`Failed scraper job ${job?.id}: ${error.message}`, { error });
   });
 
-  auditQueue.on('failed', (job, error) => {
+  auditQueueOld.on('failed', (job, error) => {
     logger.error(`Failed audit job ${job?.id}: ${error.message}`, { error });
   });
 
