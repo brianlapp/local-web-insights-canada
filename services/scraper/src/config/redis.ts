@@ -1,7 +1,8 @@
 import { Redis, RedisOptions } from 'ioredis';
 import { logger } from '../utils/logger.js';
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+// Try Railway's internal Redis first, fallback to env var
+const REDIS_URL = process.env.REDIS_URL || 'redis://redis.railway.internal:6379';
 const REDIS_RETRY_STRATEGY_MAX_RETRIES = 5;
 const REDIS_RETRY_STRATEGY_MAX_DELAY = 5000;
 
@@ -26,7 +27,7 @@ export async function getRedisClient(): Promise<Redis> {
     enableOfflineQueue: true,
     enableReadyCheck: true,
     lazyConnect: true, // Only connect when needed
-    tls: isProd ? {
+    tls: isSecure ? {
       rejectUnauthorized: false, // Required for Railway's self-signed certs
       servername: new URL(REDIS_URL).hostname
     } : undefined,
