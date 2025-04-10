@@ -10,7 +10,7 @@ export const setupRoutes = (
   const router = express.Router();
 
   router.get('/health', (req: Request, res: Response) => {
-    res.status(200).send('OK');
+    res.status(200).json({ status: 'ok' });
   });
 
   router.get('/start', async (req, res) => {
