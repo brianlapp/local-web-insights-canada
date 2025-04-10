@@ -25,6 +25,19 @@ let scraperQueueInstance: Queue;
 let auditQueueInstance: Queue;
 let dataProcessingQueueInstance: Queue;
 
+// Add this at the very top of the file
+console.log('=== Startup Verification ===');
+console.log('Module path:', import.meta.url);
+console.log('Process info:', {
+  cwd: process.cwd(),
+  pid: process.pid,
+  version: process.version,
+  env: {
+    NODE_ENV: process.env.NODE_ENV,
+    PORT: process.env.PORT
+  }
+});
+
 // Log environment info
 logger.info(`Starting scraper service in ${process.env.NODE_ENV || 'development'} mode`);
 logger.info(`Node.js version: ${process.version}`);
