@@ -1,113 +1,46 @@
-
 import Queue from 'bull';
 import { logger } from '../utils/logger.js';
 import { processGridSearch } from './processors/gridSearch.js';
 import { processWebsiteAudit } from './processors/websiteAudit.js';
-import { RedisOptions } from 'ioredis';
+import { QUEUE_NAMES, initializeQueues, createQueue } from './config.js';
 
-// Centralized queue name configuration
-export const QUEUE_NAMES = {
-  SCRAPER: 'scraper',
-  AUDIT: 'audit',
-  DATA_PROCESSING: 'data_processing'
-};
+// Queue instances
+let queues: Record<string, Queue.Queue> = {};
 
-// Use environment variable or fall back to default URL with correct port
-const REDIS_URL = process.env.REDIS_URL || "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781";
+// Initialize queues
+export async function setupQueues(): Promise<void> {
+  try {
+    queues = await initializeQueues();
+    logger.info('All queues initialized successfully');
 
-// Log which Redis URL we're using (masking credentials)
-logger.info(`Using Redis URL: ${REDIS_URL.replace(/\/\/.*@/, '//***@')}`);
+    // Set up queue processors
+    const scraper = getQueue(QUEUE_NAMES.SCRAPER);
+    const audit = getQueue(QUEUE_NAMES.AUDIT);
 
-// Connection options for Bull queues
-const bullOptions = {
-  redis: {
-    // No specific Redis options here - using the URL handles it
-    connectTimeout: 30000, // 30 seconds connection timeout
-    maxRetriesPerRequest: 5, // Max retries for Redis commands
-  },
-  // Bull-specific settings
-  settings: {
-    lockDuration: 30000, // 30 seconds
-    stalledInterval: 15000, // Check for stalled jobs every 15 seconds
-    maxStalledCount: 2, // Maximum number of times a job can be marked as stalled
-    drainDelay: 5, // Delay for draining the queue when paused
-  },
-  // Very important - limit retries to avoid hammering Redis
-  limiter: {
-    max: 3, // Maximum number of jobs processed in duration
-    duration: 5000, // Duration in ms for limiting
+    // Set up processors
+    scraper.process('search-grid', processGridSearch);
+    audit.process('audit-website', processWebsiteAudit);
+
+    logger.info('Queue processors initialized successfully');
+  } catch (error: any) {
+    logger.error('Failed to set up queues:', error);
+    throw error;
   }
-};
+}
 
-// Circuit breaker to track Redis connection state
-let redisCircuitBroken = false;
-let lastConnectionAttempt = 0;
-const CIRCUIT_RESET_INTERVAL = 30000; // 30 seconds
-
-// Create queues with proper error handling
-function createQueue(name: string) {
-  const queue = new Queue(name, REDIS_URL, bullOptions);
-  
-  queue.on('error', (error) => {
-    const now = Date.now();
-    logger.error(`${name} queue error: ${error.message}`, { error });
-    
-    // Circuit breaker logic
-    if (!redisCircuitBroken) {
-      logger.warn(`Redis circuit breaker tripped for ${name} queue`);
-      redisCircuitBroken = true;
-      lastConnectionAttempt = now;
-    } else if (now - lastConnectionAttempt > CIRCUIT_RESET_INTERVAL) {
-      // Try to reset circuit after interval
-      logger.info(`Attempting to reset Redis circuit breaker for ${name} queue`);
-      lastConnectionAttempt = now;
-    }
-  });
-  
+// Get queue by name
+function getQueue(name: string): Queue.Queue {
+  const queue = queues[name];
+  if (!queue) {
+    throw new Error(`Queue ${name} not found`);
+  }
   return queue;
 }
 
-// Create queues with circuit breaker pattern
-export const scraperQueue = createQueue(QUEUE_NAMES.SCRAPER);
-export const dataProcessingQueue = createQueue(QUEUE_NAMES.DATA_PROCESSING);
-export const auditQueue = createQueue(QUEUE_NAMES.AUDIT);
+// Export queue getters
+export const scraperQueue = () => getQueue(QUEUE_NAMES.SCRAPER);
+export const auditQueue = () => getQueue(QUEUE_NAMES.AUDIT);
+export const dataProcessingQueue = () => getQueue(QUEUE_NAMES.DATA_PROCESSING);
 
-export async function setupQueues() {
-  logger.info('Setting up job queues...');
-  logger.info(`Using queue names: ${QUEUE_NAMES.SCRAPER}, ${QUEUE_NAMES.AUDIT}, ${QUEUE_NAMES.DATA_PROCESSING}`);
-
-  // Set up scraper queue processor
-  scraperQueue.process('search-grid', processGridSearch);
-
-  // Set up audit queue processor
-  auditQueue.process('audit-website', processWebsiteAudit);
-
-  // Global error handlers
-  scraperQueue.on('error', (error) => {
-    logger.error(`Scraper queue error: ${error.message}`, { error });
-  });
-
-  auditQueue.on('error', (error) => {
-    logger.error(`Audit queue error: ${error.message}`, { error });
-  });
-
-  // Job completion handlers
-  scraperQueue.on('completed', (job) => {
-    logger.info(`Completed scraper job ${job.id}`);
-  });
-
-  auditQueue.on('completed', (job) => {
-    logger.info(`Completed audit job ${job.id}`);
-  });
-
-  // Job failure handlers
-  scraperQueue.on('failed', (job, error) => {
-    logger.error(`Failed scraper job ${job?.id}: ${error.message}`, { error });
-  });
-
-  auditQueue.on('failed', (job, error) => {
-    logger.error(`Failed audit job ${job?.id}: ${error.message}`, { error });
-  });
-
-  logger.info('Job queues setup complete');
-}
+// Export queue names for consistency
+export { QUEUE_NAMES };
