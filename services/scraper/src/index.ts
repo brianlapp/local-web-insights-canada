@@ -5,14 +5,20 @@ import { setupRoutes } from './routes/index.js';
 import { setupQueues, scraperQueue, auditQueue } from './queues/index.js';
 import { setupDataProcessingQueue } from './processors/dataProcessor.js';
 import { getSupabaseClient } from './utils/database.js';
-import { RedisManager } from './config/redis.js';
-import { Job } from 'bull';
+import { getRedisClient } from './config/redis.js';
+import { Job, Queue } from 'bull';
+import { Redis } from 'ioredis';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Queue instances
+let scraperQueueInstance: Queue;
+let auditQueueInstance: Queue;
+let dataProcessingQueueInstance: Queue;
 
 // Log environment info
 logger.info(`Starting scraper service in ${process.env.NODE_ENV || 'development'} mode`);
@@ -39,15 +45,17 @@ app.use((req, res, next) => {
 async function initializeServices() {
   try {
     // Initialize Redis connection
-    await RedisManager.getInstance().getClient();
+    const redis = await getRedisClient();
     logger.info('Redis connection initialized');
 
     // Initialize queues
     await setupQueues();
+    scraperQueueInstance = scraperQueue();
+    auditQueueInstance = auditQueue();
     logger.info('Job queues initialized');
 
     // Set up data processing queue
-    const dataProcessingQueue = await setupDataProcessingQueue();
+    dataProcessingQueueInstance = await setupDataProcessingQueue();
     logger.info('Data processing queue initialized');
 
     // Initialize Supabase client
@@ -55,7 +63,7 @@ async function initializeServices() {
     logger.info('Supabase client initialized');
 
     // Set up routes with initialized queues
-    const router = setupRoutes(scraperQueue(), auditQueue(), dataProcessingQueue);
+    const router = setupRoutes(scraperQueueInstance, auditQueueInstance, dataProcessingQueueInstance);
     app.use('/api', router);
     logger.info('Routes initialized');
 
@@ -68,13 +76,15 @@ async function initializeServices() {
 // Enhanced health check endpoint
 app.get('/health', async (req, res) => {
   try {
-    const redisStatus = RedisManager.getInstance().getConnectionStatus();
-    const scraper = scraperQueue();
-    const audit = auditQueue();
+    const redis = await getRedisClient();
+    const redisStatus = {
+      connected: await redis.ping() === 'PONG',
+      url: process.env.REDIS_URL || 'redis://localhost:6379'
+    };
 
     const queueCounts = await Promise.all([
-      scraper.getJobCounts(),
-      audit.getJobCounts()
+      scraperQueueInstance.getJobCounts(),
+      auditQueueInstance.getJobCounts()
     ]);
 
     const healthStatus = {
@@ -105,8 +115,7 @@ app.get('/health', async (req, res) => {
 // Enhanced Redis test endpoint
 app.get('/test-redis-connection', async (req, res) => {
   try {
-    const redisManager = RedisManager.getInstance();
-    const redis = await redisManager.getClient();
+    const redis = await getRedisClient();
     
     const startTime = Date.now();
     const pingResult = await redis.ping();
@@ -118,10 +127,13 @@ app.get('/test-redis-connection', async (req, res) => {
         ping_time_ms: endTime - startTime,
         error: null
       },
-      redis_status: redisManager.getConnectionStatus(),
+      redis_status: {
+        connected: true,
+        url: process.env.REDIS_URL || 'redis://localhost:6379'
+      },
       queue_status: {
-        scraper: await scraperQueue().getJobCounts(),
-        audit: await auditQueue().getJobCounts()
+        scraper: await scraperQueueInstance.getJobCounts(),
+        audit: await auditQueueInstance.getJobCounts()
       }
     };
 

@@ -3,9 +3,21 @@ import { logger } from '../utils/logger.js';
 import { 
   queueRawBusinessDataProcessing, 
   getDataProcessingMetrics,
-  dataProcessingQueue
+  setupDataProcessingQueue
 } from '../processors/dataProcessor.js';
 import { getSupabaseClient } from '../utils/database.js';
+import { Queue } from 'bull';
+
+// Queue instance
+let dataProcessingQueue: Queue | null = null;
+
+// Get or initialize queue
+async function getQueue(): Promise<Queue> {
+  if (!dataProcessingQueue) {
+    dataProcessingQueue = await setupDataProcessingQueue();
+  }
+  return dataProcessingQueue;
+}
 
 /**
  * Queue raw business data for processing
@@ -116,7 +128,8 @@ export async function getJobStatus(req: Request, res: Response) {
       return res.status(400).json({ error: 'Job ID is required' });
     }
     
-    const job = await dataProcessingQueue.getJob(jobId);
+    const queue = await getQueue();
+    const job = await queue.getJob(jobId);
     
     if (!job) {
       return res.status(404).json({ error: `Job with ID ${jobId} not found` });
