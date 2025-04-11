@@ -1,3 +1,4 @@
+
 import { Redis, RedisOptions } from 'ioredis';
 import { logger } from '../utils/logger.js';
 
@@ -160,5 +161,19 @@ export function createRedisClient(): Redis {
     };
   }
 
-  return new Redis(REDIS_URL, options);
+  const client = new Redis(REDIS_URL, options);
+  
+  // Add basic event listeners
+  client.on('error', (err: Error) => {
+    logger.error('Redis client error in dedicated connection:', { 
+      error: err.message,
+      code: (err as any).code
+    });
+  });
+  
+  client.on('ready', () => {
+    logger.info('Dedicated Redis client ready');
+  });
+
+  return client;
 }
