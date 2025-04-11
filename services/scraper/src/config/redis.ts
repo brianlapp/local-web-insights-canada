@@ -30,7 +30,7 @@ export async function getRedisClient(): Promise<Redis> {
   });
 
   const options: RedisOptions = {
-    maxRetriesPerRequest: 3,
+    maxRetriesPerRequest: null, // Disable max retries per request (required by Bull)
     family: 0, // Let Node.js choose the IP version that works
     retryStrategy(times: number) {
       if (times > REDIS_RETRY_STRATEGY_MAX_RETRIES) {
@@ -44,7 +44,7 @@ export async function getRedisClient(): Promise<Redis> {
     connectTimeout: 20000,
     commandTimeout: 10000,
     enableOfflineQueue: true,
-    enableReadyCheck: true,
+    enableReadyCheck: false, // Disable ready check (required by Bull)
     lazyConnect: true, // Only connect when needed
   };
 
