@@ -1,4 +1,3 @@
-
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
@@ -14,10 +13,7 @@ export default defineConfig(({ mode }) => ({
       '/api/scraper': {
         target: 'https://local-web-scraper-production.up.railway.app',
         changeOrigin: true,
-        rewrite: (path) => {
-          // Don't strip /scraper from the path - this is the key fix!
-          return path.replace(/^\/api/, '');
-        },
+        rewrite: (path) => path.replace(/^\/api\/scraper/, '/api'),
         secure: true,
         // Add verbose logging for debugging
         configure: (proxy) => {

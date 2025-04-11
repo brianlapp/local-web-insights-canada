@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/schema';
 
@@ -41,7 +40,7 @@ export const fetchRecentJobs = async (): Promise<{jobs: ScraperJob[], currentJob
   };
 };
 
-// Start a new scraper job with improved error handling
+// Start a new scraper job
 export const startScraper = async (location: string): Promise<ScraperJob> => {
   try {
     // First, check if we have an active session
@@ -87,31 +86,17 @@ export const startScraper = async (location: string): Promise<ScraperJob> => {
           }),
         });
 
-        // Improved error handling for API responses
         if (!response.ok) {
           let errorMessage = 'Failed to start scraper';
           
-          // Check if the response is JSON before trying to parse it
-          const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
-            try {
-              const errorData = await response.json();
-              console.error('API error starting scraper:', errorData);
-              errorMessage = errorData.message || errorMessage;
-            } catch (parseError) {
-              console.error('Could not parse error response:', parseError);
-              errorMessage = `API error (${response.status}): ${response.statusText}`;
-            }
-          } else {
-            // Handle non-JSON responses (like HTML error pages)
-            const textResponse = await response.text();
-            console.error('Non-JSON error response:', {
-              status: response.status,
-              statusText: response.statusText,
-              contentType,
-              responseText: textResponse.substring(0, 200) + (textResponse.length > 200 ? '...' : '')
-            });
-            errorMessage = `API returned non-JSON response (${response.status})`;
+          try {
+            const errorData = await response.json();
+            console.error('API error starting scraper:', errorData);
+            errorMessage = errorData.message || errorMessage;
+          } catch (parseError) {
+            console.error('Could not parse error response:', parseError);
+            // Use status text if the response isn't valid JSON
+            errorMessage = `API error (${response.status}): ${response.statusText}`;
           }
           
           // Update the job status to failed
@@ -123,14 +108,8 @@ export const startScraper = async (location: string): Promise<ScraperJob> => {
           throw new Error(errorMessage);
         }
         
-        // Try to parse the response as JSON, but handle if it's not JSON
-        try {
-          const responseData = await response.json();
-          console.log('Scraper started successfully:', responseData);
-        } catch (jsonError) {
-          console.warn('Could not parse success response as JSON', jsonError);
-          // But this isn't an error condition necessarily, so continue
-        }
+        const responseData = await response.json();
+        console.log('Scraper started successfully:', responseData);
         
         return data;
       } catch (apiError) {
@@ -158,7 +137,7 @@ export const startScraper = async (location: string): Promise<ScraperJob> => {
   }
 };
 
-// Run a website audit for a business with improved error handling
+// Run a website audit for a business
 export const runWebsiteAudit = async (businessId: string, website: string): Promise<void> => {
   try {
     // First, check if we have an active session
@@ -184,57 +163,34 @@ export const runWebsiteAudit = async (businessId: string, website: string): Prom
       }),
     });
 
-    // Improved error handling for API responses
     if (!response.ok) {
       let errorMessage = 'Failed to start website audit';
       
-      // Check if the response is JSON before trying to parse it
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        try {
-          const errorData = await response.json();
-          console.error('API error running audit:', errorData);
-          errorMessage = errorData.message || errorMessage;
-        } catch (parseError) {
-          console.error('Could not parse error response:', parseError);
-          errorMessage = `API error (${response.status}): ${response.statusText}`;
-        }
-      } else {
-        // Handle non-JSON responses (like HTML error pages)
-        const textResponse = await response.text();
-        console.error('Non-JSON error response:', {
-          status: response.status,
-          statusText: response.statusText,
-          contentType,
-          responseText: textResponse.substring(0, 200) + (textResponse.length > 200 ? '...' : '')
-        });
-        errorMessage = `API returned non-JSON response (${response.status})`;
+      try {
+        const errorData = await response.json();
+        console.error('API error running audit:', errorData);
+        errorMessage = errorData.message || errorMessage;
+      } catch (parseError) {
+        console.error('Could not parse error response:', parseError);
+        errorMessage = `API error (${response.status}): ${response.statusText}`;
       }
       
       throw new Error(errorMessage);
     }
     
-    // Try to parse the response as JSON, but handle if it's not JSON
-    try {
-      const responseData = await response.json();
-      console.log('Website audit started successfully:', responseData);
-    } catch (jsonError) {
-      console.warn('Could not parse success response as JSON', jsonError);
-      // But this isn't an error condition necessarily, so continue
-    }
+    const responseData = await response.json();
+    console.log('Website audit started successfully:', responseData);
   } catch (error) {
     console.error('Website audit API call failed:', error);
     throw error;
   }
 };
 
-// Add a health check function to verify API connection with improved error handling
+// Add a health check function to verify API connection
 export const checkScraperHealth = async (): Promise<boolean> => {
   try {
     // Add timestamp to prevent caching
     const timestamp = new Date().getTime();
-    console.log(`Checking scraper API health at /api/scraper/health?t=${timestamp}`);
-    
     const response = await fetch(`/api/scraper/health?t=${timestamp}`);
     
     if (!response.ok) {
@@ -242,28 +198,9 @@ export const checkScraperHealth = async (): Promise<boolean> => {
       return false;
     }
     
-    // Check if the response is JSON before trying to parse it
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      try {
-        const data = await response.json();
-        console.log('Health check response:', data);
-        return data && data.status === 'ok';
-      } catch (parseError) {
-        console.error('Could not parse health check response as JSON:', parseError);
-        return false;
-      }
-    } else {
-      // Handle non-JSON responses (like HTML error pages)
-      const textResponse = await response.text();
-      console.error('Non-JSON health check response:', {
-        status: response.status,
-        statusText: response.statusText,
-        contentType,
-        responseText: textResponse.substring(0, 200) + (textResponse.length > 200 ? '...' : '')
-      });
-      return false;
-    }
+    const data = await response.json();
+    console.log('Health check response:', data);
+    return data && data.status === 'ok';
   } catch (error) {
     console.error('Health check failed with error:', error);
     return false;
@@ -282,28 +219,7 @@ export const resetJobStatus = async (jobId?: string): Promise<void> => {
 
     console.log(`Resetting job status${jobId ? ` for job ${jobId}` : ' for all running jobs'}`);
     
-    // First, try to use the scraper API endpoint
-    try {
-      const response = await fetch('/api/scraper/reset-status', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionData.session.access_token}`
-        },
-        body: JSON.stringify({ jobId }),
-      });
-      
-      if (response.ok) {
-        console.log('Job status reset via API');
-        return;
-      }
-      
-      console.warn('API reset failed, falling back to direct database update');
-    } catch (apiError) {
-      console.warn('API reset failed, falling back to direct database update:', apiError);
-    }
-    
-    // Fallback: Update the database directly
+    // Build the update query
     let query = supabase
       .from('scraper_runs')
       .update({ 
@@ -326,7 +242,7 @@ export const resetJobStatus = async (jobId?: string): Promise<void> => {
       throw error;
     }
     
-    console.log('Successfully reset job status via database update');
+    console.log('Successfully reset job status');
   } catch (error) {
     console.error('Error in resetJobStatus:', error);
     throw error;

@@ -1,4 +1,3 @@
-
 import Queue from 'bull';
 import { logger } from '../utils/logger.js';
 import { getRedisClient } from '../config/redis.js';
@@ -107,8 +106,6 @@ const setupQueueEventHandlers = (queue: Queue.Queue, queueName: string) => {
 export async function createQueue(name: string, options: Partial<Queue.QueueOptions> = {}): Promise<Queue.Queue> {
   const redis = await getRedisClient();
   
-  logger.info(`Creating queue: ${name}`);
-  
   const queue = new Queue(name, {
     createClient: () => redis,
     defaultJobOptions: QUEUE_CONFIG.defaultJobOptions,
@@ -137,30 +134,16 @@ export async function createQueue(name: string, options: Partial<Queue.QueueOpti
   return queue;
 }
 
-// Initialize all queues with improved logging and error handling
+// Initialize all queues
 export async function initializeQueues(): Promise<Record<string, Queue.Queue>> {
   const queues: Record<string, Queue.Queue> = {};
   
   try {
-    // Log the queue names we're about to initialize
-    logger.info('Initializing queues:', {
-      names: Object.values(QUEUE_NAMES)
-    });
-    
     // Initialize queues in parallel
     const queuePromises = Object.entries(QUEUE_NAMES).map(async ([key, name]) => {
       try {
-        // Create the queue with explicit name
-        logger.info(`Creating queue: ${name} (key: ${key})`);
-        const queue = await createQueue(name);
-        
-        // Store with BOTH the key and the name for easier lookup
-        queues[key] = queue;
-        queues[name] = queue; // Also store by the actual queue name
-        
-        logger.info(`Queue ${name} (key: ${key}) initialized and stored`, {
-          stored: [key, name]
-        });
+        queues[key] = await createQueue(name);
+        logger.info(`Initialized queue: ${name}`);
       } catch (error: any) {
         logger.error(`Failed to initialize queue ${name}:`, error);
         throw error;
@@ -168,12 +151,6 @@ export async function initializeQueues(): Promise<Record<string, Queue.Queue>> {
     });
 
     await Promise.all(queuePromises);
-    
-    // Log all available queues for debugging
-    logger.info('Available queues:', {
-      keys: Object.keys(queues),
-      queueNames: Object.values(QUEUE_NAMES)
-    });
   } catch (error: any) {
     logger.error('Failed to initialize queues:', error);
     throw error;
