@@ -242,7 +242,7 @@ export async function initializeQueues(): Promise<Record<string, Queue.Queue>> {
     
     // Log all available queues for debugging
     logger.info('All queues initialized successfully', {
-      queueKeys: Object.keys(queues).filter(k => !Object.values(QUEUE_NAMES).includes(k)),
+      queueKeys: Object.keys(queues).filter(k => Object.keys(QUEUE_NAMES).includes(k)),
       queueNames: Object.values(QUEUE_NAMES)
     });
   } catch (error: any) {
