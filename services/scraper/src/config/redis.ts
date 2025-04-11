@@ -5,9 +5,7 @@ import { logger } from '../utils/logger.js';
 const REDIS_URL = process.env.REDIS_URL || // Private URL (preferred)
                  process.env.REDIS_PRIVATE_URL || // Railway private URL
                  process.env.REDIS_PUBLIC_URL || // Railway public URL (fallback)
-                 (process.env.NODE_ENV === 'production' ? 
-                   'redis://redis.railway.internal:6379' : // Production internal URL
-                   'redis://localhost:6379'); // Local development
+                 'redis://localhost:6379'; // Local development only
 
 const REDIS_RETRY_STRATEGY_MAX_RETRIES = 5;
 const REDIS_RETRY_STRATEGY_MAX_DELAY = 5000;
@@ -21,6 +19,14 @@ export async function getRedisClient(): Promise<Redis> {
   // Parse the Redis URL to determine if we're using TLS
   const isSecure = REDIS_URL.startsWith('rediss://');
   const isProd = process.env.NODE_ENV === 'production';
+
+  // Log Redis configuration details
+  logger.info('Redis configuration:', {
+    url: REDIS_URL.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'),
+    isSecure,
+    isProd,
+    family: 6
+  });
 
   const options: RedisOptions = {
     maxRetriesPerRequest: 3,
@@ -39,21 +45,20 @@ export async function getRedisClient(): Promise<Redis> {
     enableOfflineQueue: true,
     enableReadyCheck: true,
     lazyConnect: true, // Only connect when needed
-    tls: isSecure ? {
-      rejectUnauthorized: false, // Required for Railway's self-signed certs
-      servername: new URL(REDIS_URL).hostname
-    } : undefined,
-    reconnectOnError(err: Error) {
-      const targetErrors = ['READONLY', 'ETIMEDOUT', 'ECONNRESET', 'ENOTFOUND'];
-      if (targetErrors.some(e => err.message.includes(e))) {
-        logger.warn(`Reconnecting due to error: ${err.message}`);
-        return true;
-      }
-      return false;
-    }
   };
 
-  logger.info(`Initializing Redis connection to ${REDIS_URL} (Production: ${isProd}, Secure: ${isSecure})`);
+  // Only add TLS options if we're using a secure connection
+  if (isSecure) {
+    options.tls = {
+      rejectUnauthorized: false, // Required for Railway's self-signed certs
+      servername: new URL(REDIS_URL).hostname
+    };
+  }
+
+  logger.info('Redis client options:', {
+    ...options,
+    tls: options.tls ? 'configured' : 'disabled'
+  });
   
   try {
     const client = new Redis(REDIS_URL, options);
