@@ -18,18 +18,20 @@ export async function getRedisClient(): Promise<Redis> {
 
   // Parse the Redis URL to determine if we're using TLS
   const isSecure = REDIS_URL.startsWith('rediss://');
+  const isRailwayProxy = REDIS_URL.includes('proxy.rlwy.net');
   const isProd = process.env.NODE_ENV === 'production';
   const redisHost = new URL(REDIS_URL).hostname;
 
   logger.info("Redis config", {
     REDIS_URL: REDIS_URL.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'),
     isSecure,
+    isRailwayProxy,
     host: redisHost
   });
 
   const options: RedisOptions = {
     maxRetriesPerRequest: 3,
-    family: 6, // Prefer IPv6
+    family: 0, // Let Node.js choose the IP version that works
     retryStrategy(times: number) {
       if (times > REDIS_RETRY_STRATEGY_MAX_RETRIES) {
         logger.error('Max Redis connection retries reached');
@@ -47,10 +49,13 @@ export async function getRedisClient(): Promise<Redis> {
   };
 
   // Log TLS configuration decision
-  logger.info('TLS config:', isSecure ? 'enabled' : 'disabled');
+  const shouldUseTLS = isSecure || isRailwayProxy;
+  logger.info('TLS config:', shouldUseTLS ? 'enabled' : 'disabled', {
+    reason: isSecure ? 'rediss:// URL' : (isRailwayProxy ? 'Railway proxy' : 'not needed')
+  });
 
-  // Only add TLS options if we're using a secure connection
-  if (isSecure) {
+  // Enable TLS for secure connections and Railway proxy
+  if (shouldUseTLS) {
     options.tls = {
       rejectUnauthorized: false, // Required for Railway's self-signed certs
       servername: redisHost
