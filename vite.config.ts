@@ -5,11 +5,29 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  server: {
-    host: "::",
-    port: 8080,
-    proxy: mode === 'development' ? {
+export default defineConfig(({ mode }) => {
+  // Create a base configuration
+  const config = {
+    server: {
+      host: "::",
+      port: 8080,
+      proxy: {} // Default to empty object
+    },
+    plugins: [
+      react(),
+      mode === 'development' &&
+      componentTagger(),
+    ].filter(Boolean),
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
+    },
+  };
+
+  // Add proxy configuration only in development mode
+  if (mode === 'development') {
+    config.server.proxy = {
       // Forward all requests to /api/scraper to the Railway-hosted scraper service
       // This is only used during local development
       '/api/scraper': {
@@ -30,16 +48,8 @@ export default defineConfig(({ mode }) => ({
           });
         }
       },
-    } : {},
-  },
-  plugins: [
-    react(),
-    mode === 'development' &&
-    componentTagger(),
-  ].filter(Boolean),
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-  },
-}));
+    };
+  }
+
+  return config;
+});
