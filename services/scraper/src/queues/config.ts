@@ -142,8 +142,14 @@ export async function initializeQueues(): Promise<Record<string, Queue.Queue>> {
     // Initialize queues in parallel
     const queuePromises = Object.entries(QUEUE_NAMES).map(async ([key, name]) => {
       try {
-        queues[key] = await createQueue(name);
-        logger.info(`Initialized queue: ${name}`);
+        // Create the queue with explicit name
+        const queue = await createQueue(name);
+        
+        // Store with both the key and the name for easier lookup
+        queues[key] = queue;
+        queues[name] = queue; // Also store by the actual queue name
+        
+        logger.info(`Initialized queue: ${name} (key: ${key})`);
       } catch (error: any) {
         logger.error(`Failed to initialize queue ${name}:`, error);
         throw error;
@@ -151,6 +157,12 @@ export async function initializeQueues(): Promise<Record<string, Queue.Queue>> {
     });
 
     await Promise.all(queuePromises);
+    
+    // Log all available queues for debugging
+    logger.info('Available queues:', {
+      keys: Object.keys(queues),
+      queueNames: Object.values(QUEUE_NAMES)
+    });
   } catch (error: any) {
     logger.error('Failed to initialize queues:', error);
     throw error;
