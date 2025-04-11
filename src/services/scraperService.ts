@@ -1,8 +1,12 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/schema';
 
 export type Business = Tables['businesses'];
 export type ScraperJob = Tables['scraper_runs'];
+
+// Base URL for the scraper API - pointing directly to the Railway deployment
+const SCRAPER_API_BASE_URL = 'https://local-web-scraper-production.up.railway.app/api';
 
 // Fetch recent businesses
 export const fetchRecentBusinesses = async (): Promise<Business[]> => {
@@ -72,9 +76,9 @@ export const startScraper = async (location: string): Promise<ScraperJob> => {
     // If record creation was successful, call the API to start the actual scraper
     if (data) {
       try {
-        console.log(`Calling scraper API at /api/scraper/start for location: ${location}`);
+        console.log(`Calling scraper API at ${SCRAPER_API_BASE_URL}/start for location: ${location}`);
         
-        const response = await fetch('/api/scraper/start', {
+        const response = await fetch(`${SCRAPER_API_BASE_URL}/start`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -151,7 +155,7 @@ export const runWebsiteAudit = async (businessId: string, website: string): Prom
     console.log('Running website audit with auth token');
     console.log(`Calling audit API for business ID: ${businessId}, website: ${website}`);
     
-    const response = await fetch('/api/scraper/audit', {
+    const response = await fetch(`${SCRAPER_API_BASE_URL}/audit`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -191,16 +195,23 @@ export const checkScraperHealth = async (): Promise<boolean> => {
   try {
     // Add timestamp to prevent caching
     const timestamp = new Date().getTime();
-    const response = await fetch(`/api/scraper/health?t=${timestamp}`);
+    const response = await fetch(`${SCRAPER_API_BASE_URL}/health?t=${timestamp}`);
     
     if (!response.ok) {
       console.error(`Health check failed with status: ${response.status} ${response.statusText}`);
       return false;
     }
     
-    const data = await response.json();
-    console.log('Health check response:', data);
-    return data && data.status === 'ok';
+    // Make sure we handle non-JSON responses gracefully
+    let data;
+    try {
+      data = await response.json();
+      console.log('Health check response:', data);
+      return data && data.status === 'ok';
+    } catch (parseError) {
+      console.error('Health check returned invalid JSON:', parseError);
+      return false;
+    }
   } catch (error) {
     console.error('Health check failed with error:', error);
     return false;

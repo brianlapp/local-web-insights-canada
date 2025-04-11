@@ -1,3 +1,4 @@
+
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
@@ -8,8 +9,9 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
-    proxy: {
+    proxy: mode === 'development' ? {
       // Forward all requests to /api/scraper to the Railway-hosted scraper service
+      // This is only used during local development
       '/api/scraper': {
         target: 'https://local-web-scraper-production.up.railway.app',
         changeOrigin: true,
@@ -28,7 +30,7 @@ export default defineConfig(({ mode }) => ({
           });
         }
       },
-    },
+    } : {},
   },
   plugins: [
     react(),
