@@ -2,11 +2,11 @@ import { Request, Response } from 'express';
 import { logger } from '../utils/logger.js';
 import { 
   queueRawBusinessDataProcessing, 
-  getDataProcessingMetrics,
-  setupDataProcessingQueue
+  getDataProcessingMetrics
 } from '../processors/dataProcessor.js';
 import { getSupabaseClient } from '../utils/database.js';
 import { Queue } from 'bull';
+import { getDataProcessingQueue } from '../queues/index.js';
 
 // Queue instance
 let dataProcessingQueue: Queue | null = null;
@@ -14,7 +14,7 @@ let dataProcessingQueue: Queue | null = null;
 // Get or initialize queue
 async function getQueue(): Promise<Queue> {
   if (!dataProcessingQueue) {
-    dataProcessingQueue = await setupDataProcessingQueue();
+    dataProcessingQueue = getDataProcessingQueue();
   }
   return dataProcessingQueue;
 }

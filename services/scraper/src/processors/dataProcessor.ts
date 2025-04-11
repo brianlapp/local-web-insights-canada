@@ -5,7 +5,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Job } from 'bull';
 import { QUEUE_NAMES } from '../queues/index.js';
 import { getRedisClient } from '../config/redis.js';
-import { QUEUE_CONFIG } from '../queues/config.js';
+import { QUEUE_CONFIG, createRedisClientFactory } from '../queues/config.js';
 
 // Define interfaces for our data structures
 interface RawBusinessData {
@@ -58,10 +58,11 @@ const DATA_PROCESSING_QUEUE = QUEUE_NAMES.DATA_PROCESSING;
 
 // Initialize queue with Redis client from centralized configuration
 export async function setupDataProcessingQueue() {
-  const redis = await getRedisClient();
+  // Create a Redis client factory for this queue
+  const redisClientFactory = createRedisClientFactory();
   
   const queue = new Queue(DATA_PROCESSING_QUEUE, {
-    createClient: () => redis,
+    createClient: (type: 'client' | 'subscriber' | 'bclient') => redisClientFactory(type),
     defaultJobOptions: {
       ...QUEUE_CONFIG.defaultJobOptions,
       timeout: 600000 // 10 minutes for data processing
@@ -69,26 +70,27 @@ export async function setupDataProcessingQueue() {
     settings: QUEUE_CONFIG.settings,
     limiter: {
       ...QUEUE_CONFIG.limiter,
-      max: 3, // Lower concurrency for data processing
-      duration: 15000 // Longer duration between jobs
+      max: 2, // Limit to 2 concurrent data processing jobs
+      duration: 10000 // 10 seconds
     }
   });
 
-  // Set up event handlers with detailed logging
+  // Set up event handlers
   queue.on('error', (error: Error) => {
-    logger.error('Data processing queue error:', error);
+    logger.error(`Data processing queue error:`, error);
   });
 
-  queue.on('failed', (job: Job, error: Error) => {
+  queue.on('failed', (job: Queue.Job, error: Error) => {
     logger.error(`Data processing job ${job.id} failed:`, {
-      error,
       jobId: job.id,
-      data: job.data,
-      attempts: job.attemptsMade
+      error: error.message,
+      stackTrace: error.stack,
+      attempts: job.attemptsMade,
+      data: job.data
     });
   });
 
-  queue.on('completed', (job: Job) => {
+  queue.on('completed', (job: Queue.Job) => {
     logger.info(`Data processing job ${job.id} completed successfully`, {
       jobId: job.id,
       processingTime: job.finishedOn ? job.finishedOn - job.processedOn! : undefined,
@@ -96,14 +98,22 @@ export async function setupDataProcessingQueue() {
     });
   });
 
-  queue.on('stalled', (jobId: string) => {
-    logger.warn(`Data processing job ${jobId} has stalled`);
-  });
+  // Set up processor
+  queue.process('process-raw-data', processRawBusinessData);
 
-  // Register the processor with proper typing
-  queue.process(async (job: Job<JobData>): Promise<JobResult> => {
-    return processRawBusinessData(job);
-  });
+  // Validate queue is operational
+  try {
+    await queue.isReady();
+    const counts = await queue.getJobCounts();
+    logger.info(`Data processing queue initialized successfully`, { 
+      status: 'ready',
+      counts,
+      redis: queue.client ? 'connected' : 'disconnected'
+    });
+  } catch (error: any) {
+    logger.error(`Failed to initialize data processing queue: ${error.message}`);
+    throw error;
+  }
 
   return queue;
 }

@@ -2,8 +2,12 @@ import express, { Request, Response, NextFunction } from 'express';
 import dotenv from 'dotenv';
 import { logger } from './utils/logger.js';
 import { setupRoutes } from './routes/index.js';
-import { setupQueues, scraperQueue, auditQueue } from './queues/index.js';
-import { setupDataProcessingQueue } from './processors/dataProcessor.js';
+import { 
+  setupQueues, 
+  getScraperQueue, 
+  getAuditQueue, 
+  getDataProcessingQueue 
+} from './queues/index.js';
 import { getSupabaseClient } from './utils/database.js';
 import { getRedisClient } from './config/redis.js';
 import { Job, Queue } from 'bull';
@@ -102,9 +106,9 @@ async function initializeServices() {
 
     // Initialize queues
     await setupQueues();
-    scraperQueueInstance = scraperQueue();
-    auditQueueInstance = auditQueue();
-    dataProcessingQueueInstance = await setupDataProcessingQueue();
+    scraperQueueInstance = getScraperQueue();
+    auditQueueInstance = getAuditQueue();
+    dataProcessingQueueInstance = getDataProcessingQueue();
     queuesInitialized = true;
     logger.info('Job queues initialized');
   } catch (error: any) {

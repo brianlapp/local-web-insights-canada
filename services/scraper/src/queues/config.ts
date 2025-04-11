@@ -39,7 +39,7 @@ export const QUEUE_CONFIG = {
 };
 
 // Create a Redis client factory for Bull
-const createRedisClientFactory = () => {
+export const createRedisClientFactory = () => {
   // Get the Redis URL from environment
   const REDIS_URL = process.env.REDIS_URL || 
                    process.env.REDIS_PRIVATE_URL || 
@@ -224,8 +224,14 @@ export async function initializeQueues(): Promise<Record<string, Queue.Queue>> {
     // Initialize queues in parallel
     const queuePromises = Object.entries(QUEUE_NAMES).map(async ([key, name]) => {
       try {
-        queues[key] = await createQueue(name);
-        logger.info(`Initialized queue: ${name}`);
+        // Create the queue with explicit name
+        const queue = await createQueue(name);
+        
+        // Store by both key and name for easier lookup
+        queues[key] = queue;
+        queues[name] = queue;
+        
+        logger.info(`Initialized queue: ${name} (key: ${key})`);
       } catch (error: any) {
         logger.error(`Failed to initialize queue ${name}:`, error);
         throw error;
@@ -233,6 +239,12 @@ export async function initializeQueues(): Promise<Record<string, Queue.Queue>> {
     });
 
     await Promise.all(queuePromises);
+    
+    // Log all available queues for debugging
+    logger.info('All queues initialized successfully', {
+      queueKeys: Object.keys(queues).filter(k => !Object.values(QUEUE_NAMES).includes(k)),
+      queueNames: Object.values(QUEUE_NAMES)
+    });
   } catch (error: any) {
     logger.error('Failed to initialize queues:', error);
     throw error;
