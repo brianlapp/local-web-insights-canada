@@ -49,7 +49,7 @@ export async function getRedisClient(): Promise<Redis> {
   };
 
   // Log TLS configuration decision
-  const shouldUseTLS = isSecure || isRailwayProxy;
+  const shouldUseTLS = REDIS_URL.startsWith("rediss://") || REDIS_URL.includes("proxy.rlwy.net");
   logger.info('TLS config:', shouldUseTLS ? 'enabled' : 'disabled', {
     reason: isSecure ? 'rediss:// URL' : (isRailwayProxy ? 'Railway proxy' : 'not needed')
   });
