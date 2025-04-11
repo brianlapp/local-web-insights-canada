@@ -34,28 +34,31 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 
   // Add proxy configuration only in development mode
   if (mode === 'development') {
-    config.server.proxy = {
-      // Forward all requests to /api/scraper to the Railway-hosted scraper service
-      // This is only used during local development
-      '/api/scraper': {
-        target: 'https://local-web-scraper-production.up.railway.app',
-        changeOrigin: true,
-        rewrite: (path: string) => path.replace(/^\/api\/scraper/, '/api'),
-        secure: true,
-        // Add verbose logging for debugging
-        configure: (proxy: ProxyInstance) => {
-          proxy.on('error', (err: Error, req: IncomingMessage, res: ServerResponse) => {
-            console.error('Proxy error:', err);
-          });
-          proxy.on('proxyReq', (proxyReq: IncomingMessage, req: IncomingMessage, res: ServerResponse) => {
-            console.log('Proxy request:', req.method, req.url);
-          });
-          proxy.on('proxyRes', (proxyRes: ServerResponse, req: IncomingMessage, res: ServerResponse) => {
-            console.log('Proxy response:', proxyRes.statusCode, req.url);
-          });
-        }
-      },
-    };
+    // Ensure server property exists before accessing proxy
+    if (config.server) {
+      config.server.proxy = {
+        // Forward all requests to /api/scraper to the Railway-hosted scraper service
+        // This is only used during local development
+        '/api/scraper': {
+          target: 'https://local-web-scraper-production.up.railway.app',
+          changeOrigin: true,
+          rewrite: (path: string) => path.replace(/^\/api\/scraper/, '/api'),
+          secure: true,
+          // Add verbose logging for debugging
+          configure: (proxy: ProxyInstance) => {
+            proxy.on('error', (err: Error, req: IncomingMessage, res: ServerResponse) => {
+              console.error('Proxy error:', err);
+            });
+            proxy.on('proxyReq', (proxyReq: IncomingMessage, req: IncomingMessage, res: ServerResponse) => {
+              console.log('Proxy request:', req.method, req.url);
+            });
+            proxy.on('proxyRes', (proxyRes: ServerResponse, req: IncomingMessage, res: ServerResponse) => {
+              console.log('Proxy response:', proxyRes.statusCode, req.url);
+            });
+          }
+        },
+      };
+    }
   }
 
   return config;
