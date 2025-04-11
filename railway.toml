@@ -1,3 +1,4 @@
+
 # Railway configuration for Scraper Service
 # Using workspace scripts for build and deployment
 
@@ -9,8 +10,8 @@ buildCommand = "cd services/scraper && npm install && npm run build"
 runtime = "V2"
 numReplicas = 1
 startCommand = "cd services/scraper && npm start"
-# Temporarily disable health checks until service startup is fixed
-# healthcheckPath = "/health"
+healthcheckPath = "/health"
+healthcheckTimeout = 10
 sleepApplication = false
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
@@ -28,9 +29,6 @@ redis = "services/redis"
 NODE_ENV = "production"
 PORT = "8080"
 LOG_LEVEL = "info"
-# Use Railway's external proxy URL for more reliable DNS resolution
-REDIS_URL = "redis://default:KeMbhJaNOKbuIBnJmxXebZGUTsSYtdsE@shinkansen.proxy.rlwy.net:13781"
-
-# Redis configuration will be automatically injected by Railway
-# Remove hardcoded Redis URL and use Railway's service linking
+# Let Railway automatically inject REDIS_URL when services are linked
+# Note: Remove hardcoded Redis URL to avoid conflicts
 # REDIS_URL will be automatically set by Railway when the Redis service is linked
