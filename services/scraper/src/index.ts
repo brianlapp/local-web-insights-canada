@@ -94,22 +94,40 @@ app.get('/api/health', async (_req, res) => {
 async function initializeServices() {
   let redis = null;
   let queuesInitialized = false;
+  let initializationError = null;
 
   try {
     // Initialize Redis connection
     redis = await getRedisClient();
     logger.info('Redis connection initialized');
 
-    // Initialize queues
-    await setupQueues();
-    scraperQueueInstance = scraperQueue();
-    auditQueueInstance = auditQueue();
-    dataProcessingQueueInstance = await setupDataProcessingQueue();
-    queuesInitialized = true;
-    logger.info('Job queues initialized');
+    // Initialize queues with retry logic
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries && !queuesInitialized) {
+      try {
+        await setupQueues();
+        scraperQueueInstance = scraperQueue();
+        auditQueueInstance = auditQueue();
+        dataProcessingQueueInstance = await setupDataProcessingQueue();
+        queuesInitialized = true;
+        logger.info('Job queues initialized successfully');
+        break;
+      } catch (error: any) {
+        retryCount++;
+        if (retryCount === maxRetries) {
+          initializationError = error;
+          logger.error('Failed to initialize queues after all retries:', error);
+          break;
+        }
+        logger.warn(`Queue initialization attempt ${retryCount} failed, retrying...`, error);
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds before retry
+      }
+    }
   } catch (error: any) {
+    initializationError = error;
     logger.error('Failed to initialize Redis and queues:', error);
-    // Don't exit - continue with degraded functionality
   }
 
   try {
@@ -135,11 +153,15 @@ async function initializeServices() {
     // Don't exit - continue with basic endpoints
   }
 
-  // Return initialization status
+  // Return initialization status with detailed error information
   return {
     redis: redis !== null,
     queues: queuesInitialized,
-    supabase: true // We can add more detailed status if needed
+    supabase: true,
+    error: initializationError ? {
+      message: initializationError.message,
+      stack: initializationError.stack
+    } : null
   };
 }
 
@@ -151,23 +173,34 @@ interface RedisStatus {
 }
 
 interface QueueStatus {
-  scraper: any | null;
-  audit: any | null;
-  error?: string;
+  status: string;
+  counts?: {
+    waiting: number;
+    active: number;
+    completed: number;
+    failed: number;
+    delayed: number;
+  };
+}
+
+interface QueueStatuses {
+  scraper: QueueStatus | null;
+  audit: QueueStatus | null;
+  dataProcessing: QueueStatus | null;
+  error: string | null;
 }
 
 interface HealthStatus {
-  status: string;
+  status: 'ok' | 'degraded' | 'error';
   timestamp: string;
   version: string;
   environment: string;
   redis: RedisStatus;
-  queues: QueueStatus;
+  queues: QueueStatuses;
   system: {
     memory: NodeJS.MemoryUsage;
     uptime: number;
   };
-  error?: string;
 }
 
 // Health check function that can be reused
@@ -183,7 +216,9 @@ async function getHealthStatus(): Promise<HealthStatus> {
     },
     queues: {
       scraper: null,
-      audit: null
+      audit: null,
+      dataProcessing: null,
+      error: null
     },
     system: {
       memory: process.memoryUsage(),
@@ -199,19 +234,46 @@ async function getHealthStatus(): Promise<HealthStatus> {
     } catch (redisError: any) {
       healthStatus.redis.status = 'error';
       healthStatus.redis.error = redisError.message;
+      healthStatus.status = 'degraded';
     }
   }
 
   // Use existing queue instances if available
-  if (scraperQueueInstance && auditQueueInstance) {
+  if (scraperQueueInstance && auditQueueInstance && dataProcessingQueueInstance) {
     try {
+      const [scraperCounts, auditCounts, dataProcessingCounts] = await Promise.all([
+        scraperQueueInstance.getJobCounts(),
+        auditQueueInstance.getJobCounts(),
+        dataProcessingQueueInstance.getJobCounts()
+      ]);
+
       healthStatus.queues = {
-        scraper: scraperQueueInstance.client ? 'connected' : 'disconnected',
-        audit: auditQueueInstance.client ? 'connected' : 'disconnected'
+        scraper: {
+          status: scraperQueueInstance.client ? 'connected' : 'disconnected',
+          counts: scraperCounts
+        },
+        audit: {
+          status: auditQueueInstance.client ? 'connected' : 'disconnected',
+          counts: auditCounts
+        },
+        dataProcessing: {
+          status: dataProcessingQueueInstance.client ? 'connected' : 'disconnected',
+          counts: dataProcessingCounts
+        },
+        error: null
       };
-    } catch (queueError) {
-      healthStatus.queues.error = 'Failed to get queue status';
+
+      // Check if any queue is disconnected
+      if (!scraperQueueInstance.client || !auditQueueInstance.client || !dataProcessingQueueInstance.client) {
+        healthStatus.status = 'degraded';
+      }
+    } catch (queueError: any) {
+      healthStatus.queues.error = queueError.message;
+      healthStatus.status = 'degraded';
     }
+  } else {
+    healthStatus.queues.error = 'Queues not initialized';
+    healthStatus.status = 'degraded';
   }
 
   return healthStatus;

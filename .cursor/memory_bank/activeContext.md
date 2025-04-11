@@ -1,9 +1,50 @@
+# Active Context - Local Web Insights Canada
 
-# Active Context: Local Web Insights Canada
+## Current Focus
+- Successfully resolved Redis connection issues in Railway deployment
+- Implemented robust Redis client configuration with proper error handling
+- Next: Addressing frontend connection issues
 
-## Current Focus: Railway Deployment & Development Environment Strategy
+## Recent Changes
 
-We've successfully configured the Railway deployment for the scraper service. Our immediate focus is now on deploying the service, setting up Redis, and completing the integration with the frontend application.
+### Redis Connection Resolution
+- Identified and fixed DNS resolution issues with `redis.railway.internal`
+- Implemented solution using Railway's external proxy URL
+- Added comprehensive logging for connection debugging
+- Successfully deployed both Redis and scraper services
+
+### Technical Learnings
+1. Node.js DNS Resolution in Railway:
+   - Internal DNS (`redis.railway.internal`) resolves in container shell but fails in Node.js
+   - Solution: Use external proxy URLs (`*.proxy.rlwy.net`)
+   - Configure TLS for Railway proxy connections
+
+2. Redis Client Configuration:
+   - Let Node.js choose IP version (`family: 0`)
+   - Enable TLS for Railway proxy URLs
+   - Implement proper error handling and retry logic
+   - Add detailed logging for troubleshooting
+
+3. Railway Service Communication:
+   - External proxy URLs more reliable than internal DNS
+   - Health checks working properly
+   - Services properly linked and communicating
+
+## Active Decisions
+1. Use Railway's external proxy URLs for service communication
+2. Enable TLS for all Railway proxy connections
+3. Implement comprehensive logging for connection debugging
+
+## Next Steps
+1. Address frontend connection issues
+2. Continue monitoring Redis connection stability
+3. Implement any necessary frontend optimizations
+
+## Current Considerations
+- Monitor Redis connection performance with external proxy
+- Watch for any TLS-related performance impacts
+- Consider implementing connection pooling if needed
+- Plan frontend connection troubleshooting strategy
 
 ## Development Environment Strategy
 
