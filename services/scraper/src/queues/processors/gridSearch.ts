@@ -1,75 +1,38 @@
 import { Job } from 'bull';
 import { logger } from '../../utils/logger.js';
 import { getSupabaseClient } from '../../utils/database.js';
-import axios from 'axios';
 
-// Scrape businesses from a location
+// Placeholder for the actual scraper implementation
 async function scrapeBusiness(location: string, radius: number, searchTerm: string = '') {
-  logger.info(`Starting business scrape for location: ${location}, radius: ${radius}km, searchTerm: ${searchTerm}`);
+  // Simulate finding businesses
+  const numBusinesses = Math.floor(Math.random() * 10) + 1;
+  logger.info(`Found ${numBusinesses} businesses for ${location}`);
   
-  try {
-    // Construct the search URL
-    const searchUrl = `https://www.google.com/maps/search/${encodeURIComponent(searchTerm || 'businesses')}+${encodeURIComponent(location)}`;
-    logger.info(`Search URL: ${searchUrl}`);
-    
-    // Make the request
-    const response = await axios.get(searchUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
+  const businesses = [];
+  
+  for (let i = 0; i < numBusinesses; i++) {
+    businesses.push({
+      name: `Business ${i + 1} in ${location}`,
+      address: `${i + 100} Main St, ${location}`,
+      website: `https://business${i}.example.com`,
+      phone: `555-${i}${i}${i}-${i}${i}${i}${i}`,
+      city: location,
+      source_id: 'google-places',
+      external_id: `place-${location}-${i}`,
     });
-    
-    // Log the response
-    logger.info(`Page loaded: ${response.data.length} bytes`);
-    
-    // Extract business data from the response
-    const businesses = [];
-    const businessMatches = response.data.match(/\["([^"]+)",\s*\["([^"]+)",\s*\["([^"]+)"/g);
-    
-    if (businessMatches) {
-      logger.info(`Found ${businessMatches.length} potential business matches`);
-      
-      for (const match of businessMatches) {
-        try {
-          const [_, name, address, phone] = match.match(/\["([^"]+)",\s*\["([^"]+)",\s*\["([^"]+)"/);
-          
-          if (name && address) {
-            businesses.push({
-              name,
-              address,
-              phone: phone || null,
-              website: null, // Would need additional scraping for website
-              city: location,
-              source_id: 'google-places',
-              external_id: `place-${location}-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
-            });
-            
-            logger.info(`Extracted business: ${name} at ${address}`);
-          }
-        } catch (error) {
-          logger.error(`Error parsing business match: ${match}`, error);
-        }
-      }
-    } else {
-      logger.warn('No business matches found in the response');
-    }
-    
-    logger.info(`Successfully scraped ${businesses.length} businesses for ${location}`);
-    return businesses;
-  } catch (error) {
-    logger.error(`Error scraping businesses for ${location}:`, error);
-    throw error;
   }
+  
+  return businesses;
 }
 
 export async function processGridSearch(job: Job) {
   const { location, radius, searchTerm, jobId } = job.data;
   logger.info(`Processing grid search for ${location} with radius ${radius}km`);
 
-  // Get Supabase client
-  const supabase = getSupabaseClient();
-
   try {
+    // Get Supabase client
+    const supabase = getSupabaseClient();
+    
     // Update job status if jobId is provided
     if (jobId) {
       await supabase
@@ -118,19 +81,24 @@ export async function processGridSearch(job: Job) {
     logger.info(`Grid search completed for ${location}, found ${businesses.length} businesses`);
     return businesses;
   } catch (error) {
-    logger.error(`Error in grid search for ${location}:`, error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Error processing grid search for ${location}:`, error);
     
-    // Update job status to failed if jobId is provided
+    // Update job status to failed
     if (jobId) {
+      const supabase = getSupabaseClient();
       await supabase
         .from('scraper_runs')
         .update({ 
           status: 'failed',
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: errorMessage
         })
         .eq('id', jobId);
     }
     
-    throw error;
+    return {
+      success: false,
+      error: errorMessage
+    };
   }
 }

@@ -1,7 +1,6 @@
 import Queue from 'bull';
-import { Redis, RedisOptions } from 'ioredis';
 import { logger } from '../utils/logger.js';
-import { getRedisClient, createRedisClient } from '../config/redis.js';
+import { getRedisClient } from '../config/redis.js';
 import { getSupabaseClient } from '../utils/database.js';
 
 // Queue names
@@ -19,127 +18,96 @@ export const QUEUE_CONFIG = {
       type: 'exponential',
       delay: 5000
     },
-    removeOnComplete: 100, // Keep last 100 completed jobs
-    removeOnFail: 200 // Keep last 200 failed jobs
+    removeOnComplete: 100,
+    removeOnFail: 100,
+    timeout: 300000 // 5 minutes
   },
   settings: {
-    lockDuration: 30000, // 30 seconds
+    lockDuration: 300000, // 5 minutes
     stalledInterval: 30000, // Check for stalled jobs every 30 seconds
-    maxStalledCount: 1 // Number of times a job can be marked as stalled before being failed
+    maxStalledCount: 2,
+    guardInterval: 5000, // Poll interval for delayed jobs
+    retryProcessDelay: 5000, // Delay before retrying job if process crashes
+    drainDelay: 5000 // Delay between processing jobs when queue is being drained
   },
   limiter: {
-    max: 5, // Maximum number of jobs processed concurrently
-    duration: 10000 // Time window in milliseconds
+    max: 5,
+    duration: 5000,
+    bounceBack: true // Queue jobs that exceed rate limit
   }
 };
 
-// Initialize queues with each queue getting its own Redis clients
-export async function initializeQueues(): Promise<Record<string, Queue.Queue>> {
-  try {
-    // Create queues with dedicated Redis clients for each queue
-    const queues: Record<string, Queue.Queue> = {};
-    
-    // Create scraper queue with its own Redis clients
-    queues[QUEUE_NAMES.SCRAPER] = new Queue(QUEUE_NAMES.SCRAPER, {
-      createClient: (type) => {
-        logger.info(`Creating new Redis client for ${QUEUE_NAMES.SCRAPER} queue (type: ${type})`);
-        return createRedisClient();
-      },
-      defaultJobOptions: QUEUE_CONFIG.defaultJobOptions,
-      settings: QUEUE_CONFIG.settings,
-      limiter: QUEUE_CONFIG.limiter
-    });
-    
-    // Create audit queue with its own Redis clients
-    queues[QUEUE_NAMES.AUDIT] = new Queue(QUEUE_NAMES.AUDIT, {
-      createClient: (type) => {
-        logger.info(`Creating new Redis client for ${QUEUE_NAMES.AUDIT} queue (type: ${type})`);
-        return createRedisClient();
-      },
-      defaultJobOptions: QUEUE_CONFIG.defaultJobOptions,
-      settings: QUEUE_CONFIG.settings,
-      limiter: QUEUE_CONFIG.limiter
-    });
-    
-    // Create data processing queue with its own Redis clients
-    queues[QUEUE_NAMES.DATA_PROCESSING] = new Queue(QUEUE_NAMES.DATA_PROCESSING, {
-      createClient: (type) => {
-        logger.info(`Creating new Redis client for ${QUEUE_NAMES.DATA_PROCESSING} queue (type: ${type})`);
-        return createRedisClient();
-      },
-      defaultJobOptions: {
-        ...QUEUE_CONFIG.defaultJobOptions,
-        timeout: 600000 // 10 minutes for data processing
-      },
-      settings: QUEUE_CONFIG.settings,
-      limiter: {
-        ...QUEUE_CONFIG.limiter,
-        max: 3, // Lower concurrency for data processing
-        duration: 15000 // Longer duration between jobs
-      }
-    });
-    
-    // Set up event handlers for all queues
-    for (const [name, queue] of Object.entries(queues)) {
-      setupQueueEventHandlers(queue, name);
-    }
-    
-    logger.info('All queues initialized successfully', {
-      queueCount: Object.keys(queues).length,
-      queueNames: Object.keys(queues)
-    });
-    
-    return queues;
-  } catch (error: any) {
-    logger.error('Failed to initialize queues:', error);
-    throw error;
-  }
-}
-
-// Set up event handlers for a queue
-function setupQueueEventHandlers(queue: Queue.Queue, name: string): void {
+// Queue event handlers
+const setupQueueEventHandlers = (queue: Queue.Queue, queueName: string) => {
   queue.on('error', (error: Error) => {
-    logger.error(`Queue ${name} error:`, error);
+    logger.error(`Queue ${queueName} error:`, error);
   });
-  
-  queue.on('failed', (job: Queue.Job, error: Error) => {
-    logger.error(`Job ${job.id} in queue ${name} failed:`, {
+
+  queue.on('failed', async (job: Queue.Job, error: Error) => {
+    logger.error(`Job ${job.id} in queue ${queueName} failed:`, {
+      jobId: job.id,
+      queue: queueName,
       error: error.message,
-      jobId: job.id,
-      data: job.data,
-      attempts: job.attemptsMade
+      stackTrace: error.stack,
+      attempts: job.attemptsMade,
+      data: job.data
     });
+
+    // Update job status in database if it's a scraper job
+    if (queueName === QUEUE_NAMES.SCRAPER && job.data.jobId) {
+      try {
+        const supabase = getSupabaseClient();
+        await supabase
+          .from('scraper_runs')
+          .update({ 
+            status: 'failed',
+            error: error.message
+          })
+          .eq('id', job.data.jobId);
+      } catch (updateError: any) {
+        logger.error(`Failed to update job status for ${job.id}:`, updateError);
+      }
+    }
   });
-  
-  queue.on('completed', (job: Queue.Job) => {
-    logger.info(`Job ${job.id} in queue ${name} completed successfully`, {
+
+  queue.on('completed', async (job: Queue.Job) => {
+    logger.info(`Job ${job.id} in queue ${queueName} completed successfully`, {
       jobId: job.id,
+      queue: queueName,
       processingTime: job.finishedOn ? job.finishedOn - job.processedOn! : undefined,
       attempts: job.attemptsMade
     });
+
+    // Update job status in database if it's a scraper job
+    if (queueName === QUEUE_NAMES.SCRAPER && job.data.jobId) {
+      try {
+        const supabase = getSupabaseClient();
+        await supabase
+          .from('scraper_runs')
+          .update({ 
+            status: 'completed',
+            businessesFound: job.data.businesses?.length || 0
+          })
+          .eq('id', job.data.jobId);
+      } catch (error: any) {
+        logger.error(`Failed to update job status for ${job.id}:`, error);
+      }
+    }
   });
-  
+
   queue.on('stalled', (jobId: string) => {
-    logger.warn(`Job ${jobId} in queue ${name} has stalled`);
+    logger.warn(`Job ${jobId} in queue ${queueName} has stalled`);
   });
-  
-  queue.on('waiting', (jobId: string) => {
-    logger.info(`Job ${jobId} in queue ${name} is waiting`);
-  });
-  
-  queue.on('active', (job: Queue.Job) => {
-    logger.info(`Job ${job.id} in queue ${name} has started processing`);
-  });
-}
+
+  return queue;
+};
 
 // Queue creation with proper error handling
 export async function createQueue(name: string, options: Partial<Queue.QueueOptions> = {}): Promise<Queue.Queue> {
-  // Create a unique Redis client for this queue
+  const redis = await getRedisClient();
+  
   const queue = new Queue(name, {
-    createClient: (type) => {
-      logger.info(`Creating new Redis client for queue ${name} (type: ${type})`);
-      return createRedisClient();
-    },
+    createClient: () => redis,
     defaultJobOptions: QUEUE_CONFIG.defaultJobOptions,
     settings: QUEUE_CONFIG.settings,
     limiter: QUEUE_CONFIG.limiter,
@@ -165,3 +133,28 @@ export async function createQueue(name: string, options: Partial<Queue.QueueOpti
 
   return queue;
 }
+
+// Initialize all queues
+export async function initializeQueues(): Promise<Record<string, Queue.Queue>> {
+  const queues: Record<string, Queue.Queue> = {};
+  
+  try {
+    // Initialize queues in parallel
+    const queuePromises = Object.entries(QUEUE_NAMES).map(async ([key, name]) => {
+      try {
+        queues[key] = await createQueue(name);
+        logger.info(`Initialized queue: ${name}`);
+      } catch (error: any) {
+        logger.error(`Failed to initialize queue ${name}:`, error);
+        throw error;
+      }
+    });
+
+    await Promise.all(queuePromises);
+  } catch (error: any) {
+    logger.error('Failed to initialize queues:', error);
+    throw error;
+  }
+
+  return queues;
+} 

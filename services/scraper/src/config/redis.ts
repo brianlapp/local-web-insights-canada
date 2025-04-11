@@ -1,4 +1,3 @@
-
 import { Redis, RedisOptions } from 'ioredis';
 import { logger } from '../utils/logger.js';
 
@@ -31,7 +30,7 @@ export async function getRedisClient(): Promise<Redis> {
   });
 
   const options: RedisOptions = {
-    maxRetriesPerRequest: null, // Disable max retries per request (required by Bull)
+    maxRetriesPerRequest: 3,
     family: 0, // Let Node.js choose the IP version that works
     retryStrategy(times: number) {
       if (times > REDIS_RETRY_STRATEGY_MAX_RETRIES) {
@@ -45,7 +44,7 @@ export async function getRedisClient(): Promise<Redis> {
     connectTimeout: 20000,
     commandTimeout: 10000,
     enableOfflineQueue: true,
-    enableReadyCheck: false, // Disable ready check (required by Bull)
+    enableReadyCheck: true,
     lazyConnect: true, // Only connect when needed
   };
 
@@ -133,47 +132,4 @@ export async function getRedisClient(): Promise<Redis> {
     });
     throw error;
   }
-}
-
-export function createRedisClient(): Redis {
-  const redisHost = new URL(REDIS_URL).hostname;
-  const isSecure = REDIS_URL.startsWith('rediss://');
-  const isRailwayProxy = REDIS_URL.includes('proxy.rlwy.net');
-
-  const options: RedisOptions = {
-    maxRetriesPerRequest: null,
-    family: 0,
-    retryStrategy(times: number) {
-      if (times > REDIS_RETRY_STRATEGY_MAX_RETRIES) return null;
-      return Math.min(times * 1000, REDIS_RETRY_STRATEGY_MAX_DELAY);
-    },
-    connectTimeout: 20000,
-    commandTimeout: 10000,
-    enableOfflineQueue: true,
-    enableReadyCheck: false,
-    lazyConnect: true,
-  };
-
-  if (isSecure || isRailwayProxy) {
-    options.tls = {
-      rejectUnauthorized: false,
-      servername: redisHost,
-    };
-  }
-
-  const client = new Redis(REDIS_URL, options);
-  
-  // Add basic event listeners
-  client.on('error', (err: Error) => {
-    logger.error('Redis client error in dedicated connection:', { 
-      error: err.message,
-      code: (err as any).code
-    });
-  });
-  
-  client.on('ready', () => {
-    logger.info('Dedicated Redis client ready');
-  });
-
-  return client;
 }
