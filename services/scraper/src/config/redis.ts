@@ -24,6 +24,7 @@ export async function getRedisClient(): Promise<Redis> {
 
   const options: RedisOptions = {
     maxRetriesPerRequest: 3,
+    family: 6, // Prefer IPv6
     retryStrategy(times: number) {
       if (times > REDIS_RETRY_STRATEGY_MAX_RETRIES) {
         logger.error('Max Redis connection retries reached');

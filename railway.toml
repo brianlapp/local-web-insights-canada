@@ -8,7 +8,7 @@ buildCommand = "cd services/scraper && npm install && npm run build"
 [deploy]
 runtime = "V2"
 numReplicas = 1
-startCommand = "sleep 3 && cd services/scraper && npm start"
+startCommand = "cd services/scraper && npm start"
 # Temporarily disable health checks until service startup is fixed
 # healthcheckPath = "/health"
 sleepApplication = false
@@ -20,7 +20,7 @@ watchPatterns = [
   "services/scraper/**/*"
 ]
 
-# Service dependencies
+# Service dependencies - let Railway handle the connection details
 [services]
 redis = "services/redis"
 
