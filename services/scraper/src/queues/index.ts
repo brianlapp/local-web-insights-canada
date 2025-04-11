@@ -30,8 +30,9 @@ export async function setupQueues(): Promise<void> {
 
 // Get queue by name
 function getQueue(name: string): Queue.Queue {
-  const queue = queues[name];
+  const queue = queues[name] || queues[name.toLowerCase()];
   if (!queue) {
+    logger.error('Queue lookup failed. Available queues:', Object.keys(queues));
     throw new Error(`Queue ${name} not found`);
   }
   return queue;
