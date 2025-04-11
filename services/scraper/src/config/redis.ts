@@ -19,13 +19,12 @@ export async function getRedisClient(): Promise<Redis> {
   // Parse the Redis URL to determine if we're using TLS
   const isSecure = REDIS_URL.startsWith('rediss://');
   const isProd = process.env.NODE_ENV === 'production';
+  const redisHost = new URL(REDIS_URL).hostname;
 
-  // Log Redis configuration details
-  logger.info('Redis configuration:', {
-    url: REDIS_URL.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'),
+  logger.info("Redis config", {
+    REDIS_URL: REDIS_URL.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'),
     isSecure,
-    isProd,
-    family: 6
+    host: redisHost
   });
 
   const options: RedisOptions = {
@@ -47,17 +46,24 @@ export async function getRedisClient(): Promise<Redis> {
     lazyConnect: true, // Only connect when needed
   };
 
+  // Log TLS configuration decision
+  logger.info('TLS config:', isSecure ? 'enabled' : 'disabled');
+
   // Only add TLS options if we're using a secure connection
   if (isSecure) {
     options.tls = {
       rejectUnauthorized: false, // Required for Railway's self-signed certs
-      servername: new URL(REDIS_URL).hostname
+      servername: redisHost
     };
   }
 
-  logger.info('Redis client options:', {
-    ...options,
-    tls: options.tls ? 'configured' : 'disabled'
+  logger.info("Final Redis client options", { 
+    options: {
+      ...options,
+      tls: options.tls ? 'configured' : 'disabled',
+      host: redisHost,
+      family: options.family
+    }
   });
   
   try {
