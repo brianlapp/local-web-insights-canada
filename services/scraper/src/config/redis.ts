@@ -133,3 +133,32 @@ export async function getRedisClient(): Promise<Redis> {
     throw error;
   }
 }
+
+export function createRedisClient(): Redis {
+  const redisHost = new URL(REDIS_URL).hostname;
+  const isSecure = REDIS_URL.startsWith('rediss://');
+  const isRailwayProxy = REDIS_URL.includes('proxy.rlwy.net');
+
+  const options: RedisOptions = {
+    maxRetriesPerRequest: null,
+    family: 0,
+    retryStrategy(times: number) {
+      if (times > REDIS_RETRY_STRATEGY_MAX_RETRIES) return null;
+      return Math.min(times * 1000, REDIS_RETRY_STRATEGY_MAX_DELAY);
+    },
+    connectTimeout: 20000,
+    commandTimeout: 10000,
+    enableOfflineQueue: true,
+    enableReadyCheck: false,
+    lazyConnect: true,
+  };
+
+  if (isSecure || isRailwayProxy) {
+    options.tls = {
+      rejectUnauthorized: false,
+      servername: redisHost,
+    };
+  }
+
+  return new Redis(REDIS_URL, options);
+}
