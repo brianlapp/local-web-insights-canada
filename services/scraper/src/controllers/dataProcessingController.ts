@@ -7,7 +7,7 @@ import {
 import { getSupabaseClient } from '../utils/database.js';
 import { Queue, Job } from 'bull';
 import { getDataProcessingQueue } from '../queues/index.js';
-import { supabase } from '../utils/supabase.js';
+import { supabase } from '../integrations/supabase/client.js';
 
 // Queue instance
 const dataProcessingQueue: Queue | null = null;
