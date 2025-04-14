@@ -10,7 +10,7 @@ import { getDataProcessingQueue } from '../queues/index.js';
 import { supabase } from '../utils/supabase.js';
 
 // Queue instance
-let dataProcessingQueue: Queue | null = null;
+const dataProcessingQueue: Queue | null = null;
 
 // Define request types
 interface ProcessDataRequest extends ExpressRequest {
@@ -57,14 +57,14 @@ interface JobResponse {
   attemptsMade: number;
   failedReason?: string;
   stacktrace: string[];
-  returnvalue: unknown;
+  returnvalue: Record<string, unknown>;
   timestamp: string;
 }
 
 // Define extended Job type with getState method
-interface ExtendedJob<T = any> extends Job<T> {
+interface ExtendedJob<T = DataProcessingJobData> extends Job<T> {
   getState(): Promise<string>;
-  returnvalue: unknown;
+  returnvalue: Record<string, unknown>;
 }
 
 // Define raw business data type

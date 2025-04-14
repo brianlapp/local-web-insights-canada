@@ -1,4 +1,5 @@
-import Bull from 'bull';
+const Bull = require('bull');
+import type { Queue as BullQueue, QueueOptions, Job } from 'bull';
 import Redis from 'ioredis';
 import { RedisOptions } from 'ioredis';
 import { logger } from '../utils/logger.js';
@@ -120,18 +121,17 @@ export const createRedisClientFactory = () => {
 };
 
 // Queue event handlers
-const setupQueueEventHandlers = (queue: Bull.Queue, queueName: string) => {
-  queue.on('error', (error: Error) => {
+const setupQueueEventHandlers = (queue: BullQueue, queueName: string) => {
+  queue.on('error', (job: Job<any>, error: Error) => {
     logger.error(`Queue ${queueName} error:`, error);
   });
 
-  queue.on('failed', (job: Bull.Job, error: Error) => {
+  queue.on('failed', (job: Job<any>, error: Error) => {
     logger.error(`Job ${job.id} in queue ${queueName} failed:`, {
       jobId: job.id,
-      queue: queueName,
+      queueName,
       error: error.message,
-      stackTrace: error.stack,
-      attempts: job.attemptsMade,
+      attemptsMade: job.attemptsMade,
       data: job.data
     });
 
@@ -152,12 +152,11 @@ const setupQueueEventHandlers = (queue: Bull.Queue, queueName: string) => {
     }
   });
 
-  queue.on('completed', (job: Bull.Job) => {
+  queue.on('completed', (job: Job<any>) => {
     logger.info(`Job ${job.id} in queue ${queueName} completed successfully`, {
       jobId: job.id,
-      queue: queueName,
-      processingTime: job.finishedOn ? job.finishedOn - job.processedOn! : undefined,
-      attempts: job.attemptsMade
+      queueName,
+      data: job.data
     });
 
     // Update job status in database if it's a scraper job
@@ -177,7 +176,7 @@ const setupQueueEventHandlers = (queue: Bull.Queue, queueName: string) => {
     }
   });
 
-  queue.on('stalled', (job: Bull.Job) => {
+  queue.on('stalled', (job: Job<any>) => {
     logger.warn(`Job ${job.id} in queue ${queueName} has stalled`);
   });
 
@@ -185,45 +184,30 @@ const setupQueueEventHandlers = (queue: Bull.Queue, queueName: string) => {
 };
 
 // Queue creation with proper error handling
-export async function createQueue<T = any>(name: string, options: Partial<Bull.QueueOptions> = {}): Promise<Bull.Queue<T>> {
-  // Create a Redis client factory for this queue
+export const createQueue = <T = any>(name: string, options: QueueOptions = {}): BullQueue<T> => {
   const redisClientFactory = createRedisClientFactory();
   
-  const queueOptions: Bull.QueueOptions = {
-    createClient: (type: 'client' | 'subscriber' | 'bclient') => redisClientFactory(type),
-    defaultJobOptions: QUEUE_CONFIG.defaultJobOptions,
-    settings: QUEUE_CONFIG.settings,
-    limiter: QUEUE_CONFIG.limiter,
+  const queue = new Bull(name, {
+    createClient: (type: 'client' | 'subscriber' | 'bclient') => {
+      return redisClientFactory(type);
+    },
     ...options
-  };
+  });
 
-  // Create queue instance
-  const queue = new Bull(name, queueOptions) as Bull.Queue<T>;
-
-  // Set up event handlers
   setupQueueEventHandlers(queue, name);
-
-  // Validate queue is operational
-  try {
-    await queue.isReady();
-    logger.info(`Queue ${name} initialized successfully`);
-    return queue;
-  } catch (error) {
-    logger.error(`Failed to initialize queue ${name}:`, error);
-    throw error;
-  }
-}
+  return queue;
+};
 
 // Initialize all queues
-export async function initializeQueues(): Promise<Record<string, Bull.Queue>> {
-  const queues: Record<string, Bull.Queue> = {};
+export async function initializeQueues(): Promise<Record<string, BullQueue>> {
+  const queues: Record<string, BullQueue> = {};
   
   try {
     // Initialize queues in parallel
     const queuePromises = Object.entries(QUEUE_NAMES).map(async ([key, name]) => {
       try {
         // Create the queue with explicit name
-        const queue = await createQueue(name);
+        const queue = createQueue(name);
         
         // Store by both key and name for easier lookup
         queues[key] = queue;
