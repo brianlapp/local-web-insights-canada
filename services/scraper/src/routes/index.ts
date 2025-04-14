@@ -242,7 +242,9 @@ export const setupRoutes = (
       const jobData = {
         businessId: req.body.businessId,
         url: req.body.url,
-        searchTerm: req.body.searchTerm
+        searchTerm: req.body.searchTerm,
+        location: 'default',
+        radius: 0
       };
       await scraperQueue.add(jobData, jobOptions);
       const response: ScraperResponse = { 
