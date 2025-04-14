@@ -73,7 +73,8 @@ export async function getRedisClient(): Promise<RedisType> {
   });
   
   try {
-    const client = new Redis(REDIS_URL, options);
+    // Create Redis client instance
+    const client: RedisType = new Redis(REDIS_URL, options);
 
     // Add event listeners for better monitoring
     client.on('connect', () => {

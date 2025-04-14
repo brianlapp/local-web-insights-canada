@@ -6,16 +6,18 @@ import {
   setupQueues, 
   getScraperQueue, 
   getAuditQueue, 
-  getDataProcessingQueue 
+  getDataProcessingQueue,
+  ScraperJobData,
+  AuditJobData
 } from './queues/index.js';
 import { getSupabaseClient } from './utils/database.js';
 import { getRedisClient } from './config/redis.js';
 import { Job, Queue } from 'bull';
-import Redis from 'ioredis';
+import { Redis as RedisClient } from 'ioredis';
 
 // Add at the top of the file, after imports
 declare global {
-  var redisClient: Redis | null;
+  var redisClient: RedisClient | null;
 }
 
 // Load environment variables
@@ -43,8 +45,8 @@ console.log('Process info:', {
 });
 
 // Queue instances
-let scraperQueueInstance: Queue;
-let auditQueueInstance: Queue;
+let scraperQueueInstance: Queue<ScraperJobData>;
+let auditQueueInstance: Queue<AuditJobData>;
 let dataProcessingQueueInstance: Queue;
 
 // Log environment info
@@ -67,7 +69,7 @@ logger.info('=== END DIAGNOSTICS ===');
 app.use(express.json());
 
 // CORS configuration for API access
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
@@ -106,12 +108,12 @@ async function initializeServices() {
 
     // Initialize queues
     await setupQueues();
-    scraperQueueInstance = getScraperQueue();
-    auditQueueInstance = getAuditQueue();
-    dataProcessingQueueInstance = getDataProcessingQueue();
+    scraperQueueInstance = await getScraperQueue();
+    auditQueueInstance = await getAuditQueue();
+    dataProcessingQueueInstance = await getDataProcessingQueue();
     queuesInitialized = true;
     logger.info('Job queues initialized');
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Failed to initialize Redis and queues:', error);
     // Don't exit - continue with degraded functionality
   }
@@ -120,7 +122,7 @@ async function initializeServices() {
     // Initialize Supabase client
     getSupabaseClient();
     logger.info('Supabase client initialized');
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Failed to initialize Supabase:', error);
     // Don't exit - continue with degraded functionality
   }
@@ -134,7 +136,7 @@ async function initializeServices() {
     );
     app.use('/api', router);
     logger.info('Routes initialized');
-  } catch (error: any) {
+  } catch (error) {
     logger.error('Failed to initialize routes:', error);
     // Don't exit - continue with basic endpoints
   }
@@ -195,27 +197,28 @@ async function getHealthStatus(): Promise<HealthStatus> {
     }
   };
 
-  // Use existing Redis client if available
-  if (global.redisClient) {
-    try {
-      await global.redisClient.ping();
-      healthStatus.redis.status = 'connected';
-    } catch (redisError: any) {
-      healthStatus.redis.status = 'error';
-      healthStatus.redis.error = redisError.message;
-    }
+  // Check Redis connection
+  try {
+    const redis = await getRedisClient();
+    await redis.ping();
+    healthStatus.redis.status = 'connected';
+  } catch (error) {
+    healthStatus.redis.status = 'disconnected';
+    healthStatus.redis.error = error instanceof Error ? error.message : 'Unknown error';
   }
 
-  // Use existing queue instances if available
-  if (scraperQueueInstance && auditQueueInstance) {
-    try {
-      healthStatus.queues = {
-        scraper: scraperQueueInstance.client ? 'connected' : 'disconnected',
-        audit: auditQueueInstance.client ? 'connected' : 'disconnected'
-      };
-    } catch (queueError) {
-      healthStatus.queues.error = 'Failed to get queue status';
+  // Check queue status
+  try {
+    if (scraperQueueInstance) {
+      const scraperCounts = await scraperQueueInstance.getJobCounts();
+      healthStatus.queues.scraper = scraperCounts;
     }
+    if (auditQueueInstance) {
+      const auditCounts = await auditQueueInstance.getJobCounts();
+      healthStatus.queues.audit = auditCounts;
+    }
+  } catch (error) {
+    healthStatus.queues.error = error instanceof Error ? error.message : 'Unknown error';
   }
 
   return healthStatus;

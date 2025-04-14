@@ -1,4 +1,4 @@
-import Queue from 'bull';
+import Bull from 'bull';
 import Redis from 'ioredis';
 import { RedisOptions } from 'ioredis';
 import { logger } from '../utils/logger.js';
@@ -120,12 +120,12 @@ export const createRedisClientFactory = () => {
 };
 
 // Queue event handlers
-const setupQueueEventHandlers = (queue: Queue.Queue, queueName: string) => {
+const setupQueueEventHandlers = (queue: Bull.Queue, queueName: string) => {
   queue.on('error', (error: Error) => {
     logger.error(`Queue ${queueName} error:`, error);
   });
 
-  queue.on('failed', async (job: Queue.Job, error: Error) => {
+  queue.on('failed', (job: Bull.Job, error: Error) => {
     logger.error(`Job ${job.id} in queue ${queueName} failed:`, {
       jobId: job.id,
       queue: queueName,
@@ -139,20 +139,20 @@ const setupQueueEventHandlers = (queue: Queue.Queue, queueName: string) => {
     if (queueName === QUEUE_NAMES.SCRAPER && job.data.jobId) {
       try {
         const supabase = getSupabaseClient();
-        await supabase
+        void supabase
           .from('scraper_runs')
           .update({ 
             status: 'failed',
             error: error.message
           })
           .eq('id', job.data.jobId);
-      } catch (updateError: any) {
+      } catch (updateError) {
         logger.error(`Failed to update job status for ${job.id}:`, updateError);
       }
     }
   });
 
-  queue.on('completed', async (job: Queue.Job) => {
+  queue.on('completed', (job: Bull.Job) => {
     logger.info(`Job ${job.id} in queue ${queueName} completed successfully`, {
       jobId: job.id,
       queue: queueName,
@@ -164,38 +164,41 @@ const setupQueueEventHandlers = (queue: Queue.Queue, queueName: string) => {
     if (queueName === QUEUE_NAMES.SCRAPER && job.data.jobId) {
       try {
         const supabase = getSupabaseClient();
-        await supabase
+        void supabase
           .from('scraper_runs')
           .update({ 
             status: 'completed',
             businessesFound: job.data.businesses?.length || 0
           })
           .eq('id', job.data.jobId);
-      } catch (error: any) {
+      } catch (error) {
         logger.error(`Failed to update job status for ${job.id}:`, error);
       }
     }
   });
 
-  queue.on('stalled', (jobId: string) => {
-    logger.warn(`Job ${jobId} in queue ${queueName} has stalled`);
+  queue.on('stalled', (job: Bull.Job) => {
+    logger.warn(`Job ${job.id} in queue ${queueName} has stalled`);
   });
 
   return queue;
 };
 
 // Queue creation with proper error handling
-export async function createQueue(name: string, options: Partial<Queue.QueueOptions> = {}): Promise<Queue.Queue> {
+export async function createQueue<T = any>(name: string, options: Partial<Bull.QueueOptions> = {}): Promise<Bull.Queue<T>> {
   // Create a Redis client factory for this queue
   const redisClientFactory = createRedisClientFactory();
   
-  const queue = new Queue(name, {
+  const queueOptions: Bull.QueueOptions = {
     createClient: (type: 'client' | 'subscriber' | 'bclient') => redisClientFactory(type),
     defaultJobOptions: QUEUE_CONFIG.defaultJobOptions,
     settings: QUEUE_CONFIG.settings,
     limiter: QUEUE_CONFIG.limiter,
     ...options
-  });
+  };
+
+  // Create queue instance
+  const queue = new Bull(name, queueOptions) as Bull.Queue<T>;
 
   // Set up event handlers
   setupQueueEventHandlers(queue, name);
@@ -203,23 +206,17 @@ export async function createQueue(name: string, options: Partial<Queue.QueueOpti
   // Validate queue is operational
   try {
     await queue.isReady();
-    const counts = await queue.getJobCounts();
-    logger.info(`Queue ${name} initialized successfully`, { 
-      status: 'ready',
-      counts,
-      redis: queue.client ? 'connected' : 'disconnected'
-    });
-  } catch (error: any) {
-    logger.error(`Failed to initialize queue ${name}: ${error.message}`);
+    logger.info(`Queue ${name} initialized successfully`);
+    return queue;
+  } catch (error) {
+    logger.error(`Failed to initialize queue ${name}:`, error);
     throw error;
   }
-
-  return queue;
 }
 
 // Initialize all queues
-export async function initializeQueues(): Promise<Record<string, Queue.Queue>> {
-  const queues: Record<string, Queue.Queue> = {};
+export async function initializeQueues(): Promise<Record<string, Bull.Queue>> {
+  const queues: Record<string, Bull.Queue> = {};
   
   try {
     // Initialize queues in parallel

@@ -11,11 +11,19 @@ declare module 'express' {
     body: ReqBody;
     params: P;
     query: ReqQuery;
+    method: string;
+    error?: Error;
   }
 
   export interface Response<ResBody = unknown> extends ExpressResponse {
     status(code: number): this;
     json(body: ResBody): this;
+    header(name: string, value: string): this;
+    end(): this;
+  }
+
+  export interface NextFunction {
+    (err?: any): void;
   }
 }
 

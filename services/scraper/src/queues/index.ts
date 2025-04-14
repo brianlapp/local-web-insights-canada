@@ -6,14 +6,14 @@ import { QUEUE_NAMES, initializeQueues, createQueue } from './config.js';
 import { getRedisClient } from '../config/redis.js';
 
 // Define job data interfaces
-interface ScraperJobData {
+export interface ScraperJobData {
   location: string;
   radius: number;
   searchTerm?: string;
   jobId?: string;
 }
 
-interface AuditJobData {
+export interface AuditJobData {
   businessId: string;
   url: string;
   options?: {
@@ -127,3 +127,6 @@ const jobOptions = {
   removeOnFail: false,
   timeout: 300000 // 5 minutes in milliseconds
 };
+
+// Export setupQueues as an alias for setupQueueProcessors for backward compatibility
+export const setupQueues = setupQueueProcessors;

@@ -62,7 +62,7 @@ interface JobResponse {
 }
 
 // Define extended Job type with getState method
-interface ExtendedJob<T> extends Job<T> {
+interface ExtendedJob<T = any> extends Job<T> {
   getState(): Promise<string>;
   returnvalue: unknown;
 }
@@ -143,7 +143,7 @@ export async function getJobStatus(
   try {
     const { jobId } = req.params;
     const queue = await getDataProcessingQueue();
-    const job = await queue.getJob(jobId);
+    const job = await queue.getJob(jobId) as ExtendedJob<DataProcessingJobData>;
 
     if (!job) {
       res.status(404).json({ error: 'Job not found' });
@@ -205,3 +205,8 @@ export const getUnprocessedDataCounts = async (
     res.status(500).json({ error: error instanceof Error ? error.message : 'Internal server error' });
   }
 };
+
+// Export the functions with their original names and aliases for backward compatibility
+export const queueRawDataProcessing = processData;
+export const queueBatchRawDataProcessing = processMultipleData;
+export const getProcessingMetrics = getQueueMetrics;
