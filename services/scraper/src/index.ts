@@ -25,7 +25,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // Health check endpoint - MUST be first, before any middleware or initialization
-app.get('/health', (_req, res) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok' });
 });
 
@@ -80,7 +80,7 @@ app.use((req, res, next) => {
 });
 
 // API health check endpoint (for detailed status)
-app.get('/api/health', async (_req, res) => {
+app.get('/api/health', async (_req: Request, res: Response) => {
   try {
     const status = await getHealthStatus();
     res.status(200).json(status);
@@ -222,7 +222,7 @@ async function getHealthStatus(): Promise<HealthStatus> {
 }
 
 // Enhanced Redis test endpoint
-app.get('/test-redis-connection', async (req, res) => {
+app.get('/test-redis-connection', async (req: Request, res: Response) => {
   try {
     const redis = await getRedisClient();
     
@@ -257,8 +257,8 @@ app.get('/test-redis-connection', async (req, res) => {
 });
 
 // Error handling middleware
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  logger.error('Unhandled error:', err);
+app.use((req: Request, res: Response, next: NextFunction) => {
+  logger.error('Unhandled error:', req.error);
   res.status(500).json({ error: 'Internal server error' });
 });
 

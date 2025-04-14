@@ -19,7 +19,9 @@
       "@/*": ["src/*"]
     },
     "sourceMap": true,
-    "declaration": true
+    "declaration": true,
+    "types": ["node", "express", "ioredis"],
+    "typeRoots": ["./node_modules/@types", "./src/types"]
   },
   "ts-node": {
     "esm": true,

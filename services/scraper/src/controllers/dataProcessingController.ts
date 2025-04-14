@@ -1,222 +1,184 @@
-import { Request, Response } from 'express';
+import { Request } from 'express';
+import { Response } from 'express';
 import { logger } from '../utils/logger.js';
 import { 
   queueRawBusinessDataProcessing, 
   getDataProcessingMetrics
 } from '../processors/dataProcessor.js';
 import { getSupabaseClient } from '../utils/database.js';
-import { Queue } from 'bull';
+import { Queue, Job } from 'bull';
 import { getDataProcessingQueue } from '../queues/index.js';
 
 // Queue instance
-let dataProcessingQueue: Queue | null = null;
+const dataProcessingQueue: Queue | null = null;
 
-// Get or initialize queue
-async function getQueue(): Promise<Queue> {
-  if (!dataProcessingQueue) {
-    dataProcessingQueue = getDataProcessingQueue();
-  }
-  return dataProcessingQueue;
+// Define request types
+interface ProcessDataRequest extends Request {
+  body: {
+    id: string;
+  };
+}
+
+interface ProcessMultipleDataRequest extends Request {
+  body: {
+    ids: string[];
+  };
+}
+
+interface GetJobStatusRequest extends Request {
+  params: {
+    jobId: string;
+  };
+}
+
+// Define job data type
+interface DataProcessingJobData {
+  id: string;
+}
+
+// Define job options type
+interface JobOptions {
+  priority?: number;
+  delay?: number;
+  attempts?: number;
+  removeOnComplete?: boolean | number;
+  removeOnFail?: boolean | number;
+  timeout?: number;
+}
+
+// Define job response type
+interface JobResponse {
+  id: string;
+  state: string;
+  data: DataProcessingJobData;
+  opts: JobOptions;
+  attemptsMade: number;
+  failedReason?: string;
+  stacktrace: string[];
+  returnvalue: unknown;
+  timestamp: string;
+}
+
+// Define extended Job type with getState method
+interface ExtendedJob<T> extends Job<T> {
+  getState(): Promise<string>;
+  returnvalue: unknown;
+}
+
+// Define raw business data type
+interface RawBusinessData {
+  source_id: string;
+  count: number;
 }
 
 /**
- * Queue raw business data for processing
+ * Process a single raw business data record
  */
-export async function queueRawDataProcessing(req: Request, res: Response) {
+export const processData = async (req: ProcessDataRequest, res: Express.Response): Promise<void> => {
   try {
-    const { id, priority } = req.body;
-    
+    const { id } = req.body;
+
     if (!id) {
-      return res.status(400).json({ error: 'Raw data ID is required' });
+      res.status(400).json({ error: 'ID is required' });
+      return;
     }
-    
-    // Validate that the raw data exists
-    const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('raw_business_data')
-      .select('id, processed')
-      .eq('id', id)
-      .maybeSingle();
-    
-    if (error) {
-      logger.error(`Error checking raw data existence: ${error.message}`);
-      return res.status(500).json({ error: 'Failed to verify raw data existence' });
-    }
-    
-    if (!data) {
-      return res.status(404).json({ error: `Raw business data with ID ${id} not found` });
-    }
-    
-    if (data.processed) {
-      return res.status(400).json({ 
-        error: `Raw business data with ID ${id} has already been processed`,
-        processed: true
-      });
-    }
-    
-    const jobId = await queueRawBusinessDataProcessing(id, priority);
-    
-    res.status(200).json({
-      message: `Raw business data queued for processing`,
-      jobId,
-      rawDataId: id
-    });
-  } catch (error: any) {
-    logger.error(`Error queueing raw data for processing: ${error.message}`);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+
+    const job = await queueRawBusinessDataProcessing(id);
+    res.status(200).json({ jobId: job.id });
+  } catch (error: unknown) {
+    logger.error('Error queueing data processing:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Internal server error' });
   }
-}
+};
 
 /**
- * Queue multiple raw business data items for processing
+ * Process multiple raw business data records
  */
-export async function queueBatchRawDataProcessing(req: Request, res: Response) {
+export const processMultipleData = async (req: ProcessMultipleDataRequest, res: Express.Response): Promise<void> => {
   try {
-    const { ids, priority } = req.body;
-    
+    const { ids } = req.body;
+
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({ error: 'A valid array of raw data IDs is required' });
+      res.status(400).json({ error: 'Array of IDs is required' });
+      return;
     }
-    
-    const supabase = getSupabaseClient();
-    
-    // Get all raw data items that haven't been processed yet
-    const { data, error } = await supabase
-      .from('raw_business_data')
-      .select('id')
-      .in('id', ids)
-      .eq('processed', false);
-    
-    if (error) {
-      logger.error(`Error fetching raw data items: ${error.message}`);
-      return res.status(500).json({ error: 'Failed to fetch raw data items' });
-    }
-    
-    if (!data || data.length === 0) {
-      return res.status(400).json({ 
-        error: 'No valid unprocessed raw data items found',
-        count: 0
-      });
-    }
-    
-    // Queue each item
-    const validIds = data.map((item: any) => item.id);
-    const queueResults = await Promise.all(
-      validIds.map((id: string) => queueRawBusinessDataProcessing(id, priority))
-    );
-    
-    res.status(200).json({
-      message: `Queued ${validIds.length} raw data items for processing`,
-      count: validIds.length,
-      queuedIds: validIds,
-      jobIds: queueResults
-    });
-  } catch (error: any) {
-    logger.error(`Error batch queueing raw data: ${error.message}`);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+
+    const jobs = await Promise.all(ids.map(id => queueRawBusinessDataProcessing(id)));
+    res.status(200).json({ jobIds: jobs.map((job: Job<DataProcessingJobData>) => job.id) });
+  } catch (error: unknown) {
+    logger.error('Error queueing multiple data processing:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Internal server error' });
   }
-}
+};
 
 /**
- * Get the status of a specific data processing job
+ * Get job status
  */
-export async function getJobStatus(req: Request, res: Response) {
+export const getJobStatus = async (req: GetJobStatusRequest, res: Express.Response): Promise<void> => {
   try {
     const { jobId } = req.params;
-    
-    if (!jobId) {
-      return res.status(400).json({ error: 'Job ID is required' });
-    }
-    
-    const queue = await getQueue();
-    const job = await queue.getJob(jobId);
-    
+    const queue = await getDataProcessingQueue();
+    const job = await queue.getJob(jobId) as ExtendedJob<DataProcessingJobData>;
+
     if (!job) {
-      return res.status(404).json({ error: `Job with ID ${jobId} not found` });
+      res.status(404).json({ error: 'Job not found' });
+      return;
     }
-    
-    // Get job state
-    const state = await job.getState();
-    
-    // Format response based on state
-    const response = {
+
+    const jobState = await job.getState();
+    const jobInfo: JobResponse = {
       id: job.id,
+      state: jobState,
       data: job.data,
-      state,
-      progress: job.progress,
+      opts: job.opts,
       attemptsMade: job.attemptsMade,
-      timestamp: {
-        created: job.timestamp,
-        processed: job.processedOn,
-        finished: job.finishedOn,
-      },
-      returnValue: job.returnvalue,
-      failReason: job.failedReason,
+      failedReason: job.failedReason,
+      stacktrace: Array.isArray(job.stacktrace) ? job.stacktrace : [],
+      returnvalue: job.returnvalue,
+      timestamp: new Date(job.timestamp).toISOString()
     };
-    
-    res.status(200).json(response);
-  } catch (error: any) {
-    logger.error(`Error getting job status: ${error.message}`);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+
+    res.status(200).json(jobInfo);
+  } catch (error: unknown) {
+    logger.error('Error getting job status:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Internal server error' });
   }
-}
+};
 
 /**
  * Get data processing queue metrics
  */
-export async function getProcessingMetrics(req: Request, res: Response) {
+export const getQueueMetrics = async (_req: Request, res: Express.Response): Promise<void> => {
   try {
-    const metrics = await getDataProcessingMetrics();
+    const queue = await getDataProcessingQueue();
+    const metrics = await queue.getJobCounts();
     res.status(200).json(metrics);
-  } catch (error: any) {
-    logger.error(`Error getting processing metrics: ${error.message}`);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+  } catch (error: unknown) {
+    logger.error('Error getting queue metrics:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Internal server error' });
   }
-}
+};
 
 /**
  * Get unprocessed raw data counts
  */
-export async function getUnprocessedDataCounts(req: Request, res: Response) {
+export const getUnprocessedDataCounts = async (_req: Request, res: Express.Response): Promise<void> => {
   try {
     const supabase = getSupabaseClient();
-    
-    // Get count of unprocessed raw data
-    const { count, error } = await supabase
-      .from('raw_business_data')
-      .select('*', { count: 'exact', head: true })
-      .eq('processed', false);
-    
+    const { data, error } = await supabase.rpc('get_unprocessed_data_counts');
+
     if (error) {
-      logger.error(`Error getting unprocessed data counts: ${error.message}`);
-      return res.status(500).json({ error: 'Failed to get unprocessed data counts' });
+      throw error;
     }
-    
-    // Get source breakdown
-    const { data: sourceBreakdown, error: sourceError } = await supabase
-      .from('raw_business_data')
-      .select('source_id')
-      .eq('processed', false);
-    
-    if (sourceError) {
-      logger.error(`Error getting source breakdown: ${sourceError.message}`);
-      return res.status(500).json({ error: 'Failed to get source breakdown' });
-    }
-    
-    // Calculate source counts
-    const sourceCounts: Record<string, number> = {};
-    sourceBreakdown?.forEach((item: any) => {
-      const sourceId = item.source_id;
-      sourceCounts[sourceId] = (sourceCounts[sourceId] || 0) + 1;
-    });
-    
-    res.status(200).json({
-      total: count || 0,
-      sourceCounts,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error: any) {
-    logger.error(`Error getting unprocessed data counts: ${error.message}`);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+
+    const counts = (data as RawBusinessData[]).reduce((acc: Record<string, number>, row: RawBusinessData) => {
+      acc[row.source_id] = row.count;
+      return acc;
+    }, {});
+
+    res.status(200).json(counts);
+  } catch (error: unknown) {
+    logger.error('Error getting unprocessed data counts:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Internal server error' });
   }
-}
+};

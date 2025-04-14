@@ -1,5 +1,6 @@
 import Queue from 'bull';
-import { Redis, RedisOptions } from 'ioredis';
+import Redis from 'ioredis';
+import { RedisOptions } from 'ioredis';
 import { logger } from '../utils/logger.js';
 import { getRedisClient } from '../config/redis.js';
 import { getSupabaseClient } from '../utils/database.js';

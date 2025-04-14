@@ -1,4 +1,5 @@
-import { Redis, RedisOptions } from 'ioredis';
+import Redis from 'ioredis';
+import type { Redis as RedisType, RedisOptions } from 'ioredis';
 import { logger } from '../utils/logger.js';
 
 // Try different Redis URL configurations in order of preference
@@ -10,7 +11,7 @@ const REDIS_URL = process.env.REDIS_URL || // Private URL (preferred)
 const REDIS_RETRY_STRATEGY_MAX_RETRIES = 5;
 const REDIS_RETRY_STRATEGY_MAX_DELAY = 5000;
 
-export async function getRedisClient(): Promise<Redis> {
+export async function getRedisClient(): Promise<RedisType> {
   // Return existing client if available
   if (global.redisClient) {
     return global.redisClient;

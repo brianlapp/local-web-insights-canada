@@ -16,7 +16,7 @@ export const setupRoutes = (
     res.json({ status: 'ok' });
   });
 
-  router.get('/api/health', async (req, res) => {
+  router.get('/api/health', async (req: Request, res: Response) => {
     try {
       const startTime = process.hrtime();
       
@@ -89,7 +89,7 @@ export const setupRoutes = (
     }
   });
 
-  router.get('/start', async (req, res) => {
+  router.get('/start', async (req: Request, res: Response) => {
     if (!scraperQueue) {
       return res.status(503).json({ 
         status: 'error', 
@@ -106,7 +106,7 @@ export const setupRoutes = (
     }
   });
 
-  router.post('/start', async (req, res) => {
+  router.post('/start', async (req: Request, res: Response) => {
     if (!scraperQueue) {
       return res.status(503).json({ 
         status: 'error', 
@@ -130,7 +130,7 @@ export const setupRoutes = (
     }
   });
 
-  router.post('/audit', async (req, res) => {
+  router.post('/audit', async (req: Request, res: Response) => {
     if (!auditQueue) {
       return res.status(503).json({ 
         status: 'error', 

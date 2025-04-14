@@ -22,35 +22,74 @@ const updateChainMethods = {
   eq: jest.fn().mockResolvedValue({ data: null, error: null })
 };
 
-// Create mockUpdate that returns the updateChainMethods
+// Create a mock update function that returns the updateChain object
 const mockUpdate = jest.fn().mockReturnValue(updateChainMethods);
 
-// Create a function that properly chains the methods for 'from'
-const mockFrom = jest.fn().mockImplementation((table) => {
+// Create a mock from function that returns a select chain
+const mockFrom = jest.fn().mockImplementation((table: string) => {
   return {
+    select: jest.fn().mockReturnValue({
+      eq: jest.fn().mockResolvedValue({ data: [], error: null }),
+      order: jest.fn().mockReturnValue({
+        limit: jest.fn().mockResolvedValue({ data: [], error: null })
+      })
+    }),
     insert: mockInsert,
-    update: mockUpdate
+    update: mockUpdate,
+    delete: jest.fn().mockReturnValue({
+      eq: jest.fn().mockResolvedValue({ data: null, error: null })
+    })
   };
 });
 
-// Create mock storage with a 'from' method that returns an object with an 'upload' method
-const mockStorage = {
-  from: jest.fn().mockReturnValue({
-    upload: mockUpload
-  })
-};
-
-// Create mock client with all necessary methods and properties
+// Create a mock client object
 const mockClient = {
-  storage: mockStorage,
-  from: mockFrom,
+  from: jest.fn().mockReturnValue({
+    select: jest.fn().mockReturnValue({
+      eq: jest.fn().mockResolvedValue({ data: [], error: null }),
+      order: jest.fn().mockReturnValue({
+        limit: jest.fn().mockResolvedValue({ data: [], error: null })
+      })
+    }),
+    insert: mockInsert,
+    update: mockUpdate,
+    delete: jest.fn().mockReturnValue({
+      eq: jest.fn().mockResolvedValue({ data: null, error: null })
+    })
+  }),
+  storage: {
+    from: jest.fn().mockReturnValue({
+      upload: mockUpload
+    })
+  },
   rpc: mockRpc
 };
 
-// Mock Supabase client globally
+// Mock the Supabase client
 jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn().mockReturnValue(mockClient)
 }));
+
+// Mock the Redis client
+jest.mock('ioredis', () => {
+  return jest.fn().mockImplementation(() => ({
+    on: jest.fn(),
+    connect: jest.fn().mockResolvedValue(true),
+    ping: jest.fn().mockResolvedValue('PONG'),
+    quit: jest.fn().mockResolvedValue('OK')
+  }));
+});
+
+// Mock Bull queue
+jest.mock('bull', () => {
+  return jest.fn().mockImplementation(() => ({
+    process: jest.fn(),
+    add: jest.fn().mockResolvedValue({ id: 'test-job-1' }),
+    on: jest.fn(),
+    getJob: jest.fn(),
+    getJobCounts: jest.fn()
+  }));
+});
 
 // Export mock functions so tests can configure them
 export const supabaseMocks = {
@@ -61,18 +100,11 @@ export const supabaseMocks = {
   mockRpc,
   updateChainMethods,
   mockFrom,
-  mockStorage
+  mockStorage: {
+    from: jest.fn().mockReturnValue({
+      upload: mockUpload
+    })
+  }
 };
-
-// Mock Bull queue - keep only this mock here since it's used universally
-jest.mock('bull', () => {
-  return jest.fn().mockImplementation(() => ({
-    process: jest.fn(),
-    add: jest.fn().mockResolvedValue({ id: 'test-job-1' }),
-    on: jest.fn(),
-    getJob: jest.fn(),
-    getJobCounts: jest.fn()
-  }));
-});
 
 // REMOVED other global mocks - they will come from __mocks__ directory 
