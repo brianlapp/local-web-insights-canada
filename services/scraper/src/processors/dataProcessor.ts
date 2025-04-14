@@ -1,8 +1,9 @@
 import { logger } from '../utils/logger.js';
 import { getSupabaseClient, markRawBusinessDataProcessed, saveBusiness } from '../utils/database.js';
-import Queue from 'bull';
+const Bull = require('bull');
+import Redis from 'ioredis';
+import type { Queue, Job } from 'bull';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Job } from 'bull';
 import { QUEUE_NAMES } from '../queues/index.js';
 import { getRedisClient } from '../config/redis.js';
 import { QUEUE_CONFIG, createRedisClientFactory } from '../queues/config.js';
@@ -61,7 +62,7 @@ export async function setupDataProcessingQueue() {
   // Create a Redis client factory for this queue
   const redisClientFactory = createRedisClientFactory();
   
-  const queue = new Queue(DATA_PROCESSING_QUEUE, {
+  const queue = new Bull(DATA_PROCESSING_QUEUE, {
     createClient: (type: 'client' | 'subscriber' | 'bclient') => redisClientFactory(type),
     defaultJobOptions: {
       ...QUEUE_CONFIG.defaultJobOptions,
@@ -80,7 +81,7 @@ export async function setupDataProcessingQueue() {
     logger.error(`Data processing queue error:`, error);
   });
 
-  queue.on('failed', (job: Queue.Job, error: Error) => {
+  queue.on('failed', (job: Job<JobData>, error: Error) => {
     logger.error(`Data processing job ${job.id} failed:`, {
       jobId: job.id,
       error: error.message,
@@ -90,7 +91,7 @@ export async function setupDataProcessingQueue() {
     });
   });
 
-  queue.on('completed', (job: Queue.Job) => {
+  queue.on('completed', (job: Job<JobData>) => {
     logger.info(`Data processing job ${job.id} completed successfully`, {
       jobId: job.id,
       processingTime: job.finishedOn ? job.finishedOn - job.processedOn! : undefined,

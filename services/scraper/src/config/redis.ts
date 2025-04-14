@@ -74,18 +74,18 @@ export async function getRedisClient(): Promise<RedisType> {
   
   try {
     // Create Redis client instance
-    const client: RedisType = new Redis(REDIS_URL, options);
+    const redis = new Redis(REDIS_URL, options);
 
     // Add event listeners for better monitoring
-    client.on('connect', () => {
+    redis.on('connect', () => {
       logger.info('Redis client connecting...');
     });
 
-    client.on('ready', () => {
+    redis.on('ready', () => {
       logger.info('Redis client ready and connected');
     });
 
-    client.on('error', (err: Error) => {
+    redis.on('error', (err: Error) => {
       logger.error('Redis client error:', { 
         error: err.message,
         stack: err.stack,
@@ -93,24 +93,24 @@ export async function getRedisClient(): Promise<RedisType> {
       });
     });
 
-    client.on('close', () => {
+    redis.on('close', () => {
       logger.warn('Redis client closed connection');
       global.redisClient = null; // Clear the global reference when connection closes
     });
 
-    client.on('reconnecting', () => {
+    redis.on('reconnecting', () => {
       logger.info('Redis client reconnecting');
     });
 
-    client.on('end', () => {
+    redis.on('end', () => {
       logger.warn('Redis connection ended');
       global.redisClient = null; // Clear the global reference when connection ends
     });
 
     // Test the connection
-    await client.connect();
+    await redis.connect();
     const pingResult = await Promise.race([
-      client.ping(),
+      redis.ping(),
       new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Redis ping timeout')), 10000)
       )
@@ -118,8 +118,8 @@ export async function getRedisClient(): Promise<RedisType> {
 
     if (pingResult === 'PONG') {
       logger.info('Redis connection test successful');
-      global.redisClient = client; // Store the client globally
-      return client;
+      global.redisClient = redis; // Store the client globally
+      return redis;
     } else {
       throw new Error('Redis ping failed');
     }
