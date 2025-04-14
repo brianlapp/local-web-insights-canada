@@ -1,5 +1,4 @@
-import { Request } from 'express';
-import { Response } from 'express';
+import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { logger } from '../utils/logger.js';
 import { 
   queueRawBusinessDataProcessing, 
@@ -8,28 +7,31 @@ import {
 import { getSupabaseClient } from '../utils/database.js';
 import { Queue, Job } from 'bull';
 import { getDataProcessingQueue } from '../queues/index.js';
+import { supabase } from '../utils/supabase.js';
 
 // Queue instance
-const dataProcessingQueue: Queue | null = null;
+let dataProcessingQueue: Queue | null = null;
 
 // Define request types
-interface ProcessDataRequest extends Request {
+interface ProcessDataRequest extends ExpressRequest {
   body: {
     id: string;
   };
 }
 
-interface ProcessMultipleDataRequest extends Request {
+interface ProcessMultipleDataRequest extends ExpressRequest {
   body: {
     ids: string[];
   };
 }
 
-interface GetJobStatusRequest extends Request {
+interface GetJobStatusRequest extends ExpressRequest {
   params: {
     jobId: string;
   };
 }
+
+type Response<T> = ExpressResponse<T>;
 
 // Define job data type
 interface DataProcessingJobData {
@@ -71,84 +73,102 @@ interface RawBusinessData {
   count: number;
 }
 
+interface ErrorResponse {
+  error: string;
+}
+
+interface JobIdResponse {
+  jobId: string;
+}
+
+interface JobIdsResponse {
+  jobIds: string[];
+}
+
 /**
  * Process a single raw business data record
  */
-export const processData = async (req: ProcessDataRequest, res: Express.Response): Promise<void> => {
+export async function processData(
+  req: ProcessDataRequest,
+  res: ExpressResponse
+): Promise<void> {
   try {
     const { id } = req.body;
-
     if (!id) {
-      res.status(400).json({ error: 'ID is required' });
+      res.status(400).json({ error: 'Missing id in request body' });
       return;
     }
 
-    const job = await queueRawBusinessDataProcessing(id);
+    const queue = await getDataProcessingQueue();
+    const job = await queue.add({ id });
+
     res.status(200).json({ jobId: job.id });
-  } catch (error: unknown) {
-    logger.error('Error queueing data processing:', error);
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Internal server error' });
+  } catch (error) {
+    logger.error('Error processing data:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error occurred' });
   }
-};
+}
 
 /**
  * Process multiple raw business data records
  */
-export const processMultipleData = async (req: ProcessMultipleDataRequest, res: Express.Response): Promise<void> => {
+export async function processMultipleData(
+  req: ProcessMultipleDataRequest,
+  res: ExpressResponse
+): Promise<void> {
   try {
     const { ids } = req.body;
-
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      res.status(400).json({ error: 'Array of IDs is required' });
+    if (!ids || !Array.isArray(ids)) {
+      res.status(400).json({ error: 'Missing or invalid ids in request body' });
       return;
     }
 
-    const jobs = await Promise.all(ids.map(id => queueRawBusinessDataProcessing(id)));
-    res.status(200).json({ jobIds: jobs.map((job: Job<DataProcessingJobData>) => job.id) });
-  } catch (error: unknown) {
-    logger.error('Error queueing multiple data processing:', error);
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Internal server error' });
+    const queue = await getDataProcessingQueue();
+    const jobs = await Promise.all(ids.map(id => queue.add({ id })));
+
+    res.status(200).json({ jobIds: jobs.map(job => job.id) });
+  } catch (error) {
+    logger.error('Error processing multiple data:', error);
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error occurred' });
   }
-};
+}
 
 /**
  * Get job status
  */
-export const getJobStatus = async (req: GetJobStatusRequest, res: Express.Response): Promise<void> => {
+export async function getJobStatus(
+  req: GetJobStatusRequest,
+  res: ExpressResponse
+): Promise<void> {
   try {
     const { jobId } = req.params;
     const queue = await getDataProcessingQueue();
-    const job = await queue.getJob(jobId) as ExtendedJob<DataProcessingJobData>;
+    const job = await queue.getJob(jobId);
 
     if (!job) {
       res.status(404).json({ error: 'Job not found' });
       return;
     }
 
-    const jobState = await job.getState();
-    const jobInfo: JobResponse = {
+    const state = await job.getState();
+    res.status(200).json({
       id: job.id,
-      state: jobState,
-      data: job.data,
-      opts: job.opts,
-      attemptsMade: job.attemptsMade,
-      failedReason: job.failedReason,
-      stacktrace: Array.isArray(job.stacktrace) ? job.stacktrace : [],
-      returnvalue: job.returnvalue,
-      timestamp: new Date(job.timestamp).toISOString()
-    };
-
-    res.status(200).json(jobInfo);
-  } catch (error: unknown) {
+      state,
+      data: job.data
+    });
+  } catch (error) {
     logger.error('Error getting job status:', error);
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Internal server error' });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error occurred' });
   }
-};
+}
 
 /**
  * Get data processing queue metrics
  */
-export const getQueueMetrics = async (_req: Request, res: Express.Response): Promise<void> => {
+export const getQueueMetrics = async (
+  _req: ExpressRequest,
+  res: ExpressResponse
+): Promise<void> => {
   try {
     const queue = await getDataProcessingQueue();
     const metrics = await queue.getJobCounts();
@@ -162,7 +182,10 @@ export const getQueueMetrics = async (_req: Request, res: Express.Response): Pro
 /**
  * Get unprocessed raw data counts
  */
-export const getUnprocessedDataCounts = async (_req: Request, res: Express.Response): Promise<void> => {
+export const getUnprocessedDataCounts = async (
+  _req: ExpressRequest,
+  res: ExpressResponse
+): Promise<void> => {
   try {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase.rpc('get_unprocessed_data_counts');

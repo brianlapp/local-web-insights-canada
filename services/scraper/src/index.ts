@@ -11,7 +11,7 @@ import {
 import { getSupabaseClient } from './utils/database.js';
 import { getRedisClient } from './config/redis.js';
 import { Job, Queue } from 'bull';
-import { Redis } from 'ioredis';
+import Redis from 'ioredis';
 
 // Add at the top of the file, after imports
 declare global {

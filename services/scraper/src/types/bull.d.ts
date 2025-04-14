@@ -1,5 +1,5 @@
 declare module 'bull' {
-  import { Redis } from 'ioredis';
+  import Redis from 'ioredis';
   
   export interface QueueOptions {
     redis?: Redis | string;

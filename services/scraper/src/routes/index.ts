@@ -1,49 +1,119 @@
-import express from 'express';
-import { Request, Response } from 'express';
-import Queue from 'bull';
+import express, { Request, Response } from 'express';
+import type { Queue } from 'bull';
 import { logger } from '../utils/logger.js';
 import { getSupabaseClient } from '../utils/database.js';
 import os from 'os';
 import { getRedisClient } from '../config/redis.js';
 
 // Define request types
-interface StartRequest extends Request {
-  body: {
-    location?: string;
-    jobId?: string;
-  };
+interface HealthResponse {
+  status: string;
+  message: string;
 }
 
-interface AuditRequest extends Request {
-  body: {
-    businessId: string;
-    url: string;
-  };
+interface ScraperResponse {
+  status: string;
+  message: string;
+  jobId?: string;
+}
+
+interface AuditResponse {
+  status: string;
+  message: string;
+  businessId?: string;
+  url?: string;
+}
+
+interface StartRequestBody {
+  businessId: string;
+  url: string;
+  searchTerm?: string;
+}
+
+interface AuditRequestBody {
+  businessId: string;
+  url: string;
 }
 
 // Define job data types
 interface ScraperJobData {
   location: string;
   jobId?: string;
+  radius: number;
+  searchTerm?: string;
 }
 
 interface AuditJobData {
   businessId: string;
   url: string;
+  options?: {
+    runLighthouse?: boolean;
+    detectTechnologies?: boolean;
+    takeScreenshots?: boolean;
+    validateOnly?: boolean;
+  };
+}
+
+// Define response types
+interface HealthCheckResponse {
+  status: string;
+  message: string;
+  version: string;
+  environment: string;
+  timestamp: string;
+  uptime: number;
+  memory: {
+    rss: string;
+    heapTotal: string;
+    heapUsed: string;
+    external: string;
+    systemTotal: string;
+    systemFree: string;
+    systemUsagePercent: string;
+  };
+  cpu: {
+    cores: number;
+    model: string;
+    speed: string;
+  };
+  redis: {
+    connected: boolean;
+    error: string | null;
+  };
+  database: {
+    connected: boolean;
+    error: string | null;
+  };
+  responseTime: string;
 }
 
 export const setupRoutes = (
-  scraperQueue: Queue.Queue<ScraperJobData> | null,
-  auditQueue: Queue.Queue<AuditJobData> | null,
-  dataProcessingQueue: Queue.Queue | null
-) => {
+  scraperQueue: Queue<ScraperJobData> | null,
+  auditQueue: Queue<AuditJobData> | null,
+  dataProcessingQueue: Queue | null
+): express.Router => {
   const router = express.Router();
 
-  router.get('/health', (_req: Request, res: Express.Response) => {
-    res.json({ status: 'ok' });
+  const jobOptions = {
+    attempts: 3,
+    backoff: {
+      type: 'exponential',
+      delay: 1000
+    }
+  };
+
+  router.get('/health', (_req: Request, res: Response<HealthResponse>) => {
+    try {
+      const response: HealthResponse = { status: 'ok', message: 'Service is healthy' };
+      res.status(200).json(response);
+    } catch (error) {
+      logger.error('Health check failed:', error);
+      const response: HealthResponse = { status: 'error', message: 'Service health check failed' };
+      res.status(500).json(response);
+    }
   });
 
-  router.get('/api/health', async (_req: Request, res: Express.Response) => {
+  router.get('/api/health', async (_req: Request, res: Response<HealthCheckResponse>) => {
     try {
       const startTime = process.hrtime();
       
@@ -72,10 +142,11 @@ export const setupRoutes = (
       const endTime = process.hrtime(startTime);
       const responseTimeMs = (endTime[0] * 1000 + endTime[1] / 1000000).toFixed(2);
       
-      const healthData = {
+      const healthData: HealthCheckResponse = {
         status: 'ok',
+        message: 'Service is healthy',
         version: process.env.npm_package_version || 'unknown',
-        environment: process.env.NODE_ENV,
+        environment: process.env.NODE_ENV || 'development',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
         memory: {
@@ -104,19 +175,44 @@ export const setupRoutes = (
       logger.info('Health check metrics', { metrics: healthData });
       
       // Always return 200 OK to prevent service disruption
-      res.json(healthData);
+      res.status(200).json(healthData);
     } catch (error: unknown) {
       logger.error('Health check failed', error);
       // Still return 200 OK with error details
       res.json({
         status: 'degraded',
-        error: error instanceof Error ? error.message : 'Internal server error',
-        timestamp: new Date().toISOString()
+        version: process.env.npm_package_version || 'unknown',
+        environment: process.env.NODE_ENV || 'development',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        memory: {
+          rss: '0 MB',
+          heapTotal: '0 MB',
+          heapUsed: '0 MB',
+          external: '0 MB',
+          systemTotal: '0 MB',
+          systemFree: '0 MB',
+          systemUsagePercent: '0%'
+        },
+        cpu: {
+          cores: 0,
+          model: 'unknown',
+          speed: '0 MHz'
+        },
+        redis: {
+          connected: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        },
+        database: {
+          connected: false,
+          error: 'Failed to check database connection'
+        },
+        responseTime: '0 ms'
       });
     }
   });
 
-  router.get('/start', async (_req: Request, res: Express.Response) => {
+  router.get('/start', async (_req: Request, res: Response<ScraperResponse>) => {
     if (!scraperQueue) {
       return res.status(503).json({ 
         status: 'error', 
@@ -133,65 +229,71 @@ export const setupRoutes = (
     }
   });
 
-  router.post('/start', async (req: StartRequest, res: Express.Response) => {
+  router.post('/start', async (req: Request, res: Response<ScraperResponse>) => {
     if (!scraperQueue) {
-      return res.status(503).json({ 
+      res.status(503).json({ 
         status: 'error', 
         message: 'Scraper queue not available' 
       });
+      return;
     }
 
     try {
-      const { location, jobId } = req.body;
-      
-      // Add job to queue with proper typing
-      const jobData: ScraperJobData = {
-        location: location || 'Ottawa',
-        jobId
+      const jobData = {
+        businessId: req.body.businessId,
+        url: req.body.url,
+        searchTerm: req.body.searchTerm
       };
-      await scraperQueue.add('search-grid', jobData);
-      
-      res.status(200).json({ status: 'ok', message: 'Scraping job added to queue', jobId });
+      await scraperQueue.add(jobData, jobOptions);
+      const response: ScraperResponse = { 
+        status: 'ok', 
+        message: 'Scraping job added to queue', 
+        jobId: jobData.businessId 
+      };
+      res.status(200).json(response);
     } catch (error) {
-      logger.error('Error starting scraper job:', error);
-      res.status(500).json({ status: 'error', message: 'Failed to add scraper job to queue' });
+      logger.error('Failed to add scraping job:', error);
+      const response: ScraperResponse = { 
+        status: 'error', 
+        message: 'Failed to add scraping job' 
+      };
+      res.status(500).json(response);
     }
   });
 
-  router.post('/audit', async (req: AuditRequest, res: Express.Response) => {
+  router.post('/audit', async (req: Request, res: Response<AuditResponse>) => {
     if (!auditQueue) {
-      return res.status(503).json({ 
+      res.status(503).json({ 
         status: 'error', 
-        message: 'Audit queue not available' 
+        message: 'Audit queue not available',
+        businessId: req.body.businessId,
+        url: req.body.url
       });
+      return;
     }
 
     try {
-      const { businessId, url } = req.body;
-      
-      if (!businessId || !url) {
-        return res.status(400).json({ 
-          status: 'error', 
-          message: 'Business ID and URL are required' 
-        });
-      }
-      
-      // Add audit job to queue with proper typing
-      const jobData: AuditJobData = {
-        businessId,
-        url
+      const jobData = {
+        businessId: req.body.businessId,
+        url: req.body.url
       };
-      await auditQueue.add('audit-website', jobData);
-      
-      res.status(200).json({ 
+      await auditQueue.add(jobData, jobOptions);
+      const response: AuditResponse = { 
         status: 'ok', 
-        message: 'Website audit job added to queue',
-        businessId,
-        url 
-      });
+        message: 'Audit job added to queue',
+        businessId: jobData.businessId,
+        url: jobData.url
+      };
+      res.status(200).json(response);
     } catch (error) {
-      logger.error('Error starting website audit job:', error);
-      res.status(500).json({ status: 'error', message: 'Failed to add audit job to queue' });
+      logger.error('Failed to add audit job:', error);
+      const response: AuditResponse = { 
+        status: 'error', 
+        message: 'Failed to add audit job',
+        businessId: req.body.businessId,
+        url: req.body.url
+      };
+      res.status(500).json(response);
     }
   });
 
