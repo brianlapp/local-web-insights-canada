@@ -1,140 +1,129 @@
-import Queue from 'bull';
+import { Queue, Job } from 'bull';
 import { logger } from '../utils/logger.js';
 import { processGridSearch } from './processors/gridSearch.js';
 import { processWebsiteAudit } from './processors/websiteAudit.js';
 import { QUEUE_NAMES, initializeQueues, createQueue } from './config.js';
 import { getRedisClient } from '../config/redis.js';
 
-// Store initialized queues
-const queues: Record<string, Queue.Queue> = {};
+// Define job data interfaces
+interface ScraperJobData {
+  location: string;
+  radius: number;
+  searchTerm?: string;
+  jobId?: string;
+}
+
+interface AuditJobData {
+  businessId: string;
+  url: string;
+  options?: {
+    runLighthouse?: boolean;
+    detectTechnologies?: boolean;
+    takeScreenshots?: boolean;
+    validateOnly?: boolean;
+  };
+}
+
+// Store initialized queues with proper types
+const queues: Record<string, Queue<any>> = {};
 
 // Get a queue by name
-export function getQueue(name: string): Queue.Queue {
+export async function getQueue(name: string): Promise<Queue<any>> {
   // Try to get the queue by name directly
   if (queues[name]) {
     return queues[name];
   }
-  
-  // Try to get the queue by key (case-insensitive)
-  const key = Object.keys(queues).find(k => k.toLowerCase() === name.toLowerCase());
-  if (key) {
-    return queues[key];
-  }
-  
-  // Try to get the queue by value (case-insensitive)
-  const queueKey = Object.entries(QUEUE_NAMES).find(([_, value]) => 
-    value.toLowerCase() === name.toLowerCase()
-  )?.[0];
-  
-  if (queueKey && queues[queueKey]) {
-    return queues[queueKey];
-  }
-  
-  // Log available queues for debugging
-  logger.error('Queue lookup failed. Available queues:', {
-    queueKeys: Object.keys(queues),
-    queueNames: Object.values(QUEUE_NAMES),
-    requestedName: name
-  });
-  
-  throw new Error(`Queue ${name} not found`);
-}
 
-// Queue getters
-export function getScraperQueue(): Queue.Queue {
+  // If not found, try to initialize it
   try {
-    return getQueue(QUEUE_NAMES.SCRAPER);
-  } catch (error: any) {
-    logger.error('Failed to get scraper queue:', error);
-    throw new Error('Scraper queue not available');
-  }
-}
-
-export function getAuditQueue(): Queue.Queue {
-  try {
-    return getQueue(QUEUE_NAMES.AUDIT);
-  } catch (error: any) {
-    logger.error('Failed to get audit queue:', error);
-    throw new Error('Audit queue not available');
-  }
-}
-
-export function getDataProcessingQueue(): Queue.Queue {
-  try {
-    return getQueue(QUEUE_NAMES.DATA_PROCESSING);
-  } catch (error: any) {
-    logger.error('Failed to get data processing queue:', error);
-    throw new Error('Data processing queue not available');
-  }
-}
-
-// Initialize queues
-export async function setupQueues(): Promise<void> {
-  try {
-    // Verify Redis connection first
-    const redis = await getRedisClient();
-    await redis.ping();
-    logger.info('Redis connection verified');
-    
-    // Initialize queues with retry logic
-    let retries = 0;
-    const maxRetries = 3;
-    
-    while (retries < maxRetries) {
-      try {
-        // Initialize all queues
-        await initializeQueues();
-        
-        // Verify that all required queues are available
-        const requiredQueues = Object.values(QUEUE_NAMES);
-        const missingQueues = requiredQueues.filter(name => {
-          try {
-            getQueue(name);
-            return false;
-          } catch {
-            return true;
-          }
-        });
-        
-        if (missingQueues.length > 0) {
-          throw new Error(`Missing required queues: ${missingQueues.join(', ')}`);
-        }
-        
-        logger.info('All queues initialized and verified');
-        
-        // Set up queue processors
-        setupQueueProcessors();
-        
-        return;
-      } catch (error: any) {
-        retries++;
-        logger.error(`Queue initialization attempt ${retries} failed:`, error);
-        
-        if (retries >= maxRetries) {
-          throw error;
-        }
-        
-        // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, 2000 * retries));
-      }
-    }
-  } catch (error: any) {
-    logger.error('Failed to set up queues:', error);
+    const queue = await createQueue(name);
+    queues[name] = queue;
+    return queue;
+  } catch (error) {
+    logger.error(`Failed to get queue ${name}:`, error);
     throw error;
   }
 }
 
-// Set up queue processors
-function setupQueueProcessors(): void {
-  const scraper = getScraperQueue();
-  const audit = getAuditQueue();
+// Queue getters with proper types
+export async function getScraperQueue(): Promise<Queue<ScraperJobData>> {
+  try {
+    return (await getQueue(QUEUE_NAMES.SCRAPER)) as Queue<ScraperJobData>;
+  } catch (error) {
+    logger.error('Failed to get scraper queue:', error);
+    throw error;
+  }
+}
 
-  // Set up processors
-  scraper.process('search-grid', processGridSearch);
-  audit.process('audit-website', processWebsiteAudit);
+export async function getAuditQueue(): Promise<Queue<AuditJobData>> {
+  try {
+    return (await getQueue(QUEUE_NAMES.AUDIT)) as Queue<AuditJobData>;
+  } catch (error) {
+    logger.error('Failed to get audit queue:', error);
+    throw error;
+  }
+}
 
-  logger.info('Queue processors initialized successfully');
+export async function getDataProcessingQueue(): Promise<Queue> {
+  try {
+    return await getQueue(QUEUE_NAMES.DATA_PROCESSING);
+  } catch (error) {
+    logger.error('Failed to get data processing queue:', error);
+    throw error;
+  }
+}
+
+// Initialize queues and set up processors
+export async function setupQueueProcessors(): Promise<void> {
+  try {
+    // Initialize queues
+    await Promise.all([
+      getScraperQueue(),
+      getAuditQueue(),
+      getDataProcessingQueue()
+    ]);
+
+    // Set up processors after queues are initialized
+    const scraperQueue = await getScraperQueue();
+    const auditQueue = await getAuditQueue();
+
+    // Set up processors with proper job options
+    scraperQueue.process(async (job: Job<ScraperJobData>) => {
+      try {
+        await processGridSearch(job);
+      } catch (error) {
+        logger.error('Error processing grid search job:', error);
+        throw error;
+      }
+    });
+
+    auditQueue.process(async (job: Job<AuditJobData>) => {
+      try {
+        await processWebsiteAudit(job);
+      } catch (error) {
+        logger.error('Error processing website audit job:', error);
+        throw error;
+      }
+    });
+
+    logger.info('All queues initialized and processors set up successfully');
+  } catch (error) {
+    logger.error('Failed to initialize queues:', error);
+    throw error;
+  }
 }
 
 // Export queue names for consistency
 export { QUEUE_NAMES };
+
+// Update the job options to use numbers for timeouts
+const jobOptions = {
+  attempts: 3,
+  backoff: {
+    type: 'exponential',
+    delay: 5000
+  },
+  removeOnComplete: true,
+  removeOnFail: false,
+  timeout: 300000 // 5 minutes in milliseconds
+};

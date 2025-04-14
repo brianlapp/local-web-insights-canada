@@ -1,22 +1,49 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
+import { Request, Response } from 'express';
 import Queue from 'bull';
 import { logger } from '../utils/logger.js';
 import { getSupabaseClient } from '../utils/database.js';
 import os from 'os';
 import { getRedisClient } from '../config/redis.js';
 
+// Define request types
+interface StartRequest extends Request {
+  body: {
+    location?: string;
+    jobId?: string;
+  };
+}
+
+interface AuditRequest extends Request {
+  body: {
+    businessId: string;
+    url: string;
+  };
+}
+
+// Define job data types
+interface ScraperJobData {
+  location: string;
+  jobId?: string;
+}
+
+interface AuditJobData {
+  businessId: string;
+  url: string;
+}
+
 export const setupRoutes = (
-  scraperQueue: Queue.Queue | null,
-  auditQueue: Queue.Queue | null,
+  scraperQueue: Queue.Queue<ScraperJobData> | null,
+  auditQueue: Queue.Queue<AuditJobData> | null,
   dataProcessingQueue: Queue.Queue | null
 ) => {
   const router = express.Router();
 
-  router.get('/health', (req: Request, res: Response) => {
+  router.get('/health', (_req: Request, res: Express.Response) => {
     res.json({ status: 'ok' });
   });
 
-  router.get('/api/health', async (req: Request, res: Response) => {
+  router.get('/api/health', async (_req: Request, res: Express.Response) => {
     try {
       const startTime = process.hrtime();
       
@@ -27,13 +54,13 @@ export const setupRoutes = (
       const totalMemory = os.totalmem();
       
       // Check Redis connection
-      let redisStatus = { connected: false, error: null };
+      const redisStatus = { connected: false, error: null as string | null };
       try {
         const redis = await getRedisClient();
         await redis.ping();  // Actually test the connection
         redisStatus.connected = true;
-      } catch (error: any) {
-        redisStatus.error = error.message;
+      } catch (error: unknown) {
+        redisStatus.error = error instanceof Error ? error.message : 'Unknown error';
       }
       
       // Test database connection
@@ -78,18 +105,18 @@ export const setupRoutes = (
       
       // Always return 200 OK to prevent service disruption
       res.json(healthData);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Health check failed', error);
       // Still return 200 OK with error details
       res.json({
         status: 'degraded',
-        error: error.message || 'Internal server error',
+        error: error instanceof Error ? error.message : 'Internal server error',
         timestamp: new Date().toISOString()
       });
     }
   });
 
-  router.get('/start', async (req: Request, res: Response) => {
+  router.get('/start', async (_req: Request, res: Express.Response) => {
     if (!scraperQueue) {
       return res.status(503).json({ 
         status: 'error', 
@@ -106,7 +133,7 @@ export const setupRoutes = (
     }
   });
 
-  router.post('/start', async (req: Request, res: Response) => {
+  router.post('/start', async (req: StartRequest, res: Express.Response) => {
     if (!scraperQueue) {
       return res.status(503).json({ 
         status: 'error', 
@@ -117,11 +144,12 @@ export const setupRoutes = (
     try {
       const { location, jobId } = req.body;
       
-      // Add job to queue
-      await scraperQueue.add('search-grid', {
+      // Add job to queue with proper typing
+      const jobData: ScraperJobData = {
         location: location || 'Ottawa',
         jobId
-      });
+      };
+      await scraperQueue.add('search-grid', jobData);
       
       res.status(200).json({ status: 'ok', message: 'Scraping job added to queue', jobId });
     } catch (error) {
@@ -130,7 +158,7 @@ export const setupRoutes = (
     }
   });
 
-  router.post('/audit', async (req: Request, res: Response) => {
+  router.post('/audit', async (req: AuditRequest, res: Express.Response) => {
     if (!auditQueue) {
       return res.status(503).json({ 
         status: 'error', 
@@ -148,11 +176,12 @@ export const setupRoutes = (
         });
       }
       
-      // Add audit job to queue
-      await auditQueue.add('audit-website', {
+      // Add audit job to queue with proper typing
+      const jobData: AuditJobData = {
         businessId,
         url
-      });
+      };
+      await auditQueue.add('audit-website', jobData);
       
       res.status(200).json({ 
         status: 'ok', 
