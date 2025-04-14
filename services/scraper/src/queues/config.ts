@@ -1,4 +1,4 @@
-import Redis from 'ioredis';
+const Redis = require('ioredis');
 const Bull = require('bull');
 import type { Queue as BullQueue, QueueOptions, Job } from 'bull';
 import { RedisOptions } from 'ioredis';

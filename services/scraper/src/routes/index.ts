@@ -181,6 +181,7 @@ export const setupRoutes = (
       // Still return 200 OK with error details
       res.json({
         status: 'degraded',
+        message: error instanceof Error ? error.message : 'Health check failed with unknown error',
         version: process.env.npm_package_version || 'unknown',
         environment: process.env.NODE_ENV || 'development',
         timestamp: new Date().toISOString(),
@@ -239,18 +240,17 @@ export const setupRoutes = (
     }
 
     try {
-      const jobData = {
-        businessId: req.body.businessId,
-        url: req.body.url,
+      const jobData: ScraperJobData = {
         searchTerm: req.body.searchTerm,
         location: 'default',
         radius: 0
+        // jobId can be added if needed, e.g., from req.body or generated
       };
       await scraperQueue.add(jobData, jobOptions);
       const response: ScraperResponse = { 
         status: 'ok', 
-        message: 'Scraping job added to queue', 
-        jobId: jobData.businessId 
+        message: 'Scraping job added to queue'
+        // Consider adding jobId to the response if useful
       };
       res.status(200).json(response);
     } catch (error) {
