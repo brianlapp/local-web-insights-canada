@@ -79,28 +79,14 @@ export const startScraper = async (location: string): Promise<ScraperJob> => {
       try {
         console.log(`Calling scraper API at ${SCRAPER_API_BASE_URL}/start for location: ${location}`);
         
-        // Log everything for debugging
-        console.log(`Calling scraper API at ${SCRAPER_API_BASE_URL}/start for location: ${location} with jobId: ${data.id}`);
-        
-        // First check if the API is available
-        try {
-          const healthResponse = await fetch(`${SCRAPER_API_BASE_URL}/health`);
-          if (!healthResponse.ok) {
-            console.error('API health check failed before making request');
-            throw new Error('Scraper API is not available');
-          }
-          console.log('API health check passed, proceeding with request');
-        } catch (healthError) {
-          console.error('Failed to check API health:', healthError);
-        }
+        // Simplified logging to avoid build issues
+        console.log(`Calling scraper API at ${SCRAPER_API_BASE_URL}/start for location: ${location}`);
         
         const requestBody = {
           location: location,
           jobId: data.id,
           searchTerm: ''
         };
-        
-        console.log('Sending request with body:', requestBody);
         
         const response = await fetch(`${SCRAPER_API_BASE_URL}/start`, {
           method: 'POST',
