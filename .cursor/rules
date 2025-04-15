@@ -323,17 +323,28 @@ alwaysApply: true
 
 ## Known Challenges
 
-1. **Module Compatibility Issues**
-   - Lighthouse has ESM vs CommonJS module import issues
-   - Error: "lighthouse is not a function" when running in development mode
-   - Need solution for proper module imports in TypeScript
+1. **ESM/CommonJS Module Compatibility (SOLVED)**
+   - When using ESM modules ("type": "module" in package.json), follow these rules:
+   - All relative imports must include file extensions (.js, not .ts)
+   - Bull must be imported as `import * as Bull from 'bull'` and used as `new Bull.default()`
+   - Use dynamic imports for older libraries that don't properly support ESM
+   - Set TypeScript config to use "module": "NodeNext" and "moduleResolution": "NodeNext"
+   - Use the `@ts-ignore` comment for constructor signatures when necessary
 
 2. **Development vs Production Mode**
-   - Currently running in development mode for quick iteration
-   - Need to implement production build process for performance
-   - Need to resolve TypeScript build issues with module imports
+   - Successfully running in production mode on Railway
+   - Production build process is working with TypeScript compilation
+   - Need to continue monitoring for performance optimizations
 
 3. **Environment Variable Access**
    - Services need proper environment variable configuration
    - Docker-compose and individual services have separate env files
    - Correct path mapping in docker-compose.yml is essential
+   
+4. **Railway Deployment**
+   - Railway deployment is now working successfully
+   - Health check endpoint at /api/health is essential for deployment
+   - Railway requires proper ESM module configuration
+   - Use "npm run build" script for typechecking and compilation
+   - Service runs in production mode with ESM modules
+   - Build errors must be addressed at their root cause, not with workarounds

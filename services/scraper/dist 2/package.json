@@ -1,0 +1,55 @@
+{
+  "name": "local-web-insights-scraper",
+  "version": "1.0.0",
+  "description": "Business discovery and website audit service for LocalWebsiteAudit.ca",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "clean": "rm -rf dist",
+    "prebuild": "npm run clean",
+    "build": "tsc --skipLibCheck",
+    "postbuild": "cp package.json dist/ && ls -la dist/ && node verify-build.js",
+    "prestart": "node -e \"console.log('=== Environment Check ===\\nCWD:', process.cwd(), '\\nFiles:', require('fs').readdirSync('dist'), '\\nNode:', process.version)\"",
+    "start": "node --experimental-specifier-resolution=node dist/index.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^7.9.0",
+    "@googlemaps/google-maps-services-js": "^3.3.42",
+    "@supabase/supabase-js": "^2.39.7",
+    "bull": "^4.12.2",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.3",
+    "ioredis": "^5.6.0",
+    "lighthouse": "^11.6.0",
+    "puppeteer": "^22.4.1",
+    "winston": "^3.12.0"
+  },
+  "devDependencies": {
+    "@jest/types": "^29.6.3",
+    "@types/bull": "^4.10.0",
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.24",
+    "@types/node-fetch": "^2.6.12",
+    "@types/puppeteer": "^7.0.0",
+    "@types/supertest": "^6.0.2",
+    "@typescript-eslint/eslint-plugin": "^7.1.1",
+    "@typescript-eslint/parser": "^7.1.1",
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.4",
+    "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
