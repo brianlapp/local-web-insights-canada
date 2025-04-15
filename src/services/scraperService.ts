@@ -79,7 +79,29 @@ export const startScraper = async (location: string): Promise<ScraperJob> => {
       try {
         console.log(`Calling scraper API at ${SCRAPER_API_BASE_URL}/start for location: ${location}`);
         
-        // Simplified logging to avoid build issues
+        // First try the test endpoint to see if basic API is working
+        console.log(`First trying test endpoint at ${SCRAPER_API_BASE_URL}/test-start`);
+        
+        const testResponse = await fetch(`${SCRAPER_API_BASE_URL}/test-start`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${sessionData.session.access_token}`
+          },
+          body: JSON.stringify({
+            location: location,
+            jobId: data.id,
+            test: true
+          }),
+        });
+        
+        if (!testResponse.ok) {
+          console.error('Test endpoint failed:', await testResponse.text());
+        } else {
+          console.log('Test endpoint worked!', await testResponse.json());
+        }
+        
+        // Now try the real endpoint
         console.log(`Calling scraper API at ${SCRAPER_API_BASE_URL}/start for location: ${location}`);
         
         const requestBody = {

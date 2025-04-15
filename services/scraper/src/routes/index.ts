@@ -112,6 +112,19 @@ export const setupRoutes = (
       res.status(500).json(response);
     }
   });
+  
+  // Add a simple test endpoint that doesn't use the queue
+  router.post('/test-start', (req: Request, res: Response) => {
+    console.log('TEST-START ENDPOINT CALLED');
+    console.log('TEST-START BODY:', JSON.stringify(req.body, null, 2));
+    
+    // Just return success without doing anything
+    res.status(200).json({
+      status: 'ok',
+      message: 'Test endpoint called successfully',
+      receivedData: req.body
+    });
+  });
 
   router.get('/api/health', async (_req: Request, res: Response<HealthCheckResponse>) => {
     try {
@@ -231,19 +244,19 @@ export const setupRoutes = (
   });
 
   router.post('/start', async (req: Request, res: Response<ScraperResponse>) => {
-    if (!scraperQueue) {
-      logger.error('Scraper queue not available');
-      res.status(503).json({ 
-        status: 'error', 
-        message: 'Scraper queue not available' 
-      });
-      return;
-    }
-
+    // Log entire request body for debugging
+    console.log('START REQUEST BODY:', JSON.stringify(req.body, null, 2));
+    
     try {
-      // Log the basic request info
-      logger.info('Received start request with location:', req.body.location);
-      
+      if (!scraperQueue) {
+        logger.error('Scraper queue not available');
+        res.status(503).json({ 
+          status: 'error', 
+          message: 'Scraper queue not available' 
+        });
+        return;
+      }
+
       // Get location and jobId from request
       const { location, jobId } = req.body;
       
@@ -257,39 +270,41 @@ export const setupRoutes = (
         return;
       }
       
-      // Prepare job data with proper parameters
-      const jobData: ScraperJobData = {
+      // Create a very simple job with minimal data
+      const jobData = {
         location: location,
-        radius: 50, // Default radius in km
-        searchTerm: req.body.searchTerm || '',
-        jobId: jobId || undefined
+        radius: 50, 
+        searchTerm: '',
+        jobId: jobId
       };
       
-      logger.info(`Adding scraper job for location: ${location}`, { jobData });
+      console.log('ADDING JOB:', JSON.stringify(jobData));
       
+      // Add job to queue with a try/catch specifically for this operation
       try {
-        // Add job to queue
-        const job = await scraperQueue.add(jobData, jobOptions);
+        const job = await scraperQueue.add(jobData);
+        console.log('JOB ADDED SUCCESSFULLY:', job.id);
         
-        const response: ScraperResponse = { 
+        res.status(200).json({ 
           status: 'ok', 
           message: 'Scraping job added to queue',
           jobId: job.id.toString()
-        };
-        
-        logger.info('Scraper job added successfully', { jobId: job.id });
-        res.status(200).json(response);
+        });
       } catch (queueError) {
-        logger.error('Error adding job to queue:', queueError);
-        throw queueError;
+        // Specifically log queue errors
+        console.error('QUEUE ERROR:', queueError);
+        res.status(500).json({ 
+          status: 'error', 
+          message: 'Error adding job to queue'
+        });
       }
     } catch (error) {
-      logger.error('Failed to add scraping job:', error);
-      const response: ScraperResponse = { 
+      // Log any other errors
+      console.error('START ENDPOINT ERROR:', error);
+      res.status(500).json({ 
         status: 'error', 
-        message: error instanceof Error ? error.message : 'Failed to add scraping job'
-      };
-      res.status(500).json(response);
+        message: 'Failed to add scraping job'
+      });
     }
   });
 
