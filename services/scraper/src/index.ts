@@ -28,7 +28,7 @@ const port = process.env.PORT || 3000;
 
 // Health check endpoint - MUST be first, before any middleware or initialization
 app.get('/health', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'ok' });
+  res.status(200).json({ status: 'ok', message: 'Service is healthy' });
 });
 
 // Add this at the very top of the file
