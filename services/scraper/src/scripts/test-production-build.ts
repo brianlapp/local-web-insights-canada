@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js';
 
 // Configuration
 const SERVICE_URL = process.env.SERVICE_URL || 'http://localhost:3000';
