@@ -1,6 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
-import { Storage } from '@google-cloud/storage';
+// Import google cloud storage dynamically to avoid build errors
+// import { Storage } from '@google-cloud/storage';
 import { logger } from './logger.js';
+// Define Storage type for better type safety
+type Storage = any;
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -36,10 +39,16 @@ export const initializeStorage = () => {
       
       fs.writeFileSync(credentialsPath, gcsCredentials);
       
-      // Initialize GCS with the credentials file
-      storage = new Storage({
-        keyFilename: credentialsPath
-      });
+      // Use try-catch for dynamic import
+      try {
+        // We'll initialize this lazily when needed instead of at startup
+        logger.info(`GCS credentials prepared for bucket: ${gcsBucketName}`);
+        // Store the credentials path for later use
+        process.env.GCS_CREDENTIALS_PATH = credentialsPath;
+      } catch (err) {
+        logger.error('Failed to prepare GCS storage:', err);
+        storage = null;
+      }
       
       logger.info(`GCS storage initialized with bucket: ${gcsBucketName}`);
     } catch (error) {
@@ -86,11 +95,28 @@ const uploadToGCS = async (
   screenshotPath: string
 ): Promise<string | null> => {
   try {
-    if (!storage || !gcsBucketName) {
-      throw new Error('GCS storage not initialized');
+    if (!gcsBucketName) {
+      throw new Error('GCS bucket name not set');
     }
     
-    const bucket = storage.bucket(gcsBucketName);
+    // Get the credentials path
+    const credentialsPath = process.env.GCS_CREDENTIALS_PATH;
+    if (!credentialsPath) {
+      throw new Error('GCS credentials path not set');
+    }
+    
+    // Dynamically import the Storage module
+    // Using eval to avoid TypeScript errors at build time
+    // This code will only run at runtime if GCS is configured
+    const gcsModule = await eval('import("@google-cloud/storage")');
+    const Storage = gcsModule.Storage;
+    
+    // Initialize storage with credentials
+    const gcsStorage = new Storage({
+      keyFilename: credentialsPath
+    });
+    
+    const bucket = gcsStorage.bucket(gcsBucketName);
     const fileName = `screenshots/${businessId}/${screenshotType}_${Date.now()}.png`;
     
     await bucket.upload(screenshotPath, {

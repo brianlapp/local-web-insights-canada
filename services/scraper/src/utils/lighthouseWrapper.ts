@@ -15,9 +15,8 @@ import { Page } from 'puppeteer';
 // import type { LH } from 'lighthouse';
 import { logger } from './logger.js';
 
-// Type for the lighthouse function, assuming dynamic import
-// We'll use 'any' for now to avoid complex type issues with dynamic imports
-type LighthouseFunction = (url?: string, flags?: any, config?: any, page?: Page) => Promise<any | undefined>;
+// Type for the lighthouse function with more generic types to avoid conflicts
+type LighthouseFunction = (url?: string, flags?: any, config?: any, page?: any) => Promise<any | undefined>;
 
 /**
  * Load Lighthouse module using different approaches
@@ -44,26 +43,25 @@ async function getLighthouse(): Promise<LighthouseFunction> {
       logger.warn(`Dynamic import failed: ${err instanceof Error ? err.message : String(err)}`);
     }
     
-    // Fall back to CommonJS require
-    logger.info('Trying CommonJS require for Lighthouse');
+    // Fall back to dynamic import with different approach
+    logger.info('Trying alternative dynamic import for Lighthouse');
     try {
-      // @ts-ignore - Ignore TypeScript warning about require
-      const lighthouse = require('lighthouse');
-      logger.info(`Lighthouse from require type: ${typeof lighthouse}`);
+      const lighthouseModule = await import('lighthouse');
+      const lighthouse = lighthouseModule.default || lighthouseModule;
+      logger.info(`Lighthouse from alternative import type: ${typeof lighthouse}`);
       
       if (typeof lighthouse === 'function') {
-        logger.info('Using Lighthouse from CommonJS require');
+        logger.info('Using Lighthouse from alternative import');
         return lighthouse;
       }
     } catch (err) {
-      logger.error(`CommonJS require failed: ${err instanceof Error ? err.message : String(err)}`);
+      logger.error(`Alternative import failed: ${err instanceof Error ? err.message : String(err)}`);
     }
     
-    // Try requiring chrome-launcher separately (often needed with Lighthouse)
+    // Try loading chrome-launcher separately via dynamic import
     try {
       logger.info('Trying to load chrome-launcher');
-      // @ts-ignore
-      const chromeLauncher = require('chrome-launcher');
+      const chromeLauncherModule = await import('chrome-launcher');
       logger.info('Chrome launcher loaded successfully');
     } catch (err) {
       logger.warn(`Failed to load chrome-launcher: ${err instanceof Error ? err.message : String(err)}`);

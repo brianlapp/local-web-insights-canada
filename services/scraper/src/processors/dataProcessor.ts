@@ -1,6 +1,6 @@
 import { logger } from '../utils/logger.js';
 import { getSupabaseClient, markRawBusinessDataProcessed, saveBusiness } from '../utils/database.js';
-const Bull = require('bull');
+import * as Bull from 'bull';
 import Redis from 'ioredis';
 import type { Queue, Job } from 'bull';
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -62,7 +62,8 @@ export async function setupDataProcessingQueue() {
   // Create a Redis client factory for this queue
   const redisClientFactory = createRedisClientFactory();
   
-  const queue = new Bull(DATA_PROCESSING_QUEUE, {
+  // @ts-ignore - Fix for ESM compatibility
+  const queue = new Bull.default(DATA_PROCESSING_QUEUE, {
     createClient: (type: 'client' | 'subscriber' | 'bclient') => redisClientFactory(type),
     defaultJobOptions: {
       ...QUEUE_CONFIG.defaultJobOptions,

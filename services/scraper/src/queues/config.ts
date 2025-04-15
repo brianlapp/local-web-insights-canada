@@ -1,5 +1,5 @@
 import Redis from 'ioredis';
-const Bull = require('bull');
+import * as Bull from 'bull';
 import type { Queue as BullQueue, QueueOptions, Job } from 'bull';
 import { RedisOptions } from 'ioredis';
 import { logger } from '../utils/logger.js';
@@ -187,7 +187,8 @@ const setupQueueEventHandlers = (queue: BullQueue, queueName: string) => {
 export const createQueue = <T = any>(name: string, options: QueueOptions = {}): BullQueue<T> => {
   const redisClientFactory = createRedisClientFactory();
   
-  const queue = new Bull(name, {
+  // @ts-ignore - Fix for ESM compatibility
+  const queue = new Bull.default(name, {
     createClient: (type: 'client' | 'subscriber' | 'bclient') => {
       return redisClientFactory(type);
     },
