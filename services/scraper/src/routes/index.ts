@@ -241,13 +241,11 @@ export const setupRoutes = (
     }
 
     try {
-      // Log the entire request for debugging
+      // Log the request details for debugging
       logger.info('Received start request with body:', { 
         body: req.body,
-        headers: {
-          contentType: req.headers['content-type'],
-          auth: req.headers['authorization'] ? 'Present' : 'Missing'
-        }
+        hasAuth: req.get('authorization') ? 'Present' : 'Missing',
+        contentType: req.get('content-type')
       });
       
       // Get location and jobId from request

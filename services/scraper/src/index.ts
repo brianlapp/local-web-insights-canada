@@ -149,16 +149,7 @@ async function initializeServices() {
     logger.info('Routes initialized with path prefix /api');
     
     // Add a debug console log showing all registered routes
-    const routes = [];
-    router.stack.forEach(function(middleware){
-      if(middleware.route){ // routes registered directly on the app
-        routes.push({
-          path: middleware.route.path,
-          methods: Object.keys(middleware.route.methods)
-        });
-      }
-    });
-    logger.info('Registered routes:', { routes });
+    logger.info('Routes initialized with path prefix /api');
   } catch (error) {
     logger.error('Failed to initialize routes:', error);
     // Don't exit - continue with basic endpoints
