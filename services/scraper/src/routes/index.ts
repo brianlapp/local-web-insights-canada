@@ -232,6 +232,7 @@ export const setupRoutes = (
 
   router.post('/start', async (req: Request, res: Response<ScraperResponse>) => {
     if (!scraperQueue) {
+      logger.error('Scraper queue not available');
       res.status(503).json({ 
         status: 'error', 
         message: 'Scraper queue not available' 
@@ -240,11 +241,21 @@ export const setupRoutes = (
     }
 
     try {
+      // Log the entire request for debugging
+      logger.info('Received start request with body:', { 
+        body: req.body,
+        headers: {
+          contentType: req.headers['content-type'],
+          auth: req.headers['authorization'] ? 'Present' : 'Missing'
+        }
+      });
+      
       // Get location and jobId from request
       const { location, jobId } = req.body;
       
       // Validate required parameters
       if (!location) {
+        logger.warn('Missing location parameter in request');
         res.status(400).json({
           status: 'error',
           message: 'Location is required'
@@ -262,16 +273,22 @@ export const setupRoutes = (
       
       logger.info(`Adding scraper job for location: ${location}`, { jobData });
       
-      // Add job to queue
-      const job = await scraperQueue.add(jobData, jobOptions);
-      
-      const response: ScraperResponse = { 
-        status: 'ok', 
-        message: 'Scraping job added to queue',
-        jobId: job.id.toString()
-      };
-      
-      res.status(200).json(response);
+      try {
+        // Add job to queue
+        const job = await scraperQueue.add(jobData, jobOptions);
+        
+        const response: ScraperResponse = { 
+          status: 'ok', 
+          message: 'Scraping job added to queue',
+          jobId: job.id.toString()
+        };
+        
+        logger.info('Scraper job added successfully', { jobId: job.id });
+        res.status(200).json(response);
+      } catch (queueError) {
+        logger.error('Error adding job to queue:', queueError);
+        throw queueError;
+      }
     } catch (error) {
       logger.error('Failed to add scraping job:', error);
       const response: ScraperResponse = { 
