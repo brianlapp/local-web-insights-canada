@@ -55,10 +55,19 @@ export async function processGridSearch(job: Job) {
         
         // Update business count in job
         if (jobId) {
+          // Update business count directly without using RPC
+          const { data: currentRun } = await supabase
+            .from('scraper_runs')
+            .select('businessesfound')
+            .eq('id', jobId)
+            .single();
+            
+          const currentCount = currentRun?.businessesfound || 0;
+          
           await supabase
             .from('scraper_runs')
             .update({ 
-              businessesfound: supabase.rpc('increment_counter', { row_id: jobId, count: 1 })
+              businessesfound: currentCount + 1
             })
             .eq('id', jobId);
         }

@@ -78,6 +78,8 @@ export const startScraper = async (location: string): Promise<ScraperJob> => {
       try {
         console.log(`Calling scraper API at ${SCRAPER_API_BASE_URL}/start for location: ${location}`);
         
+        console.log(`Calling scraper API at ${SCRAPER_API_BASE_URL}/start for location: ${location} with jobId: ${data.id}`);
+        
         const response = await fetch(`${SCRAPER_API_BASE_URL}/start`, {
           method: 'POST',
           headers: {
@@ -85,8 +87,9 @@ export const startScraper = async (location: string): Promise<ScraperJob> => {
             'Authorization': `Bearer ${sessionData.session.access_token}`
           },
           body: JSON.stringify({
-            location,
-            jobId: data.id
+            location: location,
+            jobId: data.id,
+            searchTerm: ''
           }),
         });
 
@@ -94,13 +97,31 @@ export const startScraper = async (location: string): Promise<ScraperJob> => {
           let errorMessage = 'Failed to start scraper';
           
           try {
+            // Try to parse response as JSON
             const errorData = await response.json();
             console.error('API error starting scraper:', errorData);
             errorMessage = errorData.message || errorMessage;
+            
+            // Log more detailed error info
+            console.error('Full error details:', {
+              status: response.status,
+              statusText: response.statusText,
+              url: response.url,
+              errorData
+            });
           } catch (parseError) {
             console.error('Could not parse error response:', parseError);
-            // Use status text if the response isn't valid JSON
-            errorMessage = `API error (${response.status}): ${response.statusText}`;
+            
+            // Try to get the raw text if JSON parsing failed
+            try {
+              const textResponse = await response.text();
+              console.error('Raw error response:', textResponse);
+              errorMessage = `API error (${response.status}): ${textResponse || response.statusText}`;
+            } catch (textError) {
+              // Use status text if we can't get any response content
+              console.error('Failed to get error text:', textError);
+              errorMessage = `API error (${response.status}): ${response.statusText}`;
+            }
           }
           
           // Update the job status to failed

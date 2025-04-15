@@ -240,24 +240,43 @@ export const setupRoutes = (
     }
 
     try {
+      // Get location and jobId from request
+      const { location, jobId } = req.body;
+      
+      // Validate required parameters
+      if (!location) {
+        res.status(400).json({
+          status: 'error',
+          message: 'Location is required'
+        });
+        return;
+      }
+      
+      // Prepare job data with proper parameters
       const jobData: ScraperJobData = {
-        searchTerm: req.body.searchTerm,
-        location: 'default',
-        radius: 0
-        // jobId can be added if needed, e.g., from req.body or generated
+        location: location,
+        radius: 50, // Default radius in km
+        searchTerm: req.body.searchTerm || '',
+        jobId: jobId || undefined
       };
-      await scraperQueue.add(jobData, jobOptions);
+      
+      logger.info(`Adding scraper job for location: ${location}`, { jobData });
+      
+      // Add job to queue
+      const job = await scraperQueue.add(jobData, jobOptions);
+      
       const response: ScraperResponse = { 
         status: 'ok', 
-        message: 'Scraping job added to queue'
-        // Consider adding jobId to the response if useful
+        message: 'Scraping job added to queue',
+        jobId: job.id.toString()
       };
+      
       res.status(200).json(response);
     } catch (error) {
       logger.error('Failed to add scraping job:', error);
       const response: ScraperResponse = { 
         status: 'error', 
-        message: 'Failed to add scraping job' 
+        message: error instanceof Error ? error.message : 'Failed to add scraping job'
       };
       res.status(500).json(response);
     }

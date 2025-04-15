@@ -22,7 +22,7 @@ watchPatterns = [
 
 # Service dependencies - let Railway handle the connection details
 [services]
-redis = "services/redis"
+redis = "redis"
 
 [variables]
 NODE_ENV = "production"
