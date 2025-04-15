@@ -1,4 +1,4 @@
-const Redis = require('ioredis');
+import Redis from 'ioredis';
 const Bull = require('bull');
 import type { Queue as BullQueue, QueueOptions, Job } from 'bull';
 import { RedisOptions } from 'ioredis';
@@ -85,7 +85,7 @@ export const createRedisClientFactory = () => {
   // Return a factory function that creates a new Redis client for each type
   return (type: 'client' | 'subscriber' | 'bclient') => {
     logger.info(`Creating new Redis client for Bull queue (type: ${type})`);
-    const client = new Redis(REDIS_URL, options);
+    const client = new (Redis as any)(REDIS_URL, options);
     
     // Add event listeners for better monitoring
     client.on('connect', () => {
