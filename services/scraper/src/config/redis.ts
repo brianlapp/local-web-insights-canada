@@ -74,7 +74,7 @@ export async function getRedisClient(): Promise<RedisType> {
   
   try {
     // Create Redis client instance
-    const redis = new Redis(REDIS_URL, options);
+    const redis = new (Redis as any)(REDIS_URL, options);
 
     // Add event listeners for better monitoring
     redis.on('connect', () => {
