@@ -1,4 +1,4 @@
-import Redis from 'ioredis';
+import { default as Redis } from 'ioredis';
 import type { Redis as RedisType, RedisOptions } from 'ioredis';
 import { logger } from '../utils/logger.js';
 
