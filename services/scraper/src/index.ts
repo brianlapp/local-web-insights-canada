@@ -429,23 +429,17 @@ app.post('/direct-start', (req: Request, res: Response) => {
 
 // Add a fallback 404 handler with more diagnostic info
 app.use((req: Request, res: Response) => {
-  // Log detailed request info
-  logger.warn(`Route not found: ${req.method} ${req.path}`, {
-    headers: req.headers,
+  // Log detailed request info without relying on potentially missing properties
+  logger.warn(`Route not found: ${req.method}`, {
     query: req.query,
     body: req.method !== 'GET' ? req.body : undefined,
-    url: req.url,
-    originalUrl: req.originalUrl,
-    path: req.path
   });
   
   res.status(404).json({
     error: 'Not Found',
-    message: `The requested endpoint does not exist: ${req.method} ${req.path}`,
+    message: `The requested endpoint does not exist: ${req.method}`,
     request: {
-      method: req.method,
-      path: req.path,
-      url: req.url
+      method: req.method
     },
     availableRoutes: [
       'GET /health',
