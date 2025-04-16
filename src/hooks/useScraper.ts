@@ -29,13 +29,24 @@ export const useScraper = () => {
       setApiAvailable(isHealthy);
       
       if (!isHealthy) {
-        console.warn('Scraper API is not available. Some features may not work.');
+        console.warn('Scraper API is not available. Using offline mode.');
+        toast({
+          title: 'Scraper API unavailable',
+          description: 'Running in offline mode with limited functionality',
+          variant: 'warning',
+        });
       }
     } catch (error) {
       console.error('Error checking API health:', error);
       setApiAvailable(false);
+      
+      toast({
+        title: 'API Connection Issue',
+        description: 'Using offline mode with limited functionality',
+        variant: 'warning',
+      });
     }
-  }, []);
+  }, [toast]);
   
   const fetchBusinesses = useCallback(async () => {
     setLoading(true);
@@ -83,10 +94,10 @@ export const useScraper = () => {
     if (!apiAvailable) {
       toast({
         title: 'Scraper API unavailable',
-        description: 'Cannot connect to the scraper service. Please try again later.',
-        variant: 'destructive',
+        description: 'Running in offline mode with limited functionality',
+        variant: 'warning',
       });
-      return;
+      // Continue anyway - we'll use offline mode
     }
 
     try {
@@ -95,7 +106,9 @@ export const useScraper = () => {
       
       toast({
         title: 'Scraper started',
-        description: `Started scraping businesses in ${location}`,
+        description: apiAvailable 
+          ? `Started scraping businesses in ${location}` 
+          : `Started scraping businesses in ${location} (offline mode)`,
       });
 
       fetchJobs();

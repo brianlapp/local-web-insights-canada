@@ -1,0 +1,22 @@
+# Railway configuration for Scraper Service
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm install && npm run build"
+
+[deploy]
+runtime = "V2"
+numReplicas = 1
+startCommand = "node --experimental-specifier-resolution=node dist/index.js"
+healthcheckPath = "/health"
+sleepApplication = false
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+[services]
+redis = "redis"
+supabase = "postgres"
+
+[variables]
+NODE_ENV = "production"
+PORT = "8080"
+LOG_LEVEL = "info"

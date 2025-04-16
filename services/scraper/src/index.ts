@@ -1,4 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
+
+// We don't need this declaration anymore
 import dotenv from 'dotenv';
 import { logger } from './utils/logger.js';
 import { setupRoutes } from './routes/index.js';
@@ -23,12 +25,35 @@ declare global {
 // Load environment variables
 dotenv.config();
 
+// Create a separate debug app for diagnostics
+const debugApp = express();
+debugApp.get('/', (req, res) => {
+  res.send('Debug server working');
+});
+debugApp.listen(process.env.PORT ? parseInt(process.env.PORT) + 1 : 3001, () => {
+  console.log(`Debug server listening on port ${process.env.PORT ? parseInt(process.env.PORT) + 1 : 3001}`);
+});
+
 const app = express();
 const port = process.env.PORT || 3000;
 
 // Health check endpoint - MUST be first, before any middleware or initialization
 app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', message: 'Service is healthy' });
+});
+
+// Add a super-simple debug endpoint that doesn't rely on anything
+app.get('/super-debug', (_req: Request, res: Response) => {
+  // Include check for Google Places API key
+  const hasGoogleKey = !!process.env.GOOGLE_PLACES_API_KEY;
+  
+  res.status(200).json({ 
+    status: 'ok', 
+    message: 'Super debug endpoint is working',
+    environment: process.env.NODE_ENV,
+    hasGoogleKey,
+    time: new Date().toISOString()
+  });
 });
 
 // Add this at the very top of the file
@@ -274,9 +299,20 @@ app.get('/test-redis-connection', async (req: Request, res: Response) => {
 });
 
 // Error handling middleware
-app.use((req: Request, res: Response, next: NextFunction) => {
-  logger.error('Unhandled error:', req.error);
-  res.status(500).json({ error: 'Internal server error' });
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  // Log detailed error information
+  logger.error('Detailed error:', {
+    message: err.message,
+    stack: err.stack,
+    method: req.method,
+    // Only log body for non-GET requests
+    body: req.method !== 'GET' ? req.body : undefined
+  });
+  
+  // Send a more helpful response
+  res.status(500).json({ 
+    error: err.message || 'Internal server error'
+  });
 });
 
 // Start server with detailed error handling
@@ -323,5 +359,31 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
   logger.error('=== UNHANDLED REJECTION ===');
   logger.error('Unhandled rejection at:', promise);
   logger.error('Reason:', reason);
+  if (reason instanceof Error) {
+    logger.error('Error name:', reason.name);
+    logger.error('Error message:', reason.message);
+    logger.error('Stack trace:', reason.stack);
+  } else {
+    logger.error('Non-Error reason type:', typeof reason);
+    logger.error('String representation:', String(reason));
+  }
   logger.error('=== END UNHANDLED REJECTION ===');
+});
+
+// Add a fallback 404 handler
+app.use((req: Request, res: Response) => {
+  logger.warn(`Route not found: ${req.method}`);
+  res.status(404).json({
+    error: 'Not Found',
+    message: `The requested endpoint does not exist`,
+    availableRoutes: [
+      'GET /health',
+      'GET /api/health',
+      'GET /api/test-basic',
+      'GET /api/test-places-api',
+      'POST /api/test-start',
+      'POST /api/start',
+      'POST /api/audit'
+    ]
+  });
 });

@@ -15,6 +15,8 @@ interface ScraperResponse {
   status: string;
   message: string;
   jobId?: string;
+  error?: string;
+  status_code?: string;
 }
 
 interface AuditResponse {
@@ -113,6 +115,67 @@ export const setupRoutes = (
     }
   });
   
+  // Super simple test endpoint that can't fail
+  router.get('/test-minimal', (_req: Request, res: Response) => {
+    res.json({ status: 'ok' });
+  });
+  
+  // Test the Google Places API key
+  router.get('/test-places-api', async (req: Request, res: Response) => {
+    try {
+      // Get your Google API key from environment - support both environment variable names
+      const apiKey = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEYS;
+      
+      console.log('Testing Places API, key exists:', !!apiKey);
+      
+      if (!apiKey) {
+        return res.status(500).json({ 
+          error: 'Google Places/Maps API key not configured',
+          keyExists: false,
+          availableEnvVars: Object.keys(process.env).filter(key => key.includes('GOOGLE'))
+        });
+      }
+      
+      // Make a simple test call to the Places API
+      const testUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=Museum%20of%20Contemporary%20Art%20Australia&inputtype=textquery&fields=name,rating&key=${apiKey}`;
+      
+      console.log('Making test request to Places API');
+      
+      // Use node-fetch or your preferred HTTP client
+      const response = await fetch(testUrl);
+      const data = await response.json();
+      
+      // Check if the response indicates an error with the API key
+      const hasApiError = data.status === 'REQUEST_DENIED' || 
+                          data.error_message?.includes('API key');
+      
+      if (hasApiError) {
+        console.error('Places API key error:', data);
+        return res.json({
+          status: 'error',
+          keyExists: true,
+          keyValid: false,
+          message: data.error_message || 'API key error'
+        });
+      }
+      
+      // Success response
+      return res.json({
+        status: 'success',
+        keyExists: true,
+        keyValid: true,
+        apiStatus: data.status
+      });
+    } catch (error) {
+      console.error('Places API test failed:', error);
+      return res.status(500).json({ 
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        keyExists: !!process.env.GOOGLE_PLACES_API_KEY
+      });
+    }
+  });
+  
   // Add a simple test endpoint that doesn't use the queue
   router.post('/test-start', (req: Request, res: Response) => {
     console.log('TEST-START ENDPOINT CALLED');
@@ -126,7 +189,7 @@ export const setupRoutes = (
     });
   });
 
-  router.get('/api/health', async (_req: Request, res: Response<HealthCheckResponse>) => {
+  router.get('/health-detailed', async (_req: Request, res: Response<HealthCheckResponse>) => {
     try {
       const startTime = process.hrtime();
       
@@ -244,8 +307,12 @@ export const setupRoutes = (
   });
 
   router.post('/start', async (req: Request, res: Response<ScraperResponse>) => {
-    // Log entire request body for debugging
-    console.log('START REQUEST BODY:', JSON.stringify(req.body, null, 2));
+    // Log the request with detailed information
+    console.log('Scraper start request received:', {
+      body: req.body,
+      apiKeyExists: !!process.env.GOOGLE_PLACES_API_KEY,
+      timestamp: new Date().toISOString()
+    });
     
     try {
       if (!scraperQueue) {
@@ -265,45 +332,78 @@ export const setupRoutes = (
         logger.warn('Missing location parameter in request');
         res.status(400).json({
           status: 'error',
-          message: 'Location is required'
+          message: 'Location is required',
+          status_code: 'validation_error'
         });
         return;
+      }
+      
+      // Check if Google API key exists - support both environment variable names
+      const googleApiKey = process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEYS;
+      if (!googleApiKey) {
+        console.error('Missing Google Maps/Places API key');
+        return res.status(500).json({ 
+          status: 'error', 
+          message: 'Configuration error: Missing API key'
+        });
       }
       
       // Create a very simple job with minimal data
       const jobData = {
         location: location,
         radius: 50, 
-        searchTerm: '',
+        searchTerm: req.body.searchTerm || '',
         jobId: jobId
       };
       
-      console.log('ADDING JOB:', JSON.stringify(jobData));
+      console.log('Starting scraper with:', jobData);
+      
+      // If you're using a queue, add simple validation of the queue
+      if (typeof scraperQueue?.add !== 'function') {
+        console.error('Scraper queue not properly initialized');
+        return res.status(500).json({
+          status: 'error',
+          message: 'Scraper service not ready'
+        });
+      }
       
       // Add job to queue with a try/catch specifically for this operation
       try {
-        const job = await scraperQueue.add(jobData);
-        console.log('JOB ADDED SUCCESSFULLY:', job.id);
+        const job = await scraperQueue.add(jobData, {
+          attempts: 3,
+          timeout: 120000 // 2 minutes timeout
+        });
+        
+        console.log('Job added to queue:', job.id);
         
         res.status(200).json({ 
-          status: 'ok', 
-          message: 'Scraping job added to queue',
+          status: 'success',
+          message: 'Scraper job started',
           jobId: job.id.toString()
         });
       } catch (queueError) {
-        // Specifically log queue errors
-        console.error('QUEUE ERROR:', queueError);
+        // Specifically log queue errors with detail
+        console.error('Error adding job to queue:', {
+          error: queueError,
+          message: queueError instanceof Error ? queueError.message : 'Unknown error',
+          stack: queueError instanceof Error ? queueError.stack : 'No stack available'
+        });
+        
         res.status(500).json({ 
           status: 'error', 
-          message: 'Error adding job to queue'
+          message: queueError instanceof Error ? queueError.message : 'Error adding job to queue'
         });
       }
     } catch (error) {
-      // Log any other errors
-      console.error('START ENDPOINT ERROR:', error);
+      // Log any other errors with more detail
+      console.error('Scraper start failed:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack available'
+      });
+      
       res.status(500).json({ 
-        status: 'error', 
-        message: 'Failed to add scraping job'
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Failed to start scraper'
       });
     }
   });

@@ -348,3 +348,13 @@ alwaysApply: true
    - Use "npm run build" script for typechecking and compilation
    - Service runs in production mode with ESM modules
    - Build errors must be addressed at their root cause, not with workarounds
+   - Diagnostic logging must use console.log rather than complex TypeScript methods to avoid build errors
+   - Test endpoints are valuable for isolating API connectivity issues
+   
+5. **Business Scraper Tool**
+   - The business scraper API endpoint is at /api/start (POST)
+   - Required parameters: location (string), jobId (optional string)
+   - Redis must be properly configured for Bull queues to work
+   - Detailed error logging helps identify issues in production
+   - Authentication token must be included in headers
+   - Building diagnostic tools without TypeScript errors requires careful simplification

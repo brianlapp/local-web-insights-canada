@@ -1,7 +1,7 @@
 # Active Development Context
 
 # Current Task
-Deploying the scraper service to Railway and resolving TypeScript/ESM build issues.
+Debugging and fixing business scraper functionality after successful Railway deployment.
 
 # Mode
 PLAN mode only unless ACT is typed.
@@ -42,32 +42,36 @@ Cursor should:
 - Maintain a clear separation of concerns between modules
 
 ## Current Focus
-- Resolving Railway deployment issues for the scraper service
-- Fixing TypeScript build errors and ESM compatibility
-- Ensuring proper configuration between Railway UI and railway.toml
+- Debugging and fixing API routes for the business scraper functionality
+- Resolving errors in the scraper job queue system
+- Ensuring proper Redis configuration and connectivity
+- Maintaining TypeScript build compatibility while adding debug functionality
 
 ## Recent Changes
-- Added railway.toml configuration for scraper service deployment
-- Updated TypeScript configuration for ESM compatibility
-- Added proper module type declarations in package.json
-- Fixed import statements to use .js extensions for ESM
-- Discovered and documented Railway UI vs TOML configuration behavior
+- Successfully deployed scraper service to Railway with ESM compatibility
+- Fixed Redis connection and configuration in Railway
+- Added diagnostic tools and test endpoints to debug scraper API issues
+- Simplified error handling in API routes to avoid TypeScript errors
+- Improved frontend error reporting and API connectivity testing
+- Fixed issues with the business scraper tool API endpoint
 
 ## Current Architecture
 - Microservices:
   - Scraper Service (Node.js/TypeScript)
-    - Currently facing deployment issues:
-      - ESM vs CommonJS module conflicts
-      - TypeScript build errors
-      - Railway configuration challenges
-    - Using railway.toml for deployment configuration
-    - Explicit directory management for monorepo structure
+    - Successfully deployed to Railway
+    - Using ESM modules throughout
+    - Fixed route handling and error reporting
+    - Added diagnostic endpoints for testing
+    - Bull queue integration with Redis
   - Analysis Service (Node.js/TypeScript)
     - Data aggregation modules
     - Report generation system
     - Scheduled insight processing
     - RESTful API endpoints
-  - Redis for job queues (pending setup)
+  - Redis service
+    - Successfully configured in Railway
+    - Connected to the scraper service
+    - Used for Bull job queues
 - Infrastructure:
   - Docker containers
   - Supabase for data storage
@@ -75,16 +79,20 @@ Cursor should:
   - Bull for job processing
 
 ## Next Steps
-1. Fix remaining TypeScript errors:
-   - Update all import statements to use .js extensions
-   - Resolve function argument and return type mismatches
-   - Fix CommonJS/ESM module conflicts with lighthouse
+1. Implement error monitoring and logging for production:
+   - Add more comprehensive error logging
+   - Set up centralized log collection
+   - Implement alerting for critical errors
 
-2. Complete Railway deployment:
-   - Verify railway.toml configuration
-   - Ensure proper build process
-   - Set up Redis service
-   - Configure environment variables
+2. Optimize the scraper service performance:
+   - Improve job queue processing efficiency
+   - Implement rate limiting for external API calls
+   - Add retry mechanisms for transient failures
+
+3. Enhance frontend integration:
+   - Improve error handling and user feedback
+   - Add progress indicators for long-running jobs
+   - Implement detailed job status reporting
 
 ## Dependencies
 - Node.js 18
@@ -174,6 +182,18 @@ Required environment variables:
    - package.json requires "type": "module"
    - CommonJS/ESM conflicts with certain packages
    - Build process needs proper module configuration
+
+3. API Error Handling:
+   - TypeScript can be strict about error typing in Express routes
+   - Simplifying debug code may be necessary to maintain build compatibility
+   - Using console.log for critical debugging can help identify issues in Railway logs
+   - Test endpoints are valuable for isolating API connectivity issues
+
+4. Queue Processing:
+   - Bull queue requires reliable Redis connection
+   - Error handling in queue processors needs to be robust
+   - Queue operations should be wrapped in try/catch blocks
+   - Job data should be validated before processing
 
 ## Questions Resolved
 1. Technical
