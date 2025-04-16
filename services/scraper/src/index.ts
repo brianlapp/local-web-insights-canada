@@ -45,14 +45,30 @@ app.get('/health', (_req: Request, res: Response) => {
 // Add a super-simple debug endpoint that doesn't rely on anything
 app.get('/super-debug', (_req: Request, res: Response) => {
   // Include check for Google Places API key
-  const hasGoogleKey = !!process.env.GOOGLE_PLACES_API_KEY;
+  const hasGoogleKey = !!process.env.GOOGLE_PLACES_API_KEY || !!process.env.GOOGLE_MAPS_API_KEYS;
+  const googleKeyName = process.env.GOOGLE_PLACES_API_KEY ? 'GOOGLE_PLACES_API_KEY' : 
+                        (process.env.GOOGLE_MAPS_API_KEYS ? 'GOOGLE_MAPS_API_KEYS' : 'none');
   
   res.status(200).json({ 
     status: 'ok', 
     message: 'Super debug endpoint is working',
     environment: process.env.NODE_ENV,
     hasGoogleKey,
-    time: new Date().toISOString()
+    googleKeyName,
+    time: new Date().toISOString(),
+    port: process.env.PORT || 3000
+  });
+});
+
+// Add direct version of start endpoint at root level
+app.post('/start', (req: Request, res: Response) => {
+  console.log('ROOT START ENDPOINT CALLED');
+  console.log('Request body:', JSON.stringify(req.body, null, 2));
+  
+  res.status(200).json({
+    status: 'success',
+    message: 'Root start endpoint received request',
+    receivedData: req.body
   });
 });
 
@@ -153,12 +169,17 @@ async function initializeServices() {
   }
 
   try {
+    logger.info('Setting up routes...');
+    
     // Set up routes with initialized queues (might be null if initialization failed)
+    // Always provide the queues to avoid null reference errors
     const router = setupRoutes(
       queuesInitialized ? scraperQueueInstance : null,
       queuesInitialized ? auditQueueInstance : null,
       queuesInitialized ? dataProcessingQueueInstance : null
     );
+    
+    logger.info('Routes setup completed successfully');
     
     // Add a special debug endpoint
     app.get('/debug-routes', (req, res) => {
@@ -171,10 +192,35 @@ async function initializeServices() {
     
     // Mount the router at /api
     app.use('/api', router);
-    logger.info('Routes initialized with path prefix /api');
     
-    // Add a debug console log showing all registered routes
-    logger.info('Routes initialized with path prefix /api');
+    // Add more detailed debug logging
+    logger.info('=== API ROUTES INITIALIZED ===');
+    logger.info('Routes mounted at path prefix: /api');
+    
+    // Log all available API endpoints
+    const apiRoutes = [
+      'GET /api/health',
+      'GET /api/health-detailed',
+      'GET /api/test-minimal',
+      'GET /api/test-places-api',
+      'POST /api/test-start',
+      'GET /api/start',
+      'POST /api/start',
+      'POST /api/audit'
+    ];
+    
+    logger.info('Available API routes:');
+    apiRoutes.forEach(route => logger.info(`- ${route}`));
+    logger.info('=== END API ROUTES ===');
+    
+    // Add a direct test endpoint for debugging
+    app.get('/api-test', (req, res) => {
+      res.json({
+        status: 'ok',
+        message: 'Direct API test endpoint is working',
+        timestamp: new Date().toISOString()
+      });
+    });
   } catch (error) {
     logger.error('Failed to initialize routes:', error);
     // Don't exit - continue with basic endpoints
@@ -370,20 +416,49 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
   logger.error('=== END UNHANDLED REJECTION ===');
 });
 
-// Add a fallback 404 handler
+// Add direct route for testing starts
+app.post('/direct-start', (req: Request, res: Response) => {
+  console.log('DIRECT START ENDPOINT CALLED');
+  console.log('Request body:', JSON.stringify(req.body, null, 2));
+  res.status(200).json({
+    status: 'success',
+    message: 'Direct start endpoint called successfully',
+    receivedData: req.body
+  });
+});
+
+// Add a fallback 404 handler with more diagnostic info
 app.use((req: Request, res: Response) => {
-  logger.warn(`Route not found: ${req.method}`);
+  // Log detailed request info
+  logger.warn(`Route not found: ${req.method} ${req.path}`, {
+    headers: req.headers,
+    query: req.query,
+    body: req.method !== 'GET' ? req.body : undefined,
+    url: req.url,
+    originalUrl: req.originalUrl,
+    path: req.path
+  });
+  
   res.status(404).json({
     error: 'Not Found',
-    message: `The requested endpoint does not exist`,
+    message: `The requested endpoint does not exist: ${req.method} ${req.path}`,
+    request: {
+      method: req.method,
+      path: req.path,
+      url: req.url
+    },
     availableRoutes: [
       'GET /health',
+      'GET /super-debug',
       'GET /api/health',
-      'GET /api/test-basic',
+      'GET /api-test',
+      'GET /api/test-minimal',
       'GET /api/test-places-api',
       'POST /api/test-start',
+      'GET /api/start',
       'POST /api/start',
-      'POST /api/audit'
+      'POST /api/audit',
+      'POST /direct-start'
     ]
   });
 });

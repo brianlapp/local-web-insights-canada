@@ -7,7 +7,10 @@ export type ScraperJob = Tables['scraper_runs'];
 
 // Base URL for the scraper API - pointing directly to the Railway deployment
 // Make sure this matches exactly the API routes in the backend
-const SCRAPER_API_BASE_URL = 'https://local-web-scraper-production.up.railway.app/api';
+const SCRAPER_API_BASE_URL = 'https://local-web-insights-canada-production.up.railway.app/api';
+
+// Debug info to show the URL being used
+console.log('Scraper API URL:', SCRAPER_API_BASE_URL);
 
 // Fetch recent businesses
 export const fetchRecentBusinesses = async (): Promise<Business[]> => {
