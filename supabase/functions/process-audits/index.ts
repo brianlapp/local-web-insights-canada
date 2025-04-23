@@ -24,7 +24,7 @@ serve(async (req) => {
 
     console.log('Fetching next business to audit...');
 
-    // Get next business to audit
+    // Get next business to audit - Using RPC to call the database function
     const { data: nextBusiness, error: fetchError } = await supabase
       .rpc('get_next_audit_business')
       .single();
