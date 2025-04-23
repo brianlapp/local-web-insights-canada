@@ -9,12 +9,13 @@ import { AlertCircle } from "lucide-react";
 import Papa from 'papaparse';
 
 interface BusinessRow {
-  name: string;
-  city: string;
-  category: string;
+  name?: string;
+  city?: string;
+  category?: string;
   address?: string;
   website?: string;
   description?: string;
+  // For any additional fields
   [key: string]: any;
 }
 
@@ -30,46 +31,23 @@ export function BusinessImport() {
   const { toast } = useToast();
 
   const validateRow = (row: BusinessRow, rowIndex: number): BusinessRow => {
-    if (!row.raw_data) {
-      throw new Error(`Row ${rowIndex + 1}: Missing raw data`);
+    // Extract and clean up the values directly from the row
+    const name = row.name?.trim();
+    const city = row.city?.toLowerCase().trim();
+    const category = row.category?.trim() || 'uncategorized';
+    
+    if (!name || !city) {
+      throw new Error(`Row ${rowIndex + 1}: Missing required fields: ${!name ? 'name' : 'city'}`);
     }
 
-    try {
-      const rawData = typeof row.raw_data === 'string' ? JSON.parse(row.raw_data) : row.raw_data;
-      
-      // Extract and clean up the values
-      const name = rawData.name?.trim() || row.name?.trim();
-      let city = rawData.city?.toLowerCase().trim() || '';
-      
-      // Extract city from address components if available
-      if (!city && rawData.address_components) {
-        const cityComponent = rawData.address_components.find(
-          (c: any) => c.types.includes('locality')
-        );
-        if (cityComponent) {
-          city = cityComponent.long_name.toLowerCase().trim();
-        }
-      }
-      
-      // Get first category from types array or use provided category
-      const category = (rawData.types?.[0] || row.category || 'uncategorized').trim();
-      
-      if (!name || !city) {
-        throw new Error(`Row ${rowIndex + 1}: Missing required fields: ${!name ? 'name' : 'city'}`);
-      }
-
-      return {
-        name,
-        city,
-        category,
-        address: rawData.formatted_address || row.address,
-        website: rawData.website || row.website,
-        description: rawData.description || row.description
-      };
-    } catch (error) {
-      console.error(`Error parsing row ${rowIndex + 1}:`, error);
-      throw new Error(`Row ${rowIndex + 1}: Invalid data format - ${error.message}`);
-    }
+    return {
+      name,
+      city,
+      category,
+      address: row.address,
+      website: row.website,
+      description: row.description
+    };
   };
 
   const importCsv = async () => {
@@ -78,7 +56,7 @@ export function BusinessImport() {
     setErrors([]);
 
     try {
-      const response = await fetch('docs/prepared_businesses.csv');
+      const response = await fetch('/docs/prepared_businesses.csv');
       if (!response.ok) {
         throw new Error('Failed to fetch CSV file');
       }
@@ -89,7 +67,6 @@ export function BusinessImport() {
       const { data, errors: parseErrors } = Papa.parse<BusinessRow>(csvText, {
         header: true,
         skipEmptyLines: true,
-        delimiter: '\t',
         transformHeader: (header) => header.toLowerCase().trim()
       });
 
@@ -97,6 +74,8 @@ export function BusinessImport() {
         console.error("Parse errors:", parseErrors);
         throw new Error(`CSV parsing failed: ${parseErrors.map(e => e.message).join(', ')}`);
       }
+
+      console.log("Sample row:", data[0]);
 
       const chunkSize = 50;
       const totalChunks = Math.ceil(data.length / chunkSize);
