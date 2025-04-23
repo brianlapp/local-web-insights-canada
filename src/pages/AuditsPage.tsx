@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Search, Filter, MapPin } from 'lucide-react';
 import AuditCard from '@/components/ui/AuditCard';
@@ -7,13 +7,42 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { insertTestBusinesses } from '@/services/insertTestData';
+import { toast } from 'sonner';
 
 const AuditsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
+  const [isInserting, setIsInserting] = useState(false);
 
-  const { data: businesses, isLoading: isLoadingBusinesses, error: businessError } = useQuery({
+  // Add a function to insert test data
+  const handleInsertTestData = async () => {
+    setIsInserting(true);
+    try {
+      const success = await insertTestBusinesses();
+      if (success) {
+        toast.success('Test businesses have been added to the database.');
+        // Refetch the businesses
+        await refetch();
+      } else {
+        toast.error('Failed to insert test businesses.');
+      }
+    } catch (error) {
+      console.error('Error inserting test data:', error);
+      toast.error('An error occurred while inserting test data.');
+    } finally {
+      setIsInserting(false);
+    }
+  };
+
+  // Fetch businesses with explicit console logs for debugging
+  const { 
+    data: businesses, 
+    isLoading: isLoadingBusinesses, 
+    error: businessError,
+    refetch 
+  } = useQuery({
     queryKey: ['businesses'],
     queryFn: async () => {
       console.log('Fetching businesses...');
@@ -31,25 +60,35 @@ const AuditsPage = () => {
     }
   });
 
-  const uniqueCategories = businesses 
-    ? [...new Set(businesses.map(b => b.category).filter(Boolean))]
-    : [];
-  
-  const uniqueCities = businesses
-    ? [...new Set(businesses.map(b => b.city).filter(Boolean))]
-    : [];
+  // Log whenever the businesses data changes
+  useEffect(() => {
+    console.log('Businesses data updated:', businesses);
+  }, [businesses]);
 
-  const filteredBusinesses = businesses?.filter(business => {
-    const matchesSearch = 
-      !searchQuery || 
-      business.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      business.description?.toLowerCase().includes(searchQuery.toLowerCase());
+  const uniqueCategories = React.useMemo(() => {
+    if (!businesses || businesses.length === 0) return [];
+    return [...new Set(businesses.map(b => b.category).filter(Boolean))];
+  }, [businesses]);
+  
+  const uniqueCities = React.useMemo(() => {
+    if (!businesses || businesses.length === 0) return [];
+    return [...new Set(businesses.map(b => b.city).filter(Boolean))];
+  }, [businesses]);
+
+  const filteredBusinesses = React.useMemo(() => {
+    if (!businesses) return [];
     
-    const matchesCategory = !selectedCategory || business.category === selectedCategory;
-    const matchesCity = !selectedCity || (business.city && business.city.toLowerCase() === selectedCity.toLowerCase());
-    
-    return matchesSearch && matchesCategory && matchesCity;
-  });
+    return businesses.filter(business => {
+      const matchesSearch = !searchQuery || 
+        (business.name && business.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (business.description && business.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      
+      const matchesCategory = !selectedCategory || business.category === selectedCategory;
+      const matchesCity = !selectedCity || (business.city && business.city.toLowerCase() === selectedCity.toLowerCase());
+      
+      return matchesSearch && matchesCategory && matchesCity;
+    });
+  }, [businesses, searchQuery, selectedCategory, selectedCity]);
 
   if (businessError) {
     return (
@@ -73,6 +112,18 @@ const AuditsPage = () => {
           <p className="text-lg text-civic-gray-600 max-w-2xl mx-auto">
             Explore our collection of local business website audits and see how we're helping improve online presence across communities.
           </p>
+
+          {/* Add button to insert test data */}
+          <div className="mt-4">
+            <Button
+              onClick={handleInsertTestData}
+              disabled={isInserting}
+              variant="outline"
+              className="mt-2"
+            >
+              {isInserting ? 'Adding Test Data...' : 'Add Test Businesses Data'}
+            </Button>
+          </div>
         </div>
         
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-8">
@@ -133,7 +184,7 @@ const AuditsPage = () => {
             </div>
           ) : (
             <p className="text-civic-gray-600">
-              Showing <span className="font-semibold">{filteredBusinesses?.length || 0}</span> of{' '}
+              Showing <span className="font-semibold">{filteredBusinesses.length || 0}</span> of{' '}
               <span className="font-semibold">{businesses?.length || 0}</span> website audits
             </p>
           )}
@@ -186,6 +237,7 @@ const AuditsPage = () => {
         ) : (
           <div className="text-center py-12 bg-civic-gray-50 rounded-lg">
             <p className="text-civic-gray-600 mb-4">No business audits found in the database.</p>
+            <p className="text-civic-gray-600 mb-4">Click the "Add Test Businesses Data" button above to add some sample data.</p>
             <Button 
               className="bg-civic-green hover:bg-civic-green-600 text-white px-6 py-2" 
               asChild

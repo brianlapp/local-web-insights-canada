@@ -22,31 +22,32 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
     setImageError(true);
   };
 
-  // Use specific images for certain businesses
+  // Get a fallback image if needed
   const getImageSrc = () => {
-    if (business.name === "Jane's Florist") {
-      return "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
-    } else if (business.name === "Oakwood Hardware") {
-      return "https://images.unsplash.com/photo-1721322800607-8c38375eef04?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
+    if (imageError || !business.image) {
+      // Return a category-based fallback image
+      if (business.category === "Retail") {
+        return "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
+      } else if (business.category === "Hardware") {
+        return "https://images.unsplash.com/photo-1591006698886-58236a3590b7?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
+      } else if (business.category === "Garden") {
+        return "https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
+      }
+      // Default fallback
+      return "https://images.unsplash.com/photo-1537953773345-d172ccf13cf1?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
     }
     return business.image;
   };
 
   return (
-    <div className="card group hover:shadow-md transition-shadow">
+    <div className="card group hover:shadow-md transition-shadow border border-gray-100 rounded-lg p-4">
       <div className="relative mb-4">
-        {imageError ? (
-          <div className="w-full h-40 bg-civic-gray-100 rounded-md flex items-center justify-center">
-            <ImageIcon className="w-10 h-10 text-civic-gray-400" />
-          </div>
-        ) : (
-          <img 
-            src={getImageSrc()} 
-            alt={`Screenshot of ${business.name}'s website`}
-            className="w-full h-40 object-cover rounded-md"
-            onError={handleImageError}
-          />
-        )}
+        <img 
+          src={getImageSrc()} 
+          alt={`Screenshot of ${business.name}'s website`}
+          className="w-full h-40 object-cover rounded-md"
+          onError={handleImageError}
+        />
         {business.isUpgraded && (
           <span className="absolute top-2 right-2 bg-civic-green text-white text-xs px-2 py-1 rounded-full">
             Upgraded
