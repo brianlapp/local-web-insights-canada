@@ -8,6 +8,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Batch size for processing multiple audits
+const BATCH_SIZE = 5;
+
 serve(async (req) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
@@ -22,32 +25,38 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log('Fetching next business to audit...');
+    // Check if the request is specifically for batch processing
+    const url = new URL(req.url);
+    const isBatchProcess = url.searchParams.get('batch') === 'true';
+    const requestedBatchSize = parseInt(url.searchParams.get('size') || '0', 10);
+    const batchSize = requestedBatchSize > 0 && requestedBatchSize <= 10 ? requestedBatchSize : BATCH_SIZE;
 
-    // Use a direct query with explicit table references instead of the problematic RPC function
-    const { data: nextBusinessQueue, error: fetchError } = await supabase
+    console.log(`Processing mode: ${isBatchProcess ? 'Batch' : 'Single'} (size: ${isBatchProcess ? batchSize : 1})`);
+
+    // Get the pending audits
+    const { data: pendingAudits, error: fetchError } = await supabase
       .from('audit_queue')
       .select(`
         id,
         business_id,
         batch_id,
+        attempts,
         businesses!inner(id, name, website)
       `)
       .eq('status', 'pending')
       .lt('attempts', 3)
       .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .limit(isBatchProcess ? batchSize : 1);
 
     if (fetchError) {
-      console.error('Error fetching next business:', fetchError);
+      console.error('Error fetching businesses to audit:', fetchError);
       return new Response(
-        JSON.stringify({ error: 'Error fetching business to audit', details: fetchError }),
+        JSON.stringify({ error: 'Error fetching businesses to audit', details: fetchError }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
 
-    if (!nextBusinessQueue) {
+    if (!pendingAudits || pendingAudits.length === 0) {
       console.log('No businesses to audit at this time');
       return new Response(
         JSON.stringify({ message: 'No businesses to audit' }),
@@ -55,116 +64,78 @@ serve(async (req) => {
       );
     }
 
-    // Update the audit queue status to processing
+    console.log(`Found ${pendingAudits.length} businesses to audit`);
+
+    // Process the first business immediately
+    const firstAudit = pendingAudits[0];
+    const firstBusiness = {
+      business_id: firstAudit.business_id,
+      queue_id: firstAudit.id,
+      batch_id: firstAudit.batch_id,
+      website: firstAudit.businesses?.website,
+      name: firstAudit.businesses?.name,
+      attempts: firstAudit.attempts || 0
+    };
+
+    // Update the first audit queue item status to processing
     await supabase
       .from('audit_queue')
       .update({
         status: 'processing',
         last_attempt: new Date().toISOString(),
-        attempts: (nextBusinessQueue.attempts || 0) + 1
+        attempts: firstBusiness.attempts + 1
       })
-      .eq('id', nextBusinessQueue.id);
+      .eq('id', firstBusiness.queue_id);
 
-    // Format the business data for easier access
-    const nextBusiness = {
-      business_id: nextBusinessQueue.business_id,
-      queue_id: nextBusinessQueue.id, 
-      batch_id: nextBusinessQueue.batch_id,
-      website: nextBusinessQueue.businesses?.website,
-      name: nextBusinessQueue.businesses?.name
-    };
+    console.log(`Processing first business: ${firstBusiness.name} (${firstBusiness.website})`);
 
-    // Log retrieved business data with explicit field access
-    console.log('Retrieved business data:', nextBusiness);
+    // Process the first audit and get the result
+    const result = await processAudit(firstBusiness, supabase);
     
-    if (!nextBusiness.website) {
-      console.error('No website URL provided for business:', nextBusiness.business_id);
-      await supabase.rpc('update_audit_progress', {
-        p_queue_id: nextBusiness.queue_id,
-        p_status: 'failed',
-        p_error: 'No website URL provided'
+    // If we're in batch mode, process the rest of the audits in the background
+    if (isBatchProcess && pendingAudits.length > 1) {
+      console.log(`Processing remaining ${pendingAudits.length - 1} businesses in the background...`);
+      
+      // Only wait for the first business result so we can return quickly
+      const remainingAudits = pendingAudits.slice(1).map(audit => {
+        const business = {
+          business_id: audit.business_id,
+          queue_id: audit.id,
+          batch_id: audit.batch_id,
+          website: audit.businesses?.website,
+          name: audit.businesses?.name,
+          attempts: audit.attempts || 0
+        };
+        
+        return processAuditInBackground(business, supabase);
       });
+      
+      // Use waitUntil for background processing without blocking the response
+      if (typeof EdgeRuntime !== 'undefined') {
+        // @ts-ignore - Deno Edge Runtime
+        EdgeRuntime.waitUntil(Promise.all(remainingAudits));
+      }
+      
+      // Return the result of the first audit along with batch info
       return new Response(
-        JSON.stringify({ error: 'No website URL provided' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        JSON.stringify({ 
+          success: true, 
+          business: firstBusiness.name,
+          scores: result.scores,
+          batchSize: pendingAudits.length,
+          batchStatus: 'processing',
+          message: `Processing ${pendingAudits.length} businesses in total`
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Run Lighthouse audit
-    console.log('Starting Lighthouse audit...');
-    const auditResult = await runLighthouse(nextBusiness.website);
-
-    if (!auditResult) {
-      console.error('Lighthouse audit failed for:', nextBusiness.website);
-      await supabase.rpc('update_audit_progress', {
-        p_queue_id: nextBusiness.queue_id,
-        p_status: 'failed',
-        p_error: 'Lighthouse audit failed'
-      });
-      return new Response(
-        JSON.stringify({ error: 'Audit failed', details: 'Lighthouse returned no results' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
-    }
-
-    console.log('Calculating scores...');
-    // Calculate scores
-    const scores = {
-      performance: Math.round(auditResult.categories.performance.score * 100),
-      accessibility: Math.round(auditResult.categories.accessibility.score * 100),
-      bestPractices: Math.round(auditResult.categories['best-practices'].score * 100),
-      seo: Math.round(auditResult.categories.seo.score * 100),
-      overall: Math.round(
-        (auditResult.categories.performance.score * 0.3 +
-        auditResult.categories.accessibility.score * 0.3 +
-        auditResult.categories['best-practices'].score * 0.4) * 100
-      )
-    };
-
-    console.log('Saving audit results...');
-    // Save audit results
-    const { error: insertError } = await supabase
-      .from('website_audits')
-      .insert({
-        business_id: nextBusiness.business_id,
-        url: nextBusiness.website,
-        lighthouse_data: auditResult,
-        scores: scores,
-        audit_date: new Date().toISOString()
-      });
-
-    if (insertError) {
-      console.error('Error saving audit:', insertError);
-      await supabase.rpc('update_audit_progress', {
-        p_queue_id: nextBusiness.queue_id,
-        p_status: 'failed',
-        p_error: 'Failed to save audit results'
-      });
-      return new Response(
-        JSON.stringify({ error: 'Failed to save audit', details: insertError }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
-    }
-
-    // Update business scores
-    console.log('Updating business scores...');
-    await supabase
-      .from('businesses')
-      .update({ scores: scores })
-      .eq('id', nextBusiness.business_id);
-
-    // Mark audit as completed
-    await supabase.rpc('update_audit_progress', {
-      p_queue_id: nextBusiness.queue_id,
-      p_status: 'completed'
-    });
-
-    console.log('Audit completed successfully');
+    
+    // If single mode or only one audit in batch, just return the result
     return new Response(
       JSON.stringify({ 
         success: true, 
-        business: nextBusiness.name,
-        scores: scores 
+        business: firstBusiness.name,
+        scores: result.scores 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -179,3 +150,104 @@ serve(async (req) => {
     );
   }
 })
+
+// Process a single audit
+async function processAudit(business: any, supabase: any): Promise<{ scores: any }> {
+  if (!business.website) {
+    console.error('No website URL provided for business:', business.business_id);
+    await updateAuditProgress(supabase, business.queue_id, 'failed', 'No website URL provided');
+    return { scores: { performance: 0, accessibility: 0, bestPractices: 0, seo: 0, overall: 0 } };
+  }
+
+  // Run Lighthouse audit
+  console.log('Starting Lighthouse audit for:', business.website);
+  const auditResult = await runLighthouse(business.website);
+
+  if (!auditResult) {
+    console.error('Lighthouse audit failed for:', business.website);
+    await updateAuditProgress(supabase, business.queue_id, 'failed', 'Lighthouse audit failed');
+    return { scores: { performance: 0, accessibility: 0, bestPractices: 0, seo: 0, overall: 0 } };
+  }
+
+  console.log('Calculating scores for:', business.website);
+  // Calculate scores
+  const scores = {
+    performance: Math.round(auditResult.categories.performance.score * 100),
+    accessibility: Math.round(auditResult.categories.accessibility.score * 100),
+    bestPractices: Math.round(auditResult.categories['best-practices'].score * 100),
+    seo: Math.round(auditResult.categories.seo.score * 100),
+    overall: Math.round(
+      (auditResult.categories.performance.score * 0.3 +
+      auditResult.categories.accessibility.score * 0.3 +
+      auditResult.categories['best-practices'].score * 0.4) * 100
+    )
+  };
+
+  console.log('Scores calculated:', scores);
+
+  console.log('Saving audit results for:', business.website);
+  // Save audit results
+  const { error: insertError } = await supabase
+    .from('website_audits')
+    .insert({
+      business_id: business.business_id,
+      url: business.website,
+      lighthouse_data: auditResult,
+      scores: scores,
+      audit_date: new Date().toISOString()
+    });
+
+  if (insertError) {
+    console.error('Error saving audit:', insertError);
+    await updateAuditProgress(supabase, business.queue_id, 'failed', 'Failed to save audit results');
+    return { scores };
+  }
+
+  // Update business scores
+  console.log('Updating business scores for:', business.name);
+  await supabase
+    .from('businesses')
+    .update({ scores: scores })
+    .eq('id', business.business_id);
+
+  // Mark audit as completed
+  await updateAuditProgress(supabase, business.queue_id, 'completed');
+
+  console.log('Audit completed successfully for:', business.name);
+  return { scores };
+}
+
+// Process an audit in the background
+async function processAuditInBackground(business: any, supabase: any): Promise<void> {
+  try {
+    // Update the audit queue status to processing
+    await supabase
+      .from('audit_queue')
+      .update({
+        status: 'processing',
+        last_attempt: new Date().toISOString(),
+        attempts: business.attempts + 1
+      })
+      .eq('id', business.queue_id);
+
+    console.log(`Background processing business: ${business.name} (${business.website})`);
+    await processAudit(business, supabase);
+  } catch (error) {
+    console.error(`Background processing error for ${business.name}:`, error);
+    await updateAuditProgress(supabase, business.queue_id, 'failed', 
+      `Background processing error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+// Update audit progress helper
+async function updateAuditProgress(supabase: any, queueId: string, status: string, error?: string): Promise<void> {
+  try {
+    await supabase.rpc('update_audit_progress', {
+      p_queue_id: queueId,
+      p_status: status,
+      p_error: error
+    });
+  } catch (error) {
+    console.error('Failed to update audit progress:', error);
+  }
+}
