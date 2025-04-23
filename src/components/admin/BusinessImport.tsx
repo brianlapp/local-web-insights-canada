@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -74,87 +73,96 @@ export function BusinessImport() {
     try {
       const csvText = await file.text();
       
-      // Log the first part of the CSV to debug format issues
-      console.log("CSV first 500 chars:", csvText.substring(0, 500));
+      // Log the raw CSV content for debugging
+      console.log("RAW CSV CONTENT (first 1000 chars):", csvText.substring(0, 1000));
       
-      // Try to detect the delimiter by checking first few lines
-      let delimiter = ','; // Default delimiter
-      
-      // Check if it might be tab-delimited
-      if (csvText.includes('\t')) {
-        delimiter = '\t';
-      } 
-      // Check if it might be semicolon-delimited (common in some regions)
-      else if (csvText.includes(';')) {
-        delimiter = ';';
-      }
-      
-      console.log("Using delimiter:", delimiter === '\t' ? 'TAB' : delimiter);
-      
-      const { data, errors: parseErrors } = Papa.parse<BusinessRow>(csvText, {
-        header: true,
-        skipEmptyLines: true,
-        delimiter: delimiter,
-        transformHeader: (header) => header.toLowerCase().trim()
-      });
+      // Detect common delimiters
+      const delimiters = [',', ';', '\t'];
+      let detectedDelimiter: string | null = null;
 
-      if (parseErrors && parseErrors.length > 0) {
-        console.error("Parse errors:", parseErrors);
-        throw new Error(`CSV parsing failed: ${parseErrors.map(e => e.message).join(', ')}`);
-      }
+      // Try each delimiter until we find one that works
+      for (const delimiter of delimiters) {
+        try {
+          const parseResult = Papa.parse<BusinessRow>(csvText, {
+            header: true,
+            skipEmptyLines: true,
+            delimiter: delimiter,
+            transformHeader: (header) => header.toLowerCase().trim()
+          });
 
-      console.log("First row sample:", data[0]);
+          if (!parseResult.errors.length) {
+            detectedDelimiter = delimiter;
+            console.log(`Successfully parsed with delimiter: ${detectedDelimiter}`);
+            
+            const { data, errors: parseErrors } = parseResult;
 
-      const chunkSize = 50;
-      const totalChunks = Math.ceil(data.length / chunkSize);
-      let successCount = 0;
-      let failedRows: ValidationError[] = [];
-      
-      for (let i = 0; i < data.length; i += chunkSize) {
-        const chunk = data.slice(i, i + chunkSize);
-        const validatedChunk: BusinessRow[] = [];
-        
-        // Validate rows in chunk
-        for (let j = 0; j < chunk.length; j++) {
-          try {
-            const validatedRow = validateRow(chunk[j], i + j);
-            validatedChunk.push(validatedRow);
-          } catch (error) {
-            failedRows.push({
-              rowIndex: i + j + 1,
-              message: error.message
+            if (parseErrors && parseErrors.length > 0) {
+              console.error("Parsing errors:", parseErrors);
+              throw new Error(`CSV parsing failed: ${parseErrors.map(e => e.message).join(', ')}`);
+            }
+
+            console.log("First row sample:", data[0]);
+
+            const chunkSize = 50;
+            const totalChunks = Math.ceil(data.length / chunkSize);
+            let successCount = 0;
+            let failedRows: ValidationError[] = [];
+            
+            for (let i = 0; i < data.length; i += chunkSize) {
+              const chunk = data.slice(i, i + chunkSize);
+              const validatedChunk: BusinessRow[] = [];
+              
+              // Validate rows in chunk
+              for (let j = 0; j < chunk.length; j++) {
+                try {
+                  const validatedRow = validateRow(chunk[j], i + j);
+                  validatedChunk.push(validatedRow);
+                } catch (error) {
+                  failedRows.push({
+                    rowIndex: i + j + 1,
+                    message: error.message
+                  });
+                  continue;
+                }
+              }
+
+              if (validatedChunk.length > 0) {
+                try {
+                  const { error } = await supabase.rpc('process_business_import', {
+                    businesses: validatedChunk
+                  });
+
+                  if (error) throw error;
+                  successCount += validatedChunk.length;
+                } catch (error) {
+                  console.error('Database error:', error);
+                  throw new Error(`Failed to import data: ${error.message}`);
+                }
+              }
+
+              const currentChunk = Math.floor(i / chunkSize) + 1;
+              setProgress((currentChunk / totalChunks) * 100);
+            }
+
+            setErrors(failedRows);
+
+            toast({
+              title: failedRows.length > 0 ? "Import Partially Complete" : "Import Successful",
+              description: `Successfully imported ${successCount} businesses. ${
+                failedRows.length > 0 ? `Failed to import ${failedRows.length} rows.` : ''
+              }`,
+              variant: failedRows.length > 0 ? "destructive" : "default"
             });
-            continue;
+
+            return; // Exit after successful parse
           }
+        } catch (parseError) {
+          console.error(`Failed to parse with delimiter '${delimiter}':`, parseError);
         }
-
-        if (validatedChunk.length > 0) {
-          try {
-            const { error } = await supabase.rpc('process_business_import', {
-              businesses: validatedChunk
-            });
-
-            if (error) throw error;
-            successCount += validatedChunk.length;
-          } catch (error) {
-            console.error('Database error:', error);
-            throw new Error(`Failed to import data: ${error.message}`);
-          }
-        }
-
-        const currentChunk = Math.floor(i / chunkSize) + 1;
-        setProgress((currentChunk / totalChunks) * 100);
       }
 
-      setErrors(failedRows);
-
-      toast({
-        title: failedRows.length > 0 ? "Import Partially Complete" : "Import Successful",
-        description: `Successfully imported ${successCount} businesses. ${
-          failedRows.length > 0 ? `Failed to import ${failedRows.length} rows.` : ''
-        }`,
-        variant: failedRows.length > 0 ? "destructive" : "default"
-      });
+      // If no delimiter worked
+      throw new Error("Could not parse CSV with any known delimiter. Please check your file format.");
 
     } catch (error) {
       console.error('Import error:', error);
