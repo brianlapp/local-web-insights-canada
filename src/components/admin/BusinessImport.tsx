@@ -62,24 +62,45 @@ export function BusinessImport() {
       
       const csvText = await response.text();
       
-      // First try parsing with tab as delimiter
+      // Debug the raw CSV content
+      console.log("Raw CSV content (first 500 chars):", csvText.substring(0, 500));
+      
+      // First try parsing with tab as delimiter and with quoteChar
       let result = Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true,
         delimiter: '\t',
+        quoteChar: '"',
+        escapeChar: '\\',
         preview: 5, // Just get a few rows for preview
         transformHeader: (header) => header.toLowerCase().trim()
       });
       
       // If we don't have enough columns, try with comma
       if (Object.keys(result.data[0] || {}).length <= 1) {
+        console.log("First parse attempt failed, trying with comma delimiter");
         result = Papa.parse(csvText, {
           header: true,
           skipEmptyLines: true,
           delimiter: ',',
+          quoteChar: '"',
+          escapeChar: '\\',
           preview: 5,
           transformHeader: (header) => header.toLowerCase().trim()
         });
+      }
+      
+      console.log("Parse result:", result);
+      
+      // Check for errors in parsing
+      if (result.errors && result.errors.length > 0) {
+        console.error("CSV parsing errors:", result.errors);
+        toast({
+          title: "CSV Analysis Error",
+          description: `Parsing issues detected: ${result.errors.map(e => e.message).join(', ')}`,
+          variant: "destructive"
+        });
+        return;
       }
       
       // Store preview data
@@ -119,28 +140,45 @@ export function BusinessImport() {
       }
       
       const csvText = await response.text();
+      console.log("CSV first 100 chars:", csvText.substring(0, 100));
       
-      // Try to automatically detect the delimiter
-      const sampleFirstLine = csvText.split('\n')[0];
-      const tabCount = (sampleFirstLine.match(/\t/g) || []).length;
-      const commaCount = (sampleFirstLine.match(/,/g) || []).length;
-      const delimiter = tabCount > commaCount ? '\t' : ',';
-      
-      console.log(`Detected delimiter: ${delimiter === '\t' ? 'tab' : 'comma'}`);
-      
-      const { data, errors, meta } = Papa.parse<BusinessRow>(csvText, {
+      // Try with different parsing options to handle the file better
+      const parseConfig = {
         header: true,
         skipEmptyLines: true,
-        delimiter: delimiter,
-        transformHeader: (header) => header.toLowerCase().trim()
-      });
+        delimiter: ',',  // Start with comma as default
+        quoteChar: '"',
+        escapeChar: '\\',
+        transformHeader: (header) => header.toLowerCase().trim(),
+        error: (error) => {
+          console.error("Papa Parse error:", error);
+        }
+      };
+      
+      // First try to determine if it's a tab or comma delimited file
+      const firstLine = csvText.split('\n')[0];
+      const tabCount = (firstLine.match(/\t/g) || []).length;
+      const commaCount = (firstLine.match(/,/g) || []).length;
+      
+      if (tabCount > commaCount) {
+        console.log("Detected tab delimiter");
+        parseConfig.delimiter = '\t';
+      } else {
+        console.log("Using comma delimiter");
+      }
+      
+      // Parse the CSV
+      const { data, errors: parseErrors, meta } = Papa.parse<BusinessRow>(csvText, parseConfig);
+
+      // Check for parse errors
+      if (parseErrors && parseErrors.length > 0) {
+        console.error("CSV parsing errors:", parseErrors);
+        throw new Error(`CSV parsing failed: ${parseErrors.map(e => e.message).join(', ')}`);
+      }
 
       console.log('Parsed headers:', meta.fields);
       console.log('First row sample:', data[0]);
-
-      if (errors.length > 0) {
-        throw new Error('CSV parsing failed: ' + errors.map(e => e.message).join(', '));
-      }
+      console.log('Total rows:', data.length);
 
       if (data.length === 0) {
         throw new Error('No valid data found in the CSV file');
@@ -157,6 +195,14 @@ export function BusinessImport() {
         // Validate each row in the chunk
         for (let j = 0; j < chunk.length; j++) {
           try {
+            // Additional logging for troubleshooting
+            console.log(`Processing row ${i + j + 1}:`, chunk[j]);
+            
+            // Make sure we have valid data
+            if (!chunk[j] || Object.keys(chunk[j]).length === 0) {
+              throw new Error(`Empty or invalid row data`);
+            }
+            
             const validatedRow = validateRow(chunk[j], i + j);
             validatedChunk.push(validatedRow);
           } catch (error) {
@@ -171,16 +217,23 @@ export function BusinessImport() {
         }
 
         if (validatedChunk.length > 0) {
-          const { error } = await supabase.rpc('process_business_import', {
-            businesses: validatedChunk
-          });
-
-          if (error) {
-            console.error('Supabase error:', error);
-            throw new Error(`Database error: ${error.message}`);
-          }
+          console.log(`Sending chunk of ${validatedChunk.length} valid businesses to database`);
           
-          successCount += validatedChunk.length;
+          try {
+            const { error } = await supabase.rpc('process_business_import', {
+              businesses: validatedChunk
+            });
+
+            if (error) {
+              console.error('Supabase error:', error);
+              throw new Error(`Database error: ${error.message}`);
+            }
+            
+            successCount += validatedChunk.length;
+          } catch (dbError) {
+            console.error('Database operation failed:', dbError);
+            throw new Error(`Failed to import data: ${dbError.message}`);
+          }
         }
         
         // Update progress
