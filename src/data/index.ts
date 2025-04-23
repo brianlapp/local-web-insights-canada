@@ -1,5 +1,11 @@
 
-export { businesses, getBusinessBySlug, getBusinessesByCity, getRecentBusinesses, getUpgradedBusinesses } from './businesses';
+export { 
+  type Business,
+  getBusinessBySlug,
+  getBusinessesByCity,
+  getRecentBusinesses,
+  getUpgradedBusinesses
+} from './businesses';
 export { auditors, getAuditorBySlug, getAuditorById } from './auditors';
 
 // Helper function to get businesses by auditor

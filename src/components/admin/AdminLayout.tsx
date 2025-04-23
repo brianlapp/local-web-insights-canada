@@ -17,6 +17,7 @@ const navigation = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: BarChart3 },
   { name: 'Businesses', href: '/admin/businesses', icon: Building2 },
   { name: 'Scraper', href: '/admin/scraper', icon: Search },
+  { name: 'Import', href: '/admin/import', icon: "database" },
   { name: 'Petitions', href: '/admin/petitions', icon: ClipboardList },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ]

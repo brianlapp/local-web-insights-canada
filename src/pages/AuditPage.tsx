@@ -1,5 +1,6 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { MapPin, Globe, Calendar, Check, AlertTriangle, ExternalLink, ArrowLeft, Search, BarChart, Code, Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,13 +12,18 @@ import PetitionForm from '@/components/ui/PetitionForm';
 import PageLayout from '@/components/layout/PageLayout';
 import { getBusinessBySlug, getAuditorById } from '@/data';
 
-const AuditPage = () => {
+export function AuditPage() {
   const { city, slug } = useParams<{ city: string; slug: string }>();
   const navigate = useNavigate();
+
+  const { data: business, isLoading, error } = useQuery({
+    queryKey: ['business', city, slug],
+    queryFn: () => getBusinessBySlug(city!, slug!),
+    enabled: !!city && !!slug,
+  });
   
-  const business = city && slug ? getBusinessBySlug(city, slug) : undefined;
   const auditor = business?.auditorId ? getAuditorById(business.auditorId) : undefined;
-  
+
   if (!business) {
     return (
       <PageLayout>
@@ -258,6 +264,6 @@ const AuditPage = () => {
       </div>
     </PageLayout>
   );
-};
+}
 
 export default AuditPage;
