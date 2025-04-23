@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -27,101 +27,48 @@ export function BusinessImport() {
   const [isImporting, setIsImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [errors, setErrors] = useState<ValidationError[]>([]);
-  const [csvPreview, setCsvPreview] = useState<{ headers: string[], sample: any[] } | null>(null);
   const { toast } = useToast();
 
   const validateRow = (row: BusinessRow, rowIndex: number): BusinessRow => {
-    // Log the row content to help debug
-    console.log(`Validating row ${rowIndex + 1}:`, row);
-    
-    const requiredFields = ['name', 'city', 'category'];
-    const missingFields = requiredFields.filter(field => !row[field] || row[field].trim() === '');
-    
-    if (missingFields.length > 0) {
-      throw new Error(`Row ${rowIndex + 1}: Missing required fields: ${missingFields.join(', ')}`);
+    if (!row.raw_data) {
+      throw new Error(`Row ${rowIndex + 1}: Missing raw data`);
     }
 
-    // Clean up and format the data
-    return {
-      name: row.name.trim(),
-      city: row.city.toLowerCase().trim().replace(/\s*\([^)]*\)/g, ''), // Remove postal code in parentheses if present
-      category: row.category.trim(),
-      address: row.address?.trim(),
-      website: row.website?.trim(),
-      description: row.description?.trim()
-    };
-  };
-
-  const analyzeCsvStructure = async () => {
     try {
-      // Fetch CSV file from public directory
-      const response = await fetch('docs/prepared_businesses.csv');
-      if (!response.ok) {
-        throw new Error('Failed to fetch CSV file');
+      const rawData = typeof row.raw_data === 'string' ? JSON.parse(row.raw_data) : row.raw_data;
+      
+      // Extract and clean up the values
+      const name = rawData.name?.trim() || row.name?.trim();
+      let city = rawData.city?.toLowerCase().trim() || '';
+      
+      // Extract city from address components if available
+      if (!city && rawData.address_components) {
+        const cityComponent = rawData.address_components.find(
+          (c: any) => c.types.includes('locality')
+        );
+        if (cityComponent) {
+          city = cityComponent.long_name.toLowerCase().trim();
+        }
       }
       
-      const csvText = await response.text();
+      // Get first category from types array or use provided category
+      const category = (rawData.types?.[0] || row.category || 'uncategorized').trim();
       
-      // Debug the raw CSV content
-      console.log("Raw CSV content (first 500 chars):", csvText.substring(0, 500));
-      
-      // First try parsing with tab as delimiter and with quoteChar
-      let result = Papa.parse(csvText, {
-        header: true,
-        skipEmptyLines: true,
-        delimiter: '\t',
-        quoteChar: '"',
-        escapeChar: '\\',
-        preview: 5, // Just get a few rows for preview
-        transformHeader: (header) => header.toLowerCase().trim()
-      });
-      
-      // If we don't have enough columns, try with comma
-      if (Object.keys(result.data[0] || {}).length <= 1) {
-        console.log("First parse attempt failed, trying with comma delimiter");
-        result = Papa.parse(csvText, {
-          header: true,
-          skipEmptyLines: true,
-          delimiter: ',',
-          quoteChar: '"',
-          escapeChar: '\\',
-          preview: 5,
-          transformHeader: (header) => header.toLowerCase().trim()
-        });
+      if (!name || !city) {
+        throw new Error(`Row ${rowIndex + 1}: Missing required fields: ${!name ? 'name' : 'city'}`);
       }
-      
-      console.log("Parse result:", result);
-      
-      // Check for errors in parsing
-      if (result.errors && result.errors.length > 0) {
-        console.error("CSV parsing errors:", result.errors);
-        toast({
-          title: "CSV Analysis Error",
-          description: `Parsing issues detected: ${result.errors.map(e => e.message).join(', ')}`,
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      // Store preview data
-      setCsvPreview({
-        headers: result.meta.fields || [],
-        sample: result.data.slice(0, 5)
-      });
-      
-      // Show detected structure
-      toast({
-        title: "CSV Analysis Complete",
-        description: `Found ${result.meta.fields?.length || 0} columns with headers: ${result.meta.fields?.join(', ') || 'none'}`
-      });
-      
+
+      return {
+        name,
+        city,
+        category,
+        address: rawData.formatted_address || row.address,
+        website: rawData.website || row.website,
+        description: rawData.description || row.description
+      };
     } catch (error) {
-      console.error('CSV analysis error:', error);
-      toast({
-        title: "CSV Analysis Failed",
-        description: error.message || "There was an error analyzing the CSV file.",
-        variant: "destructive"
-      });
+      console.error(`Error parsing row ${rowIndex + 1}:`, error);
+      throw new Error(`Row ${rowIndex + 1}: Invalid data format - ${error.message}`);
     }
   };
 
@@ -129,165 +76,100 @@ export function BusinessImport() {
     setIsImporting(true);
     setProgress(0);
     setErrors([]);
-    let successCount = 0;
-    let failedRows: ValidationError[] = [];
 
     try {
-      // Fetch CSV file from public directory
       const response = await fetch('docs/prepared_businesses.csv');
       if (!response.ok) {
         throw new Error('Failed to fetch CSV file');
       }
       
       const csvText = await response.text();
-      console.log("CSV first 100 chars:", csvText.substring(0, 100));
+      console.log("CSV sample:", csvText.substring(0, 200));
       
-      // Try with different parsing options to handle the file better
-      const parseConfig = {
+      const { data, errors: parseErrors } = Papa.parse<BusinessRow>(csvText, {
         header: true,
         skipEmptyLines: true,
-        delimiter: ',',  // Start with comma as default
-        quoteChar: '"',
-        escapeChar: '\\',
-        transformHeader: (header) => header.toLowerCase().trim(),
-        error: (error) => {
-          console.error("Papa Parse error:", error);
-        }
-      };
-      
-      // First try to determine if it's a tab or comma delimited file
-      const firstLine = csvText.split('\n')[0];
-      const tabCount = (firstLine.match(/\t/g) || []).length;
-      const commaCount = (firstLine.match(/,/g) || []).length;
-      
-      if (tabCount > commaCount) {
-        console.log("Detected tab delimiter");
-        parseConfig.delimiter = '\t';
-      } else {
-        console.log("Using comma delimiter");
-      }
-      
-      // Parse the CSV
-      const { data, errors: parseErrors, meta } = Papa.parse<BusinessRow>(csvText, parseConfig);
+        delimiter: '\t',
+        transformHeader: (header) => header.toLowerCase().trim()
+      });
 
-      // Check for parse errors
       if (parseErrors && parseErrors.length > 0) {
-        console.error("CSV parsing errors:", parseErrors);
+        console.error("Parse errors:", parseErrors);
         throw new Error(`CSV parsing failed: ${parseErrors.map(e => e.message).join(', ')}`);
       }
 
-      console.log('Parsed headers:', meta.fields);
-      console.log('First row sample:', data[0]);
-      console.log('Total rows:', data.length);
-
-      if (data.length === 0) {
-        throw new Error('No valid data found in the CSV file');
-      }
-
-      // Process the data in chunks to avoid overloading
       const chunkSize = 50;
       const totalChunks = Math.ceil(data.length / chunkSize);
+      let successCount = 0;
+      let failedRows: ValidationError[] = [];
       
       for (let i = 0; i < data.length; i += chunkSize) {
         const chunk = data.slice(i, i + chunkSize);
-        const validatedChunk = [];
-
-        // Validate each row in the chunk
+        const validatedChunk: BusinessRow[] = [];
+        
+        // Validate rows in chunk
         for (let j = 0; j < chunk.length; j++) {
           try {
-            // Additional logging for troubleshooting
-            console.log(`Processing row ${i + j + 1}:`, chunk[j]);
-            
-            // Make sure we have valid data
-            if (!chunk[j] || Object.keys(chunk[j]).length === 0) {
-              throw new Error(`Empty or invalid row data`);
-            }
-            
             const validatedRow = validateRow(chunk[j], i + j);
             validatedChunk.push(validatedRow);
           } catch (error) {
-            const rowError = {
-              rowIndex: i + j + 1, 
+            failedRows.push({
+              rowIndex: i + j + 1,
               message: error.message
-            };
-            failedRows.push(rowError);
-            console.error(`Row ${i + j + 1} validation failed:`, error);
-            continue; // Skip invalid rows but continue processing
+            });
+            continue;
           }
         }
 
         if (validatedChunk.length > 0) {
-          console.log(`Sending chunk of ${validatedChunk.length} valid businesses to database`);
-          
           try {
             const { error } = await supabase.rpc('process_business_import', {
               businesses: validatedChunk
             });
 
-            if (error) {
-              console.error('Supabase error:', error);
-              throw new Error(`Database error: ${error.message}`);
-            }
-            
+            if (error) throw error;
             successCount += validatedChunk.length;
-          } catch (dbError) {
-            console.error('Database operation failed:', dbError);
-            throw new Error(`Failed to import data: ${dbError.message}`);
+          } catch (error) {
+            console.error('Database error:', error);
+            throw new Error(`Failed to import data: ${error.message}`);
           }
         }
-        
-        // Update progress
+
         const currentChunk = Math.floor(i / chunkSize) + 1;
         setProgress((currentChunk / totalChunks) * 100);
       }
 
       setErrors(failedRows);
-      
-      if (failedRows.length > 0) {
-        toast({
-          title: "Import Partially Successful",
-          description: `Imported ${successCount} businesses. Failed to import ${failedRows.length} rows. See below for details.`,
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Import Successful",
-          description: `Successfully imported ${successCount} businesses.`
-        });
-      }
+
+      toast({
+        title: failedRows.length > 0 ? "Import Partially Complete" : "Import Successful",
+        description: `Successfully imported ${successCount} businesses. ${
+          failedRows.length > 0 ? `Failed to import ${failedRows.length} rows.` : ''
+        }`,
+        variant: failedRows.length > 0 ? "destructive" : "default"
+      });
+
     } catch (error) {
       console.error('Import error:', error);
       toast({
         title: "Import Failed",
-        description: error.message || "There was an error importing the businesses.",
+        description: error.message,
         variant: "destructive"
       });
     } finally {
       setIsImporting(false);
-      setProgress(0);
     }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row gap-4">
-        <Button 
-          onClick={analyzeCsvStructure}
-          variant="outline"
-          className="w-full md:w-auto"
-          disabled={isImporting}
-        >
-          Analyze CSV Structure
-        </Button>
-        
-        <Button 
-          onClick={importCsv}
-          disabled={isImporting}
-          className="w-full md:w-auto"
-        >
-          {isImporting ? 'Importing...' : 'Import Businesses CSV'}
-        </Button>
-      </div>
+      <Button 
+        onClick={importCsv}
+        disabled={isImporting}
+        className="w-full md:w-auto"
+      >
+        {isImporting ? 'Importing...' : 'Import Businesses'}
+      </Button>
       
       {isImporting && progress > 0 && (
         <div className="space-y-2">
@@ -298,51 +180,12 @@ export function BusinessImport() {
         </div>
       )}
       
-      {csvPreview && (
-        <div className="border rounded-md p-4 mt-4">
-          <h3 className="text-lg font-medium mb-2">CSV Preview</h3>
-          <p className="text-sm text-gray-500 mb-2">
-            Detected headers: {csvPreview.headers.join(', ')}
-          </p>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Row</th>
-                  {csvPreview.headers.map((header, index) => (
-                    <th 
-                      key={index} 
-                      className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      {header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {csvPreview.sample.map((row, rowIndex) => (
-                  <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
-                    <td className="px-2 py-1 whitespace-nowrap">{rowIndex + 1}</td>
-                    {csvPreview.headers.map((header, colIndex) => (
-                      <td key={colIndex} className="px-2 py-1 whitespace-nowrap">
-                        {row[header]}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-      
       {errors.length > 0 && (
         <div className="mt-6">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Import Errors</AlertTitle>
             <AlertDescription>
-              The following rows could not be imported:
               <div className="mt-2 max-h-60 overflow-y-auto border rounded">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50">
