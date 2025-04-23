@@ -56,45 +56,34 @@ export function DashboardStats() {
     }
   });
 
-  // Fetch pending audits
-  const { data: pendingAuditsCount, isLoading: isLoadingPendingAudits } = useQuery({
-    queryKey: ['pending-audits-count'],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from('audit_queue')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
-      
-      if (error) throw error;
-      return count || 0;
-    }
-  });
+  // Fetch volunteer auditors (placeholder - adjust based on actual data source)
+  const volunteerAuditors = 18;
 
-  const isLoading = isLoadingBusinesses || isLoadingScores || isLoadingCities || isLoadingPendingAudits;
+  const isLoading = isLoadingBusinesses || isLoadingScores || isLoadingCities;
 
   const stats = [
     {
-      name: 'Total Businesses',
+      name: 'Businesses Helped',
       value: isLoading ? '...' : businessCount?.toString() || '0',
-      description: 'Businesses in database',
+      description: 'Total businesses in database',
       icon: Building2,
     },
     {
-      name: 'Cities Covered',
+      name: 'Communities Served',
       value: isLoading ? '...' : citiesCount?.toString() || '0',
       description: 'Unique locations',
       icon: Users,
     },
     {
-      name: 'Average Score',
+      name: 'Implementation Rate',
       value: isLoading ? '...' : `${averageScore}%`,
       description: 'Overall audit score',
       icon: ChartBar,
     },
     {
-      name: 'Pending Reviews',
-      value: isLoading ? '...' : pendingAuditsCount?.toString() || '0',
-      description: 'Awaiting audit',
+      name: 'Volunteer Auditors',
+      value: isLoading ? '...' : volunteerAuditors.toString(),
+      description: 'Community contributors',
       icon: AlertCircle,
     },
   ];
