@@ -33,7 +33,7 @@ export const useScraper = () => {
         toast({
           title: 'Scraper API unavailable',
           description: 'Running in offline mode with limited functionality',
-          variant: 'warning',
+          variant: 'destructive', // Changed from 'warning' to 'destructive'
         });
       }
     } catch (error) {
@@ -43,7 +43,7 @@ export const useScraper = () => {
       toast({
         title: 'API Connection Issue',
         description: 'Using offline mode with limited functionality',
-        variant: 'warning',
+        variant: 'destructive', // Changed from 'warning' to 'destructive'
       });
     }
   }, [toast]);
@@ -95,7 +95,7 @@ export const useScraper = () => {
       toast({
         title: 'Scraper API unavailable',
         description: 'Running in offline mode with limited functionality',
-        variant: 'warning',
+        variant: 'destructive', // Changed from 'warning' to 'destructive'
       });
       // Continue anyway - we'll use offline mode
     }

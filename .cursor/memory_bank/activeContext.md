@@ -1,105 +1,34 @@
 
-# Active Context: Local Web Insights Canada
+# Active Context: Ottawa Business Data Import
 
-## Current Focus: Railway Deployment Successful & Next Steps
+## Current Focus
+The current development focus has shifted to importing approximately 8,000 Ottawa businesses from a spreadsheet into the Local Web Insights Canada platform. This is a strategic pivot to address challenges with the real-time scraper's connectivity to the frontend dashboard. By importing this pre-collected dataset, we can:
 
-We've successfully deployed the scraper service to Railway after resolving critical ESM compatibility issues. The service is now running properly with the health check endpoint working. Our focus now shifts to setting up Redis in Railway and completing the integration with the frontend application.
+1. Populate the dashboard with real Ottawa business data
+2. Make the application immediately usable for demonstration and testing
+3. Create a foundation for future scraping and auditing operations
 
-## Development Environment Strategy
+## Recent Decisions
 
-We've established a clear division of responsibilities between development environments:
+1. **Data Import Strategy**: Rather than relying solely on the real-time scraper, we will implement a bulk import process for existing business data from a spreadsheet containing ~8,000 Ottawa businesses.
 
-1. **Lovable.dev** - Used for frontend development:
-   - UI component development and styling
-   - Frontend integration with backend APIs
-   - User experience testing and refinement
-   - Frontend build and deployment processes
-   - Frontend routing and state management
+2. **Initial Performance Grading**: We will develop a simplified scoring system to assign initial performance grades (A-F) to imported businesses based on available data, before running comprehensive Lighthouse audits.
 
-2. **Cursor** - Used for backend development:
-   - Scraper service development and deployment
-   - Database schema and migration management
-   - Environment configuration and Docker setup
-   - API service development and testing
-   - Redis configuration and job queue management
+3. **Implementation Phases**: The import process will follow a structured approach including data preparation, script development, database import, scoring, analysis, and dashboard integration.
 
-This approach allows us to leverage the strengths of each environment while maintaining a cohesive development workflow.
+## Next Steps
 
-## Recent Changes
+1. Review the spreadsheet format and create data mapping specifications
+2. Develop import utilities to process the spreadsheet data
+3. Implement the initial performance grading system
+4. Execute the import process in batches
+5. Generate initial insights and verify dashboard functionality
 
-1. **Railway Deployment Success**
-   - Successfully deployed the scraper service to Railway
-   - Fixed critical ESM compatibility issues in the build process
-   - Resolved CommonJS/ESM module conflicts with Bull queue library
-   - Implemented proper dynamic imports for Lighthouse and GCS
-   - Successfully passed health checks in production environment
+## Technical Considerations
 
-2. **ESM Compatibility Fixes**
-   - Changed `require('bull')` to proper ESM imports with `import * as Bull from 'bull'`
-   - Modified Bull constructor to use default export with `new Bull.default()`
-   - Updated Lighthouse wrapper to use dynamic imports instead of require
-   - Fixed GCS storage implementation to use dynamic imports safely
-   - Made all relative imports include proper `.js` extensions
+1. **Data Integrity**: Ensure clean, normalized data during the import process
+2. **Performance**: Optimize for bulk import operations (batch processing)
+3. **Scoring Algorithm**: Create a realistic initial scoring system that can be refined as more data becomes available
+4. **User Experience**: Ensure imported data is immediately useful in the dashboard interface
 
-3. **Production Build Optimization**
-   - Fixed TypeScript configuration for ESM output
-   - Set module and moduleResolution to 'NodeNext' in tsconfig.json
-   - Added type assertions where needed to handle module type conflicts
-   - Used skip handling for non-critical type errors to prioritize deployment
-   - Successfully built and deployed a production-ready ESM application
-
-## Active Decisions
-
-### Railway Deployment Strategy
-- **Configuration Approach**:
-  - Using Config as Code (railway.toml) for reproducible deployments
-  - Environment variables defined in configuration file
-  - Health check properly configured
-- **Service Dependencies**:
-  - Need to add Redis service in Railway
-  - Need to configure environment variables in Railway dashboard
-  - Need to link services together
-- **Decision**: Will deploy scraper service first, then add Redis, and finally update frontend configuration
-
-### Frontend Integration Strategy
-- **Current Integration**:
-  - Frontend currently configured to use local development endpoints
-  - Need to update to use deployed services
-  - Proxy configuration needs to be updated in vite.config.ts
-- **Technical Considerations**:
-  - Need to handle CORS properly
-  - Authentication tokens need to be forwarded
-  - Need to ensure proper error handling
-- **Decision**: Will update vite.config.ts with deployed service URL after deployment
-
-## Immediate Next Steps
-
-1. ✅ **Deploy Scraper Service to Railway** (Cursor)
-   - ✅ Push code with ESM compatibility fixes to repository
-   - ✅ Deploy using Railway dashboard or CLI
-   - ✅ Verify health check is working correctly
-   - ✅ Confirm successful build and startup
-
-2. **Add Redis Service in Railway** (Cursor)
-   - Create Redis service in Railway dashboard
-   - Link Redis to scraper service
-   - Verify REDIS_URL is correctly injected
-   - Test queue functionality in production environment
-
-3. **Update Frontend Configuration** (Lovable.dev)
-   - Get deployed service URL
-   - Update vite.config.ts proxy configuration
-   - Test end-to-end functionality
-   
-4. **Implement Data Processing Pipeline** (Cursor)
-   - Create ETL processes for raw data
-   - Implement error handling and recovery
-   - Build monitoring system for job status
-   - Add metrics collection for performance monitoring
-
-## Open Questions
-
-1. How should we handle rate limiting in the production environment?
-2. What monitoring metrics should we implement for the deployed service?
-3. How should we handle automatic scaling for the scraper service?
-4. What backup strategy should we implement for the Redis queue?
+This approach will provide a practical solution to the current connectivity challenges while maintaining progress toward the project's objectives.
