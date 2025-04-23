@@ -106,20 +106,50 @@ logger.info(`Memory Usage: ${JSON.stringify(process.memoryUsage())}`);
 logger.info(`Environment Variables: PORT=${process.env.PORT}`);
 logger.info('=== END DIAGNOSTICS ===');
 
-// Middleware
+// Enhanced CORS configuration - apply first before any other middleware
+// More permissive to allow frontend access
+app.use((req: Request, res: Response, next: NextFunction) => {
+  // Allow requests from any origin
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Max-Age', '86400'); // 24 hours
+  
+  // Log CORS requests for debugging
+  if (req.method === 'OPTIONS') {
+    console.log('Received OPTIONS request');
+    return res.status(204).end();
+  }
+  
+  next();
+});
+
+// Regular middleware
 app.use(express.json());
 
-// CORS configuration for API access
-app.use((req: Request, res: Response, next: NextFunction) => {
+// Add a specific CORS test endpoint with detailed diagnostics
+app.get('/cors-test', (req: Request, res: Response) => {
+  // Add extra CORS headers just to be sure
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  
-  next();
+  res.status(200).json({
+    status: 'ok',
+    message: 'CORS test successful',
+    request: {
+      method: req.method,
+    },
+    response: {
+      corsEnabled: true,
+      corsHeaders: {
+        'access-control-allow-origin': '*',
+        'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'access-control-allow-headers': 'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+      }
+    },
+    timestamp: new Date().toISOString()
+  });
 });
 
 // API health check endpoint (for detailed status)
