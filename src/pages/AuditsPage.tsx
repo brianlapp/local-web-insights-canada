@@ -1,48 +1,68 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Search, Filter, MapPin } from 'lucide-react';
 import AuditCard from '@/components/ui/AuditCard';
-import { getBusinessesByCity, type Business } from '@/data';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const AuditsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [cities, setCities] = useState<string[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  
-  useEffect(() => {
-    // Fetch businesses for a default city (or all cities)
-    const fetchBusinesses = async () => {
-      const data = await getBusinessesByCity('ottawa'); // Default city or fetch all
-      setBusinesses(data);
+
+  const { data: businesses, isLoading: isLoadingBusinesses, error: businessError } = useQuery({
+    queryKey: ['businesses'],
+    queryFn: async () => {
+      console.log('Fetching businesses...');
+      let query = supabase
+        .from('businesses')
+        .select('*');
       
-      // Extract unique cities
-      const uniqueCities = [...new Set(data.map(business => business.city))].sort();
-      setCities(uniqueCities);
+      const { data, error } = await query;
       
-      // Extract unique categories
-      const uniqueCategories = [...new Set(data.map(business => business.category))].sort();
-      setCategories(uniqueCategories);
-    };
-    
-    fetchBusinesses();
-  }, []);
+      if (error) {
+        console.error('Error fetching businesses:', error);
+        throw error;
+      }
+      
+      console.log('Fetched businesses:', data);
+      return data || [];
+    }
+  });
+
+  const uniqueCategories = businesses 
+    ? [...new Set(businesses.map(b => b.category).filter(Boolean))]
+    : [];
   
-  // Filter businesses based on search query and filters
-  const filteredBusinesses = businesses.filter(business => {
+  const uniqueCities = businesses
+    ? [...new Set(businesses.map(b => b.city).filter(Boolean))]
+    : [];
+
+  const filteredBusinesses = businesses?.filter(business => {
     const matchesSearch = 
-      searchQuery === '' || 
-      business.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      business.description.toLowerCase().includes(searchQuery.toLowerCase());
+      !searchQuery || 
+      business.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      business.description?.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesCategory = selectedCategory === '' || business.category === selectedCategory;
-    const matchesCity = selectedCity === '' || business.city === selectedCity;
+    const matchesCategory = !selectedCategory || business.category === selectedCategory;
+    const matchesCity = !selectedCity || business.city?.toLowerCase() === selectedCity.toLowerCase();
     
     return matchesSearch && matchesCategory && matchesCity;
   });
+
+  if (businessError) {
+    return (
+      <div className="container py-12">
+        <Alert variant="destructive">
+          <AlertDescription>
+            Failed to load businesses. Please try again later.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="py-12">
@@ -56,7 +76,6 @@ const AuditsPage = () => {
           </p>
         </div>
         
-        {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="relative">
@@ -83,7 +102,7 @@ const AuditsPage = () => {
                 onChange={(e) => setSelectedCategory(e.target.value)}
               >
                 <option value="">All Categories</option>
-                {categories.map((category: string) => (
+                {uniqueCategories.map((category: string) => (
                   <option key={category} value={category}>{category}</option>
                 ))}
               </select>
@@ -100,7 +119,7 @@ const AuditsPage = () => {
                 onChange={(e) => setSelectedCity(e.target.value)}
               >
                 <option value="">All Cities</option>
-                {cities.map((city: string) => (
+                {uniqueCities.map((city: string) => (
                   <option key={city} value={city}>{city}</option>
                 ))}
               </select>
@@ -108,27 +127,42 @@ const AuditsPage = () => {
           </div>
         </div>
         
-        {/* Results count */}
         <div className="mb-6">
           <p className="text-civic-gray-600">
-            Showing <span className="font-semibold">{filteredBusinesses.length}</span> of <span className="font-semibold">{businesses.length}</span> website audits
+            {isLoadingBusinesses ? (
+              <Skeleton className="h-6 w-48" />
+            ) : (
+              <>
+                Showing <span className="font-semibold">{filteredBusinesses?.length || 0}</span> of{' '}
+                <span className="font-semibold">{businesses?.length || 0}</span> website audits
+              </>
+            )}
           </p>
         </div>
         
-        {/* Grid of audit cards */}
-        {filteredBusinesses.length > 0 ? (
+        {isLoadingBusinesses ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="space-y-4">
+                <Skeleton className="h-40 w-full" />
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            ))}
+          </div>
+        ) : filteredBusinesses && filteredBusinesses.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredBusinesses.map(business => (
               <AuditCard 
                 key={business.id} 
                 business={{
                   name: business.name,
-                  city: business.city,
-                  slug: business.slug,
-                  category: business.category,
-                  image: business.image,
-                  score: business.scores.overall,
-                  isUpgraded: business.isUpgraded
+                  city: business.city || 'Unknown location',
+                  slug: business.slug || '',
+                  category: business.category || 'Uncategorized',
+                  image: business.image || '',
+                  score: business.scores?.overall || 0,
+                  isUpgraded: business.is_upgraded || false
                 }} 
               />
             ))}
@@ -150,7 +184,6 @@ const AuditsPage = () => {
           </div>
         )}
         
-        {/* Request audit CTA */}
         <div className="mt-16 bg-civic-blue-50 rounded-lg p-6 md:p-8 text-center">
           <h2 className="text-2xl font-semibold text-civic-gray-900 mb-3">
             Don't see your business here?
