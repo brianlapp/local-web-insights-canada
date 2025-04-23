@@ -1,101 +1,12 @@
 
-import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Building2, Users, ChartBar, AlertCircle } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/integrations/supabase/client'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DashboardStats } from "@/components/admin/DashboardStats";
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function DashboardPage() {
-  // Fetch dashboard stats from the database
-  const { data: businessCount, isLoading: isLoadingBusinesses } = useQuery({
-    queryKey: ['business-count'],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from('businesses')
-        .select('*', { count: 'exact', head: true });
-      
-      if (error) throw error;
-      return count || 0;
-    }
-  });
-  
-  const { data: auditCount, isLoading: isLoadingAudits } = useQuery({
-    queryKey: ['audit-count'],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from('website_audits')
-        .select('*', { count: 'exact', head: true });
-      
-      if (error) throw error;
-      return count || 0;
-    }
-  });
-  
-  const { data: averageScore, isLoading: isLoadingScores } = useQuery({
-    queryKey: ['average-score'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('businesses')
-        .select('overall_score')
-        .not('overall_score', 'is', null);
-      
-      if (error) throw error;
-      
-      if (!data || data.length === 0) return 0;
-      
-      const validScores = data.filter(item => item.overall_score !== null).map(item => item.overall_score || 0);
-      if (validScores.length === 0) return 0;
-      
-      const total = validScores.reduce((sum, score) => sum + score, 0);
-      return Math.round(total / validScores.length);
-    }
-  });
-  
-  const { data: pendingReviews, isLoading: isLoadingReviews } = useQuery({
-    queryKey: ['pending-reviews'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('businesses')
-        .select('id')
-        .is('latest_audit_id', null)
-        .not('website', 'is', null);
-      
-      if (error) throw error;
-      return data?.length || 0;
-    }
-  });
-
-  const isLoading = isLoadingBusinesses || isLoadingAudits || isLoadingScores || isLoadingReviews;
-
-  const stats = [
-    {
-      name: 'Total Businesses',
-      value: isLoading ? '...' : businessCount?.toString() || '0',
-      description: 'Businesses audited',
-      icon: Building2,
-    },
-    {
-      name: 'Total Audits',
-      value: isLoading ? '...' : auditCount?.toString() || '0',
-      description: 'Website audits completed',
-      icon: Users,
-    },
-    {
-      name: 'Average Score',
-      value: isLoading ? '...' : averageScore?.toString() || '0',
-      description: 'Overall audit score',
-      icon: ChartBar,
-    },
-    {
-      name: 'Pending Reviews',
-      value: isLoading ? '...' : pendingReviews?.toString() || '0',
-      description: 'Awaiting review',
-      icon: AlertCircle,
-    },
-  ];
-
-  // Fetch recent activity
+  // Fetch recent businesses
   const { data: recentBusinesses, isLoading: isLoadingRecentBusinesses } = useQuery({
     queryKey: ['recent-businesses'],
     queryFn: async () => {
@@ -115,35 +26,11 @@ export function DashboardPage() {
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         <p className="text-muted-foreground">
-          Overview of your business audits and petition signatures
+          Overview of your business audits and website analytics
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={stat.name}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {stat.name}
-                </CardTitle>
-                <Icon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <Skeleton className="h-8 w-20" />
-                ) : (
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  {stat.description}
-                </p>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      <DashboardStats />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <Card className="col-span-4">
@@ -180,13 +67,13 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              • Create a new business audit
+              • Import new businesses from CSV
             </p>
             <p className="text-sm text-muted-foreground">
               • Review pending websites
             </p>
             <p className="text-sm text-muted-foreground">
-              • Update business status
+              • Update business information
             </p>
           </CardContent>
         </Card>

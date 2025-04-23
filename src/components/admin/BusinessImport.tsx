@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Upload } from "lucide-react";
 import Papa from 'papaparse';
+import { useQueryClient } from "@tanstack/react-query";
 
 interface BusinessRow {
   name?: string;
@@ -28,6 +29,7 @@ export function BusinessImport() {
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const validateRow = (row: BusinessRow, rowIndex: number): BusinessRow => {
     // Extract and clean up the values directly from the row
@@ -150,9 +152,13 @@ export function BusinessImport() {
               title: failedRows.length > 0 ? "Import Partially Complete" : "Import Successful",
               description: `Successfully imported ${successCount} businesses. ${
                 failedRows.length > 0 ? `Failed to import ${failedRows.length} rows.` : ''
-              }`,
+              } You can now view the imported data in the dashboard.`,
               variant: failedRows.length > 0 ? "destructive" : "default"
             });
+
+            // Invalidate queries to refresh data
+            queryClient.invalidateQueries({ queryKey: ['business-count'] });
+            queryClient.invalidateQueries({ queryKey: ['recent-businesses'] });
 
             return; // Exit after successful parse
           }
