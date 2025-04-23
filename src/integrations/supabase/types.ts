@@ -485,7 +485,7 @@ export type Database = {
         Returns: boolean
       }
       process_business_import: {
-        Args: Record<PropertyKey, never>
+        Args: { businesses: Json }
         Returns: undefined
       }
     }
