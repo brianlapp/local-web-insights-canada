@@ -3,12 +3,22 @@ import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Progress } from "@/components/ui/progress";
 import Papa from 'papaparse';
 
 export function BusinessImport() {
   const [isImporting, setIsImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const { toast } = useToast();
+
+  const validateRow = (row: any) => {
+    const requiredFields = ['name', 'city', 'category'];
+    const missingFields = requiredFields.filter(field => !row[field]);
+    
+    if (missingFields.length > 0) {
+      throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+    }
+  };
 
   const importCsv = async () => {
     setIsImporting(true);
@@ -21,18 +31,28 @@ export function BusinessImport() {
       }
       
       const csvText = await response.text();
-      const { data, errors } = Papa.parse(csvText, {
+      const { data, errors, meta } = Papa.parse(csvText, {
         header: true,
-        skipEmptyLines: true
+        skipEmptyLines: true,
+        delimiter: '\t', // Explicitly set tab as delimiter
+        transformHeader: (header) => header.toLowerCase().trim()
       });
 
       if (errors.length > 0) {
         throw new Error('CSV parsing failed: ' + errors.map(e => e.message).join(', '));
       }
 
+      if (data.length === 0) {
+        throw new Error('No valid data found in the CSV file');
+      }
+
+      // Validate the first row to check column structure
+      validateRow(data[0]);
+
       // Process the data in chunks to avoid overloading
       const chunkSize = 50;
       const totalChunks = Math.ceil(data.length / chunkSize);
+      let successCount = 0;
 
       for (let i = 0; i < data.length; i += chunkSize) {
         const chunk = data.slice(i, i + chunkSize);
@@ -43,6 +63,8 @@ export function BusinessImport() {
 
         if (error) throw error;
 
+        successCount += chunk.length;
+        
         // Update progress
         const currentChunk = Math.floor(i / chunkSize) + 1;
         setProgress((currentChunk / totalChunks) * 100);
@@ -50,7 +72,7 @@ export function BusinessImport() {
 
       toast({
         title: "Import Successful",
-        description: `Imported ${data.length} businesses successfully.`
+        description: `Successfully imported ${successCount} businesses.`
       });
     } catch (error) {
       console.error('Import error:', error);
@@ -76,11 +98,11 @@ export function BusinessImport() {
       </Button>
       
       {isImporting && progress > 0 && (
-        <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-          <div 
-            className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
-            style={{ width: `${progress}%` }}
-          />
+        <div className="space-y-2">
+          <div className="text-sm text-gray-500">
+            Importing businesses... {Math.round(progress)}%
+          </div>
+          <Progress value={progress} />
         </div>
       )}
     </div>
