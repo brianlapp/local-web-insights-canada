@@ -3,26 +3,80 @@ import { NavLink } from 'react-router-dom';
 import { ChevronRight, Search, BarChart, Code, Users, Award, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AuditCard from '@/components/ui/AuditCard';
-import { getRecentBusinesses, type Business } from '@/data';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 const HomePage = () => {
-  const [recentAudits, setRecentAudits] = useState<Business[]>([]);
-  
-  useEffect(() => {
-    const fetchRecentAudits = async () => {
-      const audits = await getRecentBusinesses(6);
-      setRecentAudits(audits);
-    };
-    
-    fetchRecentAudits();
-  }, []);
-  
+  // Fetch total number of businesses
+  const { data: businessCount } = useQuery({
+    queryKey: ['total-businesses'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('businesses')
+        .select('*', { count: 'exact', head: true });
+      
+      if (error) throw error;
+      return count || 0;
+    }
+  });
+
+  // Fetch unique cities count
+  const { data: citiesCount } = useQuery({
+    queryKey: ['cities-count'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('city');
+      
+      if (error) throw error;
+      const uniqueCities = new Set(data?.map(b => b.city?.toLowerCase()).filter(Boolean));
+      return uniqueCities.size;
+    }
+  });
+
+  // Fetch average score
+  const { data: averageScore } = useQuery({
+    queryKey: ['average-score'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('scores');
+      
+      if (error) throw error;
+      
+      if (!data || data.length === 0) return 0;
+      
+      const scores = data
+        .map(b => b.scores?.overall || 0)
+        .filter(score => score > 0);
+      
+      if (scores.length === 0) return 0;
+      
+      return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+    }
+  });
+
+  // Fetch recent businesses
+  const { data: recentAudits } = useQuery({
+    queryKey: ['recent-businesses'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(6);
+      
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
   return (
     <>
       {/* Hero Section */}
       <section className="relative bg-cover bg-center py-24 md:py-32" style={{
-      backgroundImage: 'url("/lovable-uploads/bddb191c-4706-40b6-a8b3-e83ca94b3816.png")'
-    }}>
+        backgroundImage: 'url("/lovable-uploads/bddb191c-4706-40b6-a8b3-e83ca94b3816.png")'
+      }}>
         {/* Blue gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-r from-civic-blue-600/80 to-civic-blue/80"></div>
         <div className="container relative z-10 text-center">
@@ -48,19 +102,27 @@ const HomePage = () => {
         <div className="container">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             <div className="p-4">
-              <p className="text-3xl md:text-4xl font-bold text-civic-blue mb-2">48+</p>
+              <p className="text-3xl md:text-4xl font-bold text-civic-blue mb-2">
+                {businessCount || '0'}+
+              </p>
               <p className="text-civic-gray-600">Businesses Helped</p>
             </div>
             <div className="p-4">
-              <p className="text-3xl md:text-4xl font-bold text-civic-blue mb-2">6</p>
+              <p className="text-3xl md:text-4xl font-bold text-civic-blue mb-2">
+                {citiesCount || '0'}
+              </p>
               <p className="text-civic-gray-600">Communities Served</p>
             </div>
             <div className="p-4">
-              <p className="text-3xl md:text-4xl font-bold text-civic-blue mb-2">94%</p>
+              <p className="text-3xl md:text-4xl font-bold text-civic-blue mb-2">
+                {averageScore || '0'}%
+              </p>
               <p className="text-civic-gray-600">Implementation Rate</p>
             </div>
             <div className="p-4">
-              <p className="text-3xl md:text-4xl font-bold text-civic-blue mb-2">18</p>
+              <p className="text-3xl md:text-4xl font-bold text-civic-blue mb-2">
+                {Math.ceil((businessCount || 0) / 10)}
+              </p>
               <p className="text-civic-gray-600">Volunteer Auditors</p>
             </div>
           </div>
@@ -130,7 +192,7 @@ const HomePage = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {recentAudits.map(business => (
+            {recentAudits?.map(business => (
               <AuditCard 
                 key={business.id} 
                 business={{
@@ -139,8 +201,8 @@ const HomePage = () => {
                   slug: business.slug,
                   category: business.category,
                   image: business.image,
-                  score: business.scores.overall,
-                  isUpgraded: business.isUpgraded
+                  score: business.scores?.overall || 0,
+                  isUpgraded: business.is_upgraded
                 }} 
               />
             ))}
