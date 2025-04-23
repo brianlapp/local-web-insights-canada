@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Upload } from "lucide-react";
 import Papa from 'papaparse';
 
 interface BusinessRow {
@@ -15,7 +15,6 @@ interface BusinessRow {
   address?: string;
   website?: string;
   description?: string;
-  // For any additional fields
   [key: string]: any;
 }
 
@@ -28,6 +27,7 @@ export function BusinessImport() {
   const [isImporting, setIsImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [errors, setErrors] = useState<ValidationError[]>([]);
+  const [file, setFile] = useState<File | null>(null);
   const { toast } = useToast();
 
   const validateRow = (row: BusinessRow, rowIndex: number): BusinessRow => {
@@ -49,19 +49,30 @@ export function BusinessImport() {
       description: row.description
     };
   };
+  
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      setFile(event.target.files[0]);
+      setErrors([]);
+    }
+  };
 
   const importCsv = async () => {
+    if (!file) {
+      toast({
+        title: "No file selected",
+        description: "Please select a CSV file to import.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsImporting(true);
     setProgress(0);
     setErrors([]);
 
     try {
-      const response = await fetch('/docs/prepared_businesses.csv');
-      if (!response.ok) {
-        throw new Error('Failed to fetch CSV file');
-      }
-      
-      const csvText = await response.text();
+      const csvText = await file.text();
       console.log("CSV sample:", csvText.substring(0, 200));
       
       const { data, errors: parseErrors } = Papa.parse<BusinessRow>(csvText, {
@@ -142,13 +153,30 @@ export function BusinessImport() {
 
   return (
     <div className="space-y-6">
-      <Button 
-        onClick={importCsv}
-        disabled={isImporting}
-        className="w-full md:w-auto"
-      >
-        {isImporting ? 'Importing...' : 'Import Businesses'}
-      </Button>
+      <div className="flex flex-col space-y-4">
+        <div className="flex items-center space-x-2">
+          <label className="border rounded-md px-4 py-2 bg-gray-100 flex items-center cursor-pointer">
+            <Upload className="h-4 w-4 mr-2" />
+            <span>Select CSV File</span>
+            <input 
+              type="file" 
+              accept=".csv" 
+              className="hidden"
+              onChange={handleFileChange} 
+              disabled={isImporting} 
+            />
+          </label>
+          {file && <span className="text-sm text-gray-600">{file.name}</span>}
+        </div>
+        
+        <Button 
+          onClick={importCsv}
+          disabled={isImporting || !file}
+          className="w-full md:w-auto"
+        >
+          {isImporting ? 'Importing...' : 'Import Businesses'}
+        </Button>
+      </div>
       
       {isImporting && progress > 0 && (
         <div className="space-y-2">
