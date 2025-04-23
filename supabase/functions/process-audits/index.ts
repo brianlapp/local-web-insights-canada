@@ -23,7 +23,7 @@ serve(async (req) => {
 
     console.log('Fetching next business to audit...');
 
-    // Get next business to audit using maybeSingle() instead of single()
+    // Get next business to audit with improved error handling
     const { data: nextBusiness, error: fetchError } = await supabase
       .rpc('get_next_audit_business')
       .maybeSingle();
@@ -44,11 +44,13 @@ serve(async (req) => {
       );
     }
 
+    // Log retrieved business data with explicit field access
     console.log('Retrieved business data:', {
       id: nextBusiness.business_id,
       name: nextBusiness.name,
       website: nextBusiness.website,
-      queue_id: nextBusiness.queue_id
+      queue_id: nextBusiness.queue_id,
+      batch_id: nextBusiness.batch_id
     });
     
     if (!nextBusiness.website) {
