@@ -141,6 +141,7 @@ export type Database = {
           name: string
           phone: string | null
           scores: Json | null
+          slug: string | null
           source_id: string | null
           suggested_improvements: string[] | null
           updated_at: string | null
@@ -162,6 +163,7 @@ export type Database = {
           name: string
           phone?: string | null
           scores?: Json | null
+          slug?: string | null
           source_id?: string | null
           suggested_improvements?: string[] | null
           updated_at?: string | null
@@ -183,6 +185,7 @@ export type Database = {
           name?: string
           phone?: string | null
           scores?: Json | null
+          slug?: string | null
           source_id?: string | null
           suggested_improvements?: string[] | null
           updated_at?: string | null
@@ -469,6 +472,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_slug: {
+        Args: { input_text: string }
+        Returns: string
+      }
       increment_counter: {
         Args: { row_id: string; count: number }
         Returns: number
@@ -476,6 +483,10 @@ export type Database = {
       is_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      process_business_import: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
     }
     Enums: {
