@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { runLighthouse } from './lighthouse.ts'
@@ -23,9 +24,19 @@ serve(async (req) => {
 
     console.log('Fetching next business to audit...');
 
-    // Get next business to audit with improved error handling
-    const { data: nextBusiness, error: fetchError } = await supabase
-      .rpc('get_next_audit_business')
+    // Use a direct query with explicit table references instead of the problematic RPC function
+    const { data: nextBusinessQueue, error: fetchError } = await supabase
+      .from('audit_queue')
+      .select(`
+        id,
+        business_id,
+        batch_id,
+        businesses!inner(id, name, website)
+      `)
+      .eq('status', 'pending')
+      .lt('attempts', 3)
+      .order('created_at', { ascending: true })
+      .limit(1)
       .maybeSingle();
 
     if (fetchError) {
@@ -36,7 +47,7 @@ serve(async (req) => {
       );
     }
 
-    if (!nextBusiness) {
+    if (!nextBusinessQueue) {
       console.log('No businesses to audit at this time');
       return new Response(
         JSON.stringify({ message: 'No businesses to audit' }),
@@ -44,14 +55,27 @@ serve(async (req) => {
       );
     }
 
+    // Update the audit queue status to processing
+    await supabase
+      .from('audit_queue')
+      .update({
+        status: 'processing',
+        last_attempt: new Date().toISOString(),
+        attempts: (nextBusinessQueue.attempts || 0) + 1
+      })
+      .eq('id', nextBusinessQueue.id);
+
+    // Format the business data for easier access
+    const nextBusiness = {
+      business_id: nextBusinessQueue.business_id,
+      queue_id: nextBusinessQueue.id, 
+      batch_id: nextBusinessQueue.batch_id,
+      website: nextBusinessQueue.businesses?.website,
+      name: nextBusinessQueue.businesses?.name
+    };
+
     // Log retrieved business data with explicit field access
-    console.log('Retrieved business data:', {
-      id: nextBusiness.business_id,
-      name: nextBusiness.name,
-      website: nextBusiness.website,
-      queue_id: nextBusiness.queue_id,
-      batch_id: nextBusiness.batch_id
-    });
+    console.log('Retrieved business data:', nextBusiness);
     
     if (!nextBusiness.website) {
       console.error('No website URL provided for business:', nextBusiness.business_id);
