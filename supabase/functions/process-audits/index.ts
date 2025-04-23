@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { runLighthouse } from './lighthouse.ts'
@@ -24,10 +23,10 @@ serve(async (req) => {
 
     console.log('Fetching next business to audit...');
 
-    // Get next business to audit - Using RPC to call the database function
+    // Get next business to audit using maybeSingle() instead of single()
     const { data: nextBusiness, error: fetchError } = await supabase
       .rpc('get_next_audit_business')
-      .single();
+      .maybeSingle();
 
     if (fetchError) {
       console.error('Error fetching next business:', fetchError);
@@ -45,7 +44,12 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Processing audit for business: ${nextBusiness.name} (${nextBusiness.website})`);
+    console.log('Retrieved business data:', {
+      id: nextBusiness.business_id,
+      name: nextBusiness.name,
+      website: nextBusiness.website,
+      queue_id: nextBusiness.queue_id
+    });
     
     if (!nextBusiness.website) {
       console.error('No website URL provided for business:', nextBusiness.business_id);
