@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Star, ArrowRight, Image as ImageIcon } from 'lucide-react';
+import { Star, ArrowRight } from 'lucide-react';
 
 interface AuditCardProps {
   business: {
@@ -10,8 +10,10 @@ interface AuditCardProps {
     slug: string;
     category: string;
     image: string;
-    score: number;
-    isUpgraded: boolean;
+    scores: {
+      overall: number;
+    };
+    is_upgraded: boolean;
   };
 }
 
@@ -22,10 +24,8 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
     setImageError(true);
   };
 
-  // Get a fallback image if needed
   const getImageSrc = () => {
     if (imageError || !business.image) {
-      // Return a category-based fallback image
       if (business.category === "Retail") {
         return "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
       } else if (business.category === "Hardware") {
@@ -33,7 +33,6 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
       } else if (business.category === "Garden") {
         return "https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
       }
-      // Default fallback
       return "https://images.unsplash.com/photo-1537953773345-d172ccf13cf1?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
     }
     return business.image;
@@ -48,7 +47,7 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
           className="w-full h-40 object-cover rounded-md"
           onError={handleImageError}
         />
-        {business.isUpgraded && (
+        {business.is_upgraded && (
           <span className="absolute top-2 right-2 bg-civic-green text-white text-xs px-2 py-1 rounded-full">
             Upgraded
           </span>
@@ -60,11 +59,11 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
       
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center">
-          <Star className={`w-5 h-5 ${business.score >= 80 ? 'text-civic-green' : business.score >= 50 ? 'text-amber-500' : 'text-civic-red'}`} />
-          <span className="ml-1 text-sm font-medium">{business.score}/100</span>
+          <Star className={`w-5 h-5 ${business.scores?.overall >= 80 ? 'text-civic-green' : business.scores?.overall >= 50 ? 'text-amber-500' : 'text-civic-red'}`} />
+          <span className="ml-1 text-sm font-medium">{business.scores?.overall || 0}/100</span>
         </div>
         <NavLink 
-          to={`/${business.city.toLowerCase()}/${business.slug}`}
+          to={`/${business.city?.toLowerCase()}/${business.slug}`}
           className="text-civic-blue hover:text-civic-blue-600 text-sm font-medium flex items-center transition-colors"
         >
           View audit <ArrowRight className="ml-1 w-4 h-4 group-hover:translate-x-1 transition-transform" />

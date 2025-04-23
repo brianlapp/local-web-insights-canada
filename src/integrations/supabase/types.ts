@@ -476,6 +476,10 @@ export type Database = {
         Args: { input_text: string }
         Returns: string
       }
+      generate_unique_slug: {
+        Args: { input_text: string }
+        Returns: string
+      }
       increment_counter: {
         Args: { row_id: string; count: number }
         Returns: number
