@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { ChevronRight, Search, BarChart, Code, Users, Award, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,6 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 const HomePage = () => {
-  // Fetch total number of businesses
   const { data: businessCount } = useQuery({
     queryKey: ['total-businesses'],
     queryFn: async () => {
@@ -20,7 +20,6 @@ const HomePage = () => {
     }
   });
 
-  // Fetch unique cities count
   const { data: citiesCount } = useQuery({
     queryKey: ['cities-count'],
     queryFn: async () => {
@@ -34,7 +33,6 @@ const HomePage = () => {
     }
   });
 
-  // Fetch average score
   const { data: averageScore } = useQuery({
     queryKey: ['average-score'],
     queryFn: async () => {
@@ -56,7 +54,6 @@ const HomePage = () => {
     }
   });
 
-  // Fetch recent businesses
   const { data: recentAudits } = useQuery({
     queryKey: ['recent-businesses'],
     queryFn: async () => {
@@ -201,8 +198,8 @@ const HomePage = () => {
                   slug: business.slug,
                   category: business.category,
                   image: business.image,
-                  score: business.scores?.overall || 0,
-                  isUpgraded: business.is_upgraded
+                  scores: business.scores || { overall: 0 },
+                  is_upgraded: business.is_upgraded
                 }} 
               />
             ))}

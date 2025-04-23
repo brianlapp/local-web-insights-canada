@@ -15,14 +15,12 @@ const AuditsPage = () => {
   const [selectedCity, setSelectedCity] = useState('');
   const [isInserting, setIsInserting] = useState(false);
 
-  // Add a function to insert test data
   const handleInsertTestData = async () => {
     setIsInserting(true);
     try {
       const success = await insertTestBusinesses();
       if (success) {
         toast.success('Test businesses have been added to the database.');
-        // Refetch the businesses
         await refetch();
       } else {
         toast.error('Failed to insert test businesses.');
@@ -35,7 +33,6 @@ const AuditsPage = () => {
     }
   };
 
-  // Fetch businesses with explicit console logs for debugging
   const { 
     data: businesses, 
     isLoading: isLoadingBusinesses, 
@@ -59,7 +56,6 @@ const AuditsPage = () => {
     }
   });
 
-  // Log whenever the businesses data changes
   useEffect(() => {
     console.log('Businesses data updated:', businesses);
   }, [businesses]);
@@ -112,7 +108,6 @@ const AuditsPage = () => {
             Explore our collection of local business website audits and see how we're helping improve online presence across communities.
           </p>
 
-          {/* Add button to insert test data */}
           <div className="mt-4">
             <Button
               onClick={handleInsertTestData}
@@ -211,8 +206,8 @@ const AuditsPage = () => {
                     slug: business.slug || '',
                     category: business.category || 'Uncategorized',
                     image: business.image || '',
-                    score: business.scores?.overall || 0,
-                    isUpgraded: business.is_upgraded || false
+                    scores: business.scores || { overall: 0 },
+                    is_upgraded: business.is_upgraded || false
                   }} 
                 />
               ))}
