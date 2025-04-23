@@ -73,11 +73,28 @@ export function BusinessImport() {
 
     try {
       const csvText = await file.text();
-      console.log("CSV sample:", csvText.substring(0, 200));
+      
+      // Log the first part of the CSV to debug format issues
+      console.log("CSV first 500 chars:", csvText.substring(0, 500));
+      
+      // Try to detect the delimiter by checking first few lines
+      let delimiter = ','; // Default delimiter
+      
+      // Check if it might be tab-delimited
+      if (csvText.includes('\t')) {
+        delimiter = '\t';
+      } 
+      // Check if it might be semicolon-delimited (common in some regions)
+      else if (csvText.includes(';')) {
+        delimiter = ';';
+      }
+      
+      console.log("Using delimiter:", delimiter === '\t' ? 'TAB' : delimiter);
       
       const { data, errors: parseErrors } = Papa.parse<BusinessRow>(csvText, {
         header: true,
         skipEmptyLines: true,
+        delimiter: delimiter,
         transformHeader: (header) => header.toLowerCase().trim()
       });
 
@@ -86,7 +103,7 @@ export function BusinessImport() {
         throw new Error(`CSV parsing failed: ${parseErrors.map(e => e.message).join(', ')}`);
       }
 
-      console.log("Sample row:", data[0]);
+      console.log("First row sample:", data[0]);
 
       const chunkSize = 50;
       const totalChunks = Math.ceil(data.length / chunkSize);
