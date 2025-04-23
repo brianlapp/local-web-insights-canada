@@ -41,7 +41,7 @@ export function DashboardStats() {
     }
   });
 
-  // Count unique cities
+  // Fetch unique cities
   const { data: citiesCount, isLoading: isLoadingCities } = useQuery({
     queryKey: ['cities-count'],
     queryFn: async () => {
@@ -56,7 +56,21 @@ export function DashboardStats() {
     }
   });
 
-  const isLoading = isLoadingBusinesses || isLoadingScores || isLoadingCities;
+  // Fetch pending audits
+  const { data: pendingAuditsCount, isLoading: isLoadingPendingAudits } = useQuery({
+    queryKey: ['pending-audits-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('audit_queue')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      
+      if (error) throw error;
+      return count || 0;
+    }
+  });
+
+  const isLoading = isLoadingBusinesses || isLoadingScores || isLoadingCities || isLoadingPendingAudits;
 
   const stats = [
     {
@@ -79,7 +93,7 @@ export function DashboardStats() {
     },
     {
       name: 'Pending Reviews',
-      value: isLoading ? '...' : '0',
+      value: isLoading ? '...' : pendingAuditsCount?.toString() || '0',
       description: 'Awaiting audit',
       icon: AlertCircle,
     },
