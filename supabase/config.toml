@@ -1,1 +1,5 @@
+
 project_id = "sirryoeizmlubsuspmic"
+
+[functions.process-audits]
+verify_jwt = false

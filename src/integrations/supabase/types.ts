@@ -45,6 +45,48 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_batches: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          error: string | null
+          failed_audits: number | null
+          id: string
+          processed_sites: number | null
+          started_at: string | null
+          status: string
+          successful_audits: number | null
+          total_sites: number
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          error?: string | null
+          failed_audits?: number | null
+          id?: string
+          processed_sites?: number | null
+          started_at?: string | null
+          status?: string
+          successful_audits?: number | null
+          total_sites: number
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          error?: string | null
+          failed_audits?: number | null
+          id?: string
+          processed_sites?: number | null
+          started_at?: string | null
+          status?: string
+          successful_audits?: number | null
+          total_sites?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       audit_errors: {
         Row: {
           business_id: string | null
@@ -82,6 +124,57 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "audit_errors_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_queue: {
+        Row: {
+          attempts: number | null
+          batch_id: string | null
+          business_id: string
+          created_at: string | null
+          error: string | null
+          id: string
+          last_attempt: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          batch_id?: string | null
+          business_id: string
+          created_at?: string | null
+          error?: string | null
+          id?: string
+          last_attempt?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          batch_id?: string | null
+          business_id?: string
+          created_at?: string | null
+          error?: string | null
+          id?: string
+          last_attempt?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_queue_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "audit_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_queue_business_id_fkey"
             columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "businesses"
@@ -472,6 +565,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_audit_batch: {
+        Args: { batch_size?: number }
+        Returns: string
+      }
       generate_slug: {
         Args: { input_text: string }
         Returns: string
@@ -479,6 +576,16 @@ export type Database = {
       generate_unique_slug: {
         Args: { input_text: string }
         Returns: string
+      }
+      get_next_audit_business: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          business_id: string
+          queue_id: string
+          batch_id: string
+          website: string
+          name: string
+        }[]
       }
       increment_counter: {
         Args: { row_id: string; count: number }
@@ -490,6 +597,10 @@ export type Database = {
       }
       process_business_import: {
         Args: { businesses: Json }
+        Returns: undefined
+      }
+      update_audit_progress: {
+        Args: { p_queue_id: string; p_status: string; p_error?: string }
         Returns: undefined
       }
     }
