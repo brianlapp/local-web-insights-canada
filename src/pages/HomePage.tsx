@@ -1,14 +1,14 @@
 import React from 'react';
-import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { ChevronRight, Search, BarChart, Code, Users, Award, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AuditCard from '@/components/ui/AuditCard';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const HomePage = () => {
-  const { data: businessCount } = useQuery({
+  const { data: businessCount, isLoading: isLoadingCount } = useQuery({
     queryKey: ['total-businesses'],
     queryFn: async () => {
       const { count, error } = await supabase
@@ -20,7 +20,7 @@ const HomePage = () => {
     }
   });
 
-  const { data: citiesCount } = useQuery({
+  const { data: citiesCount, isLoading: isLoadingCities } = useQuery({
     queryKey: ['cities-count'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -33,7 +33,7 @@ const HomePage = () => {
     }
   });
 
-  const { data: averageScore } = useQuery({
+  const { data: averageScore, isLoading: isLoadingScore } = useQuery({
     queryKey: ['average-score'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -54,7 +54,7 @@ const HomePage = () => {
     }
   });
 
-  const { data: recentAudits } = useQuery({
+  const { data: recentAudits, isLoading: isLoadingAudits } = useQuery({
     queryKey: ['recent-businesses'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -84,11 +84,11 @@ const HomePage = () => {
             Providing website audits, community feedback, and resources to help local businesses succeed online.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button className="bg-white text-civic-blue hover:bg-civic-blue-50 text-lg py-6 px-8">
-              Find Local Audits
+            <Button className="bg-white text-civic-blue hover:bg-civic-blue-50 text-lg py-6 px-8" asChild>
+              <NavLink to="/audits">Find Local Audits</NavLink>
             </Button>
-            <Button className="bg-civic-green hover:bg-civic-green-600 text-white text-lg py-6 px-8">
-              Request an Audit
+            <Button className="bg-civic-green hover:bg-civic-green-600 text-white text-lg py-6 px-8" asChild>
+              <NavLink to="/audit">Request an Audit</NavLink>
             </Button>
           </div>
         </div>
@@ -100,25 +100,25 @@ const HomePage = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             <div className="p-4">
               <p className="text-3xl md:text-4xl font-bold text-civic-blue mb-2">
-                {businessCount || '0'}+
+                {isLoadingCount ? '...' : `${businessCount}+`}
               </p>
               <p className="text-civic-gray-600">Businesses Helped</p>
             </div>
             <div className="p-4">
               <p className="text-3xl md:text-4xl font-bold text-civic-blue mb-2">
-                {citiesCount || '0'}
+                {isLoadingCities ? '...' : citiesCount || '0'}
               </p>
               <p className="text-civic-gray-600">Communities Served</p>
             </div>
             <div className="p-4">
               <p className="text-3xl md:text-4xl font-bold text-civic-blue mb-2">
-                {averageScore || '0'}%
+                {isLoadingScore ? '...' : `${averageScore}%`}
               </p>
               <p className="text-civic-gray-600">Implementation Rate</p>
             </div>
             <div className="p-4">
               <p className="text-3xl md:text-4xl font-bold text-civic-blue mb-2">
-                {Math.ceil((businessCount || 0) / 10)}
+                {isLoadingCount ? '...' : Math.ceil((businessCount || 0) / 10)}
               </p>
               <p className="text-civic-gray-600">Volunteer Auditors</p>
             </div>
@@ -188,22 +188,34 @@ const HomePage = () => {
             </NavLink>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {recentAudits?.map(business => (
-              <AuditCard 
-                key={business.id} 
-                business={{
-                  name: business.name,
-                  city: business.city,
-                  slug: business.slug,
-                  category: business.category,
-                  image: business.image,
-                  scores: business.scores || { overall: 0 },
-                  is_upgraded: business.is_upgraded
-                }} 
-              />
-            ))}
-          </div>
+          {isLoadingAudits ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="space-y-4">
+                  <Skeleton className="h-40 w-full" />
+                  <Skeleton className="h-6 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {recentAudits?.map(business => (
+                <AuditCard 
+                  key={business.id} 
+                  business={{
+                    name: business.name || 'Unnamed Business',
+                    city: business.city || 'Unknown location',
+                    slug: business.slug || '',
+                    category: business.category || 'Uncategorized',
+                    image: business.image || '',
+                    scores: business.scores || { overall: 0 },
+                    is_upgraded: business.is_upgraded || false
+                  }} 
+                />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

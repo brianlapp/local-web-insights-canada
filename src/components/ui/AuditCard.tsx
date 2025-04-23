@@ -38,6 +38,8 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
     return business.image;
   };
 
+  const overallScore = business.scores?.overall || 0;
+
   return (
     <div className="card group hover:shadow-md transition-shadow border border-gray-100 rounded-lg p-4">
       <div className="relative mb-4">
@@ -59,8 +61,8 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
       
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center">
-          <Star className={`w-5 h-5 ${business.scores?.overall >= 80 ? 'text-civic-green' : business.scores?.overall >= 50 ? 'text-amber-500' : 'text-civic-red'}`} />
-          <span className="ml-1 text-sm font-medium">{business.scores?.overall || 0}/100</span>
+          <Star className={`w-5 h-5 ${overallScore >= 80 ? 'text-civic-green' : overallScore >= 50 ? 'text-amber-500' : 'text-civic-red'}`} />
+          <span className="ml-1 text-sm font-medium">{overallScore}/100</span>
         </div>
         <NavLink 
           to={`/${business.city?.toLowerCase()}/${business.slug}`}
