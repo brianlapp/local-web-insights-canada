@@ -1,20 +1,35 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Search, Filter, MapPin } from 'lucide-react';
 import AuditCard from '@/components/ui/AuditCard';
-import { businesses } from '@/data/businesses';
+import { getBusinessesByCity, type Business } from '@/data';
 
 const AuditsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [cities, setCities] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   
-  // Get unique cities
-  const cities = [...new Set(businesses.map(business => business.city))].sort();
-  
-  // Get unique categories
-  const categories = [...new Set(businesses.map(business => business.category))].sort();
+  useEffect(() => {
+    // Fetch businesses for a default city (or all cities)
+    const fetchBusinesses = async () => {
+      const data = await getBusinessesByCity('ottawa'); // Default city or fetch all
+      setBusinesses(data);
+      
+      // Extract unique cities
+      const uniqueCities = [...new Set(data.map(business => business.city))].sort();
+      setCities(uniqueCities);
+      
+      // Extract unique categories
+      const uniqueCategories = [...new Set(data.map(business => business.category))].sort();
+      setCategories(uniqueCategories);
+    };
+    
+    fetchBusinesses();
+  }, []);
   
   // Filter businesses based on search query and filters
   const filteredBusinesses = businesses.filter(business => {

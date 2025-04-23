@@ -1,6 +1,30 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import type { Business } from '@/data/businesses';
+
+export interface Business {
+  id: string;
+  name: string;
+  city: string;
+  slug: string;
+  category: string;
+  description: string;
+  website: string;
+  address: string;
+  image: string;
+  mobileScreenshot: string;
+  desktopScreenshot: string;
+  scores: {
+    seo: number;
+    performance: number;
+    accessibility: number;
+    design: number;
+    overall: number;
+  };
+  suggestedImprovements: string[];
+  isUpgraded: boolean;
+  auditorId: string;
+  auditDate: string;
+}
 
 export async function getBusinessBySlug(city: string, slug: string): Promise<Business | null> {
   const { data, error } = await supabase
@@ -60,29 +84,4 @@ export async function getUpgradedBusinesses(limit: number = 6): Promise<Business
   }
 
   return data as Business[];
-}
-
-export interface Business {
-  id: string;
-  name: string;
-  city: string;
-  slug: string;
-  category: string;
-  description: string;
-  website: string;
-  address: string;
-  image: string;
-  mobileScreenshot: string;
-  desktopScreenshot: string;
-  scores: {
-    seo: number;
-    performance: number;
-    accessibility: number;
-    design: number;
-    overall: number;
-  };
-  suggestedImprovements: string[];
-  isUpgraded: boolean;
-  auditorId: string;
-  auditDate: string;
 }

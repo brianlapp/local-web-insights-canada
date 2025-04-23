@@ -10,6 +10,6 @@ export { auditors, getAuditorBySlug, getAuditorById } from './auditors';
 
 // Helper function to get businesses by auditor
 export const getBusinessesByAuditor = (auditorId: string) => {
-  const { businesses } = require('./businesses');
-  return businesses.filter(business => business.auditorId === auditorId);
+  // This is a mock function that would need to be implemented with actual data
+  return [];
 };

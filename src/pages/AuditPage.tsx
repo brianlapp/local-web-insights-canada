@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { MapPin, Globe, Calendar, Check, AlertTriangle, ExternalLink, ArrowLeft, Search, BarChart, Code, Palette } from 'lucide-react';
@@ -10,21 +11,51 @@ import ScoreCard from '@/components/ui/ScoreCard';
 import CommentForm from '@/components/ui/CommentForm';
 import PetitionForm from '@/components/ui/PetitionForm';
 import PageLayout from '@/components/layout/PageLayout';
-import { getBusinessBySlug, getAuditorById } from '@/data';
+import { getBusinessBySlug, getAuditorById, type Business } from '@/data';
 
 export function AuditPage() {
   const { city, slug } = useParams<{ city: string; slug: string }>();
   const navigate = useNavigate();
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const [auditor, setAuditor] = useState<any>(null);
 
-  const { data: business, isLoading, error } = useQuery({
-    queryKey: ['business', city, slug],
-    queryFn: () => getBusinessBySlug(city!, slug!),
-    enabled: !!city && !!slug,
-  });
-  
-  const auditor = business?.auditorId ? getAuditorById(business.auditorId) : undefined;
+  useEffect(() => {
+    const loadData = async () => {
+      if (!city || !slug) return;
+      
+      try {
+        setIsLoading(true);
+        const businessData = await getBusinessBySlug(city, slug);
+        setBusiness(businessData);
+        
+        if (businessData?.auditorId) {
+          const auditorData = getAuditorById(businessData.auditorId);
+          setAuditor(auditorData);
+        }
+      } catch (err) {
+        console.error("Failed to load business data:", err);
+        setError(err as Error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [city, slug]);
 
-  if (!business) {
+  if (isLoading) {
+    return (
+      <PageLayout>
+        <div className="container py-16 text-center">
+          <h1 className="text-3xl font-bold mb-4">Loading audit data...</h1>
+        </div>
+      </PageLayout>
+    );
+  }
+
+  if (error || !business) {
     return (
       <PageLayout>
         <div className="container py-16 text-center">

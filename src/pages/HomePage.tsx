@@ -1,15 +1,24 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { ChevronRight, Search, BarChart, Code, Users, Award, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AuditCard from '@/components/ui/AuditCard';
-import { getRecentBusinesses } from '@/data/businesses';
+import { getRecentBusinesses, type Business } from '@/data';
 
 const HomePage = () => {
-  const recentAudits = getRecentBusinesses(6);
+  const [recentAudits, setRecentAudits] = useState<Business[]>([]);
+  
+  useEffect(() => {
+    const fetchRecentAudits = async () => {
+      const audits = await getRecentBusinesses(6);
+      setRecentAudits(audits);
+    };
+    
+    fetchRecentAudits();
+  }, []);
+  
   return (
-      <>
+    <>
       {/* Hero Section */}
       <section className="relative bg-cover bg-center py-24 md:py-32" style={{
       backgroundImage: 'url("/lovable-uploads/bddb191c-4706-40b6-a8b3-e83ca94b3816.png")'
@@ -121,15 +130,20 @@ const HomePage = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {recentAudits.map(business => <AuditCard key={business.id} business={{
-            name: business.name,
-            city: business.city,
-            slug: business.slug,
-            category: business.category,
-            image: business.image,
-            score: business.scores.overall,
-            isUpgraded: business.isUpgraded
-          }} />)}
+            {recentAudits.map(business => (
+              <AuditCard 
+                key={business.id} 
+                business={{
+                  name: business.name,
+                  city: business.city,
+                  slug: business.slug,
+                  category: business.category,
+                  image: business.image,
+                  score: business.scores.overall,
+                  isUpgraded: business.isUpgraded
+                }} 
+              />
+            ))}
           </div>
         </div>
       </section>
@@ -371,7 +385,7 @@ const HomePage = () => {
           <path fill="#f3f4f6" fillOpacity="1" d="M0,224L80,213.3C160,203,320,181,480,181.3C640,181,800,203,960,197.3C1120,192,1280,160,1360,144L1440,128L1440,320L1360,320C1280,320,1120,320,960,320C800,320,640,320,480,320C320,320,160,320,80,320L0,320Z"></path>
         </svg>
       </div>
-      </>
+    </>
   );
 };
 
