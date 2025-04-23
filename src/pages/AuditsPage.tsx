@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Search, Filter, MapPin } from 'lucide-react';
@@ -16,11 +17,9 @@ const AuditsPage = () => {
     queryKey: ['businesses'],
     queryFn: async () => {
       console.log('Fetching businesses...');
-      let query = supabase
+      const { data, error } = await supabase
         .from('businesses')
         .select('*');
-      
-      const { data, error } = await query;
       
       if (error) {
         console.error('Error fetching businesses:', error);
@@ -47,7 +46,7 @@ const AuditsPage = () => {
       business.description?.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesCategory = !selectedCategory || business.category === selectedCategory;
-    const matchesCity = !selectedCity || business.city?.toLowerCase() === selectedCity.toLowerCase();
+    const matchesCity = !selectedCity || (business.city && business.city.toLowerCase() === selectedCity.toLowerCase());
     
     return matchesSearch && matchesCategory && matchesCity;
   });
@@ -102,7 +101,7 @@ const AuditsPage = () => {
                 onChange={(e) => setSelectedCategory(e.target.value)}
               >
                 <option value="">All Categories</option>
-                {uniqueCategories.map((category: string) => (
+                {uniqueCategories.map((category) => (
                   <option key={category} value={category}>{category}</option>
                 ))}
               </select>
@@ -119,7 +118,7 @@ const AuditsPage = () => {
                 onChange={(e) => setSelectedCity(e.target.value)}
               >
                 <option value="">All Cities</option>
-                {uniqueCities.map((city: string) => (
+                {uniqueCities.map((city) => (
                   <option key={city} value={city}>{city}</option>
                 ))}
               </select>
@@ -128,16 +127,16 @@ const AuditsPage = () => {
         </div>
         
         <div className="mb-6">
-          <p className="text-civic-gray-600">
-            {isLoadingBusinesses ? (
+          {isLoadingBusinesses ? (
+            <div className="h-6">
               <Skeleton className="h-6 w-48" />
-            ) : (
-              <>
-                Showing <span className="font-semibold">{filteredBusinesses?.length || 0}</span> of{' '}
-                <span className="font-semibold">{businesses?.length || 0}</span> website audits
-              </>
-            )}
-          </p>
+            </div>
+          ) : (
+            <p className="text-civic-gray-600">
+              Showing <span className="font-semibold">{filteredBusinesses?.length || 0}</span> of{' '}
+              <span className="font-semibold">{businesses?.length || 0}</span> website audits
+            </p>
+          )}
         </div>
         
         {isLoadingBusinesses ? (
@@ -150,36 +149,48 @@ const AuditsPage = () => {
               </div>
             ))}
           </div>
-        ) : filteredBusinesses && filteredBusinesses.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredBusinesses.map(business => (
-              <AuditCard 
-                key={business.id} 
-                business={{
-                  name: business.name,
-                  city: business.city || 'Unknown location',
-                  slug: business.slug || '',
-                  category: business.category || 'Uncategorized',
-                  image: business.image || '',
-                  score: business.scores?.overall || 0,
-                  isUpgraded: business.is_upgraded || false
-                }} 
-              />
-            ))}
-          </div>
+        ) : businesses && businesses.length > 0 ? (
+          filteredBusinesses && filteredBusinesses.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredBusinesses.map(business => (
+                <AuditCard 
+                  key={business.id} 
+                  business={{
+                    name: business.name || 'Unnamed Business',
+                    city: business.city || 'Unknown location',
+                    slug: business.slug || '',
+                    category: business.category || 'Uncategorized',
+                    image: business.image || '',
+                    score: business.scores?.overall || 0,
+                    isUpgraded: business.is_upgraded || false
+                  }} 
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-civic-gray-50 rounded-lg">
+              <p className="text-civic-gray-600 mb-4">No audits found matching your criteria.</p>
+              <Button 
+                variant="outline" 
+                className="border-civic-blue text-civic-blue hover:bg-civic-blue-50"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedCategory('');
+                  setSelectedCity('');
+                }}
+              >
+                Clear Filters
+              </Button>
+            </div>
+          )
         ) : (
           <div className="text-center py-12 bg-civic-gray-50 rounded-lg">
-            <p className="text-civic-gray-600 mb-4">No audits found matching your criteria.</p>
+            <p className="text-civic-gray-600 mb-4">No business audits found in the database.</p>
             <Button 
-              variant="outline" 
-              className="border-civic-blue text-civic-blue hover:bg-civic-blue-50"
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedCategory('');
-                setSelectedCity('');
-              }}
+              className="bg-civic-green hover:bg-civic-green-600 text-white px-6 py-2" 
+              asChild
             >
-              Clear Filters
+              <a href="/audit">Request Your Free Audit</a>
             </Button>
           </div>
         )}
