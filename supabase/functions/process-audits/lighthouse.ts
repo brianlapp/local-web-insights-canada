@@ -16,19 +16,27 @@ const PERFORMANCE_METRICS = {
 
 // Normalized score calculation function
 function normalizeScore(value: number, min: number, max: number): number {
-  return Math.min(Math.max((value - min) / (max - min), 0), 1);
+  const normalized = Math.min(Math.max((value - min) / (max - min), 0), 1);
+  console.log(`Normalizing value ${value} between ${min} and ${max}: result = ${normalized}`);
+  return normalized;
 }
 
 // Calculate performance score based on real metrics
 function calculatePerformanceScore(metrics: any): number {
+  // Log raw metrics for debugging
+  console.log('Raw performance metrics:', JSON.stringify(metrics));
+  
   // Use weighting similar to Lighthouse algorithm
   const fcpScore = normalizeScore(metrics.firstContentfulPaint || 3000, 1000, 4000);
-  const lctScore = normalizeScore(metrics.largestContentfulPaint || 4000, 2000, 6000);
+  const lcpScore = normalizeScore(metrics.largestContentfulPaint || 4000, 2000, 6000);
   const clsScore = normalizeScore(metrics.cumulativeLayoutShift || 0.25, 0.1, 0.4);
   const ttiScore = normalizeScore(metrics.timeToInteractive || 5000, 3000, 7500);
   
   // Weighted calculation
-  return (fcpScore * 0.25 + lctScore * 0.35 + clsScore * 0.2 + ttiScore * 0.2);
+  const performanceScore = (fcpScore * 0.25 + lcpScore * 0.35 + clsScore * 0.2 + ttiScore * 0.2);
+  console.log(`Calculated performance score: ${performanceScore} (FCP: ${fcpScore}, LCP: ${lcpScore}, CLS: ${clsScore}, TTI: ${ttiScore})`);
+  
+  return performanceScore;
 }
 
 // Enhanced Lighthouse audit with proper Chrome metrics
@@ -75,6 +83,8 @@ export async function runLighthouse(url: string): Promise<any> {
         return {};
       });
 
+      console.log('Collected performance metrics:', JSON.stringify(performanceMetrics));
+      
       // Collect accessibility metrics
       const accessibilityIssues = await page.evaluate(() => {
         // Basic accessibility checks
@@ -109,6 +119,8 @@ export async function runLighthouse(url: string): Promise<any> {
         return { totalIssues: 0 };
       });
       
+      console.log('Collected accessibility issues:', JSON.stringify(accessibilityIssues));
+      
       // Collect SEO metrics
       const seoIssues = await page.evaluate(() => {
         const noMetaDesc = document.querySelector('meta[name="description"]') ? 0 : 1;
@@ -125,6 +137,8 @@ export async function runLighthouse(url: string): Promise<any> {
         console.error('Error checking SEO:', e);
         return { totalIssues: 0 };
       });
+      
+      console.log('Collected SEO issues:', JSON.stringify(seoIssues));
       
       // Collect best practices metrics
       const bestPracticesIssues = await page.evaluate(() => {
@@ -143,17 +157,23 @@ export async function runLighthouse(url: string): Promise<any> {
         return { totalIssues: 0 };
       });
       
+      console.log('Collected best practices issues:', JSON.stringify(bestPracticesIssues));
+      
       // Calculate scores from collected metrics
       const performanceScore = calculatePerformanceScore(performanceMetrics);
+      
       const accessibilityScore = accessibilityIssues.totalIssues === 0 ? 1.0 : 
                                  Math.max(0, 1 - (accessibilityIssues.totalIssues * 0.1));
+      
       const seoScore = seoIssues.totalIssues === 0 ? 1.0 : 
                        Math.max(0, 1 - (seoIssues.totalIssues * 0.25));
+      
       const bestPracticesScore = bestPracticesIssues.totalIssues === 0 ? 1.0 : 
                                 Math.max(0, 1 - (bestPracticesIssues.totalIssues * 0.25));
 
       const elapsedTime = Date.now() - startTime;
       console.log(`Analysis completed for ${url} in ${elapsedTime}ms`);
+      console.log(`Final scores - Performance: ${performanceScore}, Accessibility: ${accessibilityScore}, SEO: ${seoScore}, Best Practices: ${bestPracticesScore}`);
 
       // Format the result to match Lighthouse structure
       const result = {

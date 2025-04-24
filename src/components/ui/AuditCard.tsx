@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Star, ArrowRight } from 'lucide-react';
+import { Star, ArrowRight, Activity } from 'lucide-react';
 
 interface AuditCardProps {
   business: {
@@ -12,8 +12,13 @@ interface AuditCardProps {
     image: string;
     scores: {
       overall: number;
+      performance?: number;
+      seo?: number;
+      accessibility?: number;
+      bestPractices?: number;
     };
     is_upgraded: boolean;
+    audit_date?: string;
   };
 }
 
@@ -38,7 +43,18 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
     return business.image;
   };
 
+  // Ensure we have a valid overall score
   const overallScore = business.scores?.overall || 0;
+  
+  // Format audit date if available
+  const formattedDate = business.audit_date 
+    ? new Date(business.audit_date).toLocaleDateString() 
+    : 'Not audited yet';
+  
+  console.log(`Rendering AuditCard for ${business.name} with score: ${overallScore}`);
+
+  // Get the performance score if available for secondary display
+  const performanceScore = business.scores?.performance || 0;
 
   return (
     <div className="card group hover:shadow-md transition-shadow border border-gray-100 rounded-lg p-4">
@@ -63,13 +79,25 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
         <div className="flex items-center">
           <Star className={`w-5 h-5 ${overallScore >= 80 ? 'text-civic-green' : overallScore >= 50 ? 'text-amber-500' : 'text-civic-red'}`} />
           <span className="ml-1 text-sm font-medium">{overallScore}/100</span>
+          
+          {performanceScore > 0 && (
+            <div className="ml-3 flex items-center">
+              <Activity className={`w-4 h-4 ${performanceScore >= 80 ? 'text-civic-green' : performanceScore >= 50 ? 'text-amber-500' : 'text-civic-red'}`} />
+              <span className="ml-1 text-xs">{performanceScore}</span>
+            </div>
+          )}
         </div>
+        
         <NavLink 
           to={`/${business.city?.toLowerCase()}/${business.slug}`}
           className="text-civic-blue hover:text-civic-blue-600 text-sm font-medium flex items-center transition-colors"
         >
           View audit <ArrowRight className="ml-1 w-4 h-4 group-hover:translate-x-1 transition-transform" />
         </NavLink>
+      </div>
+      
+      <div className="text-xs text-gray-500">
+        Last Updated: {formattedDate}
       </div>
     </div>
   );

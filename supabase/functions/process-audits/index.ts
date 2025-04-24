@@ -9,7 +9,8 @@ const corsHeaders = {
 }
 
 // Batch size for processing multiple audits
-const BATCH_SIZE = 5;
+const DEFAULT_BATCH_SIZE = 5;
+const MAX_BATCH_SIZE = 20;
 
 serve(async (req) => {
   // Handle CORS
@@ -28,9 +29,20 @@ serve(async (req) => {
     // Check if the request is specifically for batch processing
     const url = new URL(req.url);
     const isBatchProcess = url.searchParams.get('batch') === 'true';
-    const requestedBatchSize = parseInt(url.searchParams.get('size') || '0', 10);
-    const batchSize = requestedBatchSize > 0 && requestedBatchSize <= 10 ? requestedBatchSize : BATCH_SIZE;
-
+    
+    // Get requested batch size with proper parsing and validation
+    const requestedSizeParam = url.searchParams.get('size');
+    let requestedBatchSize = requestedSizeParam ? parseInt(requestedSizeParam, 10) : 0;
+    
+    // Ensure batch size is valid
+    if (isNaN(requestedBatchSize)) {
+      requestedBatchSize = DEFAULT_BATCH_SIZE;
+      console.log(`Invalid batch size parameter, using default: ${DEFAULT_BATCH_SIZE}`);
+    }
+    
+    // Apply limits to batch size
+    const batchSize = Math.min(Math.max(1, requestedBatchSize || DEFAULT_BATCH_SIZE), MAX_BATCH_SIZE);
+    
     console.log(`Processing mode: ${isBatchProcess ? 'Batch' : 'Single'} (size: ${isBatchProcess ? batchSize : 1})`);
 
     // Get the pending audits
@@ -112,8 +124,24 @@ serve(async (req) => {
       
       // Use waitUntil for background processing without blocking the response
       if (typeof EdgeRuntime !== 'undefined') {
-        // @ts-ignore - Deno Edge Runtime
-        EdgeRuntime.waitUntil(Promise.all(remainingAudits));
+        try {
+          // @ts-ignore - Deno Edge Runtime
+          EdgeRuntime.waitUntil(
+            Promise.allSettled(remainingAudits).then(results => {
+              console.log(`Background processing complete. Results: ${results.length} items processed.`);
+              const successful = results.filter(r => r.status === 'fulfilled').length;
+              const failed = results.filter(r => r.status === 'rejected').length;
+              console.log(`Success: ${successful}, Failed: ${failed}`);
+              
+              // Update batch status if needed
+              if (firstBusiness.batch_id) {
+                updateBatchStatus(supabase, firstBusiness.batch_id, successful, failed);
+              }
+            })
+          );
+        } catch (waitUntilError) {
+          console.error('Error with EdgeRuntime.waitUntil:', waitUntilError);
+        }
       }
       
       // Return the result of the first audit along with batch info
@@ -124,7 +152,9 @@ serve(async (req) => {
           scores: result.scores,
           batchSize: pendingAudits.length,
           batchStatus: 'processing',
-          message: `Processing ${pendingAudits.length} businesses in total`
+          message: `Processing ${pendingAudits.length} businesses in total`,
+          requestedBatchSize: requestedBatchSize,
+          actualBatchSize: batchSize
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -149,7 +179,51 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
-})
+});
+
+// Helper to update batch status
+async function updateBatchStatus(supabase: any, batchId: string, successful: number, failed: number) {
+  try {
+    console.log(`Updating batch ${batchId} status with ${successful} successful and ${failed} failed audits`);
+    
+    const { data: batchData, error: batchError } = await supabase
+      .from('audit_batches')
+      .select('successful_audits, failed_audits, processed_sites, total_sites')
+      .eq('id', batchId)
+      .single();
+    
+    if (batchError) {
+      console.error('Error fetching batch data:', batchError);
+      return;
+    }
+    
+    // Calculate new values
+    const newSuccessful = (batchData.successful_audits || 0) + successful;
+    const newFailed = (batchData.failed_audits || 0) + failed;
+    const newProcessed = (batchData.processed_sites || 0) + successful + failed;
+    const isComplete = newProcessed >= batchData.total_sites;
+    
+    // Update batch record
+    const { error: updateError } = await supabase
+      .from('audit_batches')
+      .update({
+        successful_audits: newSuccessful,
+        failed_audits: newFailed,
+        processed_sites: newProcessed,
+        status: isComplete ? 'completed' : 'processing',
+        completed_at: isComplete ? new Date().toISOString() : null
+      })
+      .eq('id', batchId);
+      
+    if (updateError) {
+      console.error('Error updating batch status:', updateError);
+    } else {
+      console.log(`Batch ${batchId} updated successfully.`);
+    }
+  } catch (error) {
+    console.error('Error in updateBatchStatus:', error);
+  }
+}
 
 // Process a single audit
 async function processAudit(business: any, supabase: any): Promise<{ scores: any }> {
@@ -207,7 +281,10 @@ async function processAudit(business: any, supabase: any): Promise<{ scores: any
   console.log('Updating business scores for:', business.name);
   await supabase
     .from('businesses')
-    .update({ scores: scores })
+    .update({ 
+      scores: scores,
+      audit_date: new Date().toISOString() 
+    })
     .eq('id', business.business_id);
 
   // Mark audit as completed
@@ -242,11 +319,15 @@ async function processAuditInBackground(business: any, supabase: any): Promise<v
 // Update audit progress helper
 async function updateAuditProgress(supabase: any, queueId: string, status: string, error?: string): Promise<void> {
   try {
+    console.log(`Updating audit ${queueId} status to ${status}${error ? ` with error: ${error}` : ''}`);
+    
     await supabase.rpc('update_audit_progress', {
       p_queue_id: queueId,
       p_status: status,
       p_error: error
     });
+    
+    console.log(`Audit ${queueId} status updated successfully`);
   } catch (error) {
     console.error('Failed to update audit progress:', error);
   }

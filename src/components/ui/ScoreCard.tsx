@@ -26,6 +26,13 @@ const ScoreCard: React.FC<ScoreCardProps> = ({ label, score, icon, description }
     return 'bg-civic-red';
   };
 
+  // Validate and sanitize score
+  const validScore = typeof score === 'number' && !isNaN(score) 
+    ? Math.min(100, Math.max(0, Math.round(score))) 
+    : 0;
+
+  console.log(`ScoreCard rendering - ${label}: ${score} (validated to ${validScore})`);
+
   return (
     <div className="card">
       <div className="flex items-center mb-2">
@@ -36,12 +43,12 @@ const ScoreCard: React.FC<ScoreCardProps> = ({ label, score, icon, description }
       </div>
       
       <div className="flex items-baseline mt-1 mb-2">
-        <span className={`text-3xl font-bold ${getScoreColor(score)}`}>{score}</span>
+        <span className={`text-3xl font-bold ${getScoreColor(validScore)}`}>{validScore}</span>
         <span className="text-civic-gray-500 ml-1">/100</span>
       </div>
       
-      <Progress value={score} className="h-2 mb-3">
-        <div className={`h-full ${getProgressColor(score)} rounded-full`} style={{ width: `${score}%` }} />
+      <Progress value={validScore} className="h-2 mb-3">
+        <div className={`h-full ${getProgressColor(validScore)} rounded-full`} style={{ width: `${validScore}%` }} />
       </Progress>
       
       {description && (
