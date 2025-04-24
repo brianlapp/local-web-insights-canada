@@ -261,27 +261,41 @@ async function processAudit(business: any, supabase: any): Promise<{ scores: any
   }
 
   // Run Lighthouse audit
-  console.log('Starting Lighthouse audit for:', business.website);
-  const auditResult = await runLighthouse(business.website);
+  console.log('Sending audit request to browser service for:', business.website);
 
-  if (!auditResult) {
-    console.error('Lighthouse audit failed for:', business.website);
-    await updateAuditProgress(supabase, business.queue_id, 'failed', 'Lighthouse audit failed');
+  let auditResult;
+  try {
+    const response = await fetch('http://localhost:3002/audit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ website: business.website }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    auditResult = await response.json();
+  } catch (error) {
+    console.error('Error communicating with browser service:', error);
+    await updateAuditProgress(supabase, business.queue_id, 'failed', `Error communicating with browser service: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return { scores: { performance: 0, accessibility: 0, bestPractices: 0, seo: 0, overall: 0 } };
   }
 
   console.log('Calculating scores for:', business.website);
   // Extract scores
   const scores = {
-    performance: Math.round(auditResult.categories.performance.score * 100),
-    accessibility: Math.round(auditResult.categories.accessibility.score * 100),
-    bestPractices: Math.round(auditResult.categories['best-practices'].score * 100),
-    seo: Math.round(auditResult.categories.seo.score * 100),
+    performance: auditResult.categories && auditResult.categories.performance ? Math.round(auditResult.categories.performance.score * 100) : 0,
+    accessibility: auditResult.categories && auditResult.categories.accessibility ? Math.round(auditResult.categories.accessibility.score * 100):0,
+    bestPractices: auditResult.categories && auditResult.categories['best-practices'] ? Math.round(auditResult.categories['best-practices'].score * 100): 0,
+    seo: auditResult.categories && auditResult.categories.seo ? Math.round(auditResult.categories.seo.score * 100): 0,
     overall: Math.round(
-      (auditResult.categories.performance.score * 0.3 +
-      auditResult.categories.accessibility.score * 0.3 +
-      auditResult.categories['best-practices'].score * 0.2 +
-      auditResult.categories.seo.score * 0.2) * 100
+      ((auditResult.categories && auditResult.categories.performance ? auditResult.categories.performance.score : 0) * 0.3 +
+      (auditResult.categories && auditResult.categories.accessibility ? auditResult.categories.accessibility.score : 0) * 0.3 +
+      (auditResult.categories && auditResult.categories['best-practices'] ? auditResult.categories['best-practices'].score : 0) * 0.2 +
+      (auditResult.categories && auditResult.categories.seo ? auditResult.categories.seo.score : 0) * 0.2) * 100
     )
   };
 

@@ -1,0 +1,14 @@
+{
+  "name": "browser-service",
+  "version": "1.0.0",
+  "description": "Service to handle browser-based tasks for Lighthouse audits",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "puppeteer": "^21.7.0",
+    "lighthouse": "^11.4.0"
+  }
+}

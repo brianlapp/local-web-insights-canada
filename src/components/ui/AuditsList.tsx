@@ -28,13 +28,6 @@ export const AuditsList = ({ limit = 6, showHeader = true, title = "Latest Audit
         throw error;
       }
 
-      // Add logging but don't filter out businesses
-      (data || []).forEach(business => {
-        if (!business.scores || typeof business.scores.overall !== 'number') {
-          console.log(`Business ${business.id} (${business.name}) has missing/invalid scores:`, business.scores);
-        }
-      });
-
       return data || [];
     },
   });
