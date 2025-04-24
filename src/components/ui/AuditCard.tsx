@@ -32,6 +32,7 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
 
   const getImageSrc = () => {
     if (imageError || !business.image) {
+      // Return specific fallback image based on category
       if (business.category === "Retail") {
         return "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80";
       } else if (business.category === "Hardware") {
@@ -44,10 +45,16 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
     return business.image;
   };
 
-  // Ensure we have a valid overall score
-  const overallScore = validateScore(business.scores?.overall);
+  // Ensure we have valid scores with defaults
+  const scores = {
+    overall: validateScore(business.scores?.overall),
+    performance: validateScore(business.scores?.performance),
+    seo: validateScore(business.scores?.seo),
+    accessibility: validateScore(business.scores?.accessibility),
+    bestPractices: validateScore(business.scores?.bestPractices)
+  };
   
-  // Format audit date if available
+  // Format audit date if available, with fallback to a readable message
   const formattedDate = business.audit_date 
     ? new Date(business.audit_date).toLocaleDateString(undefined, {
         year: 'numeric',
@@ -56,17 +63,21 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
       })
     : 'Not audited yet';
   
-  // Get the performance score if available for secondary display
-  const performanceScore = validateScore(business.scores?.performance);
-
-  // Helper function to validate scores
+  // Helper function to validate scores with detailed logging
   function validateScore(score: any): number {
     if (typeof score !== 'number' || isNaN(score) || !isFinite(score)) {
-      console.log(`Invalid score detected:`, score);
+      console.log(`Invalid score detected for ${business.name}:`, score);
       return 0;
     }
     return Math.min(100, Math.max(0, Math.round(score)));
   }
+
+  // Get color class based on score
+  const getScoreColorClass = (score: number): string => {
+    if (score >= 80) return 'text-civic-green';
+    if (score >= 50) return 'text-amber-500';
+    return 'text-civic-red';
+  };
 
   return (
     <div className="card group hover:shadow-md transition-shadow border border-gray-100 rounded-lg p-4">
@@ -89,13 +100,13 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
       
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center">
-          <Star className={`w-5 h-5 ${overallScore >= 80 ? 'text-civic-green' : overallScore >= 50 ? 'text-amber-500' : 'text-civic-red'}`} />
-          <span className="ml-1 text-sm font-medium">{overallScore}/100</span>
+          <Star className={`w-5 h-5 ${getScoreColorClass(scores.overall)}`} />
+          <span className="ml-1 text-sm font-medium">{scores.overall}/100</span>
           
-          {performanceScore > 0 && (
+          {scores.performance > 0 && (
             <div className="ml-3 flex items-center">
-              <Activity className={`w-4 h-4 ${performanceScore >= 80 ? 'text-civic-green' : performanceScore >= 50 ? 'text-amber-500' : 'text-civic-red'}`} />
-              <span className="ml-1 text-xs">{performanceScore}</span>
+              <Activity className={`w-4 h-4 ${getScoreColorClass(scores.performance)}`} />
+              <span className="ml-1 text-xs">{scores.performance}</span>
             </div>
           )}
         </div>

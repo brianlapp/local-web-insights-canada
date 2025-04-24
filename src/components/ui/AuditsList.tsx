@@ -19,8 +19,7 @@ export const AuditsList = ({ limit = 6, showHeader = true, title = "Latest Audit
       const { data, error } = await supabase
         .from('businesses')
         .select('*')
-        .not('scores', 'is', null)
-        // Sort by audit_date if available, otherwise use created_at
+        // Remove the scores filter to show all businesses
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -29,17 +28,14 @@ export const AuditsList = ({ limit = 6, showHeader = true, title = "Latest Audit
         throw error;
       }
 
-      // Add validation and logging
-      const validAudits = (data || []).filter(business => {
-        const hasValidScores = business.scores && typeof business.scores.overall === 'number';
-        if (!hasValidScores) {
-          console.log(`Business ${business.id} has invalid scores:`, business.scores);
+      // Add logging but don't filter out businesses
+      (data || []).forEach(business => {
+        if (!business.scores || typeof business.scores.overall !== 'number') {
+          console.log(`Business ${business.id} (${business.name}) has missing/invalid scores:`, business.scores);
         }
-        return hasValidScores;
       });
 
-      console.log(`Fetched ${validAudits.length} valid audits out of ${data?.length || 0} total`);
-      return validAudits;
+      return data || [];
     },
   });
 
@@ -81,7 +77,13 @@ export const AuditsList = ({ limit = 6, showHeader = true, title = "Latest Audit
                 slug: business.slug || '',
                 category: business.category || 'Uncategorized',
                 image: business.image || '',
-                scores: business.scores || { overall: 0 },
+                scores: {
+                  overall: business.scores?.overall || 0,
+                  performance: business.scores?.performance || 0,
+                  seo: business.scores?.seo || 0,
+                  accessibility: business.scores?.accessibility || 0,
+                  bestPractices: business.scores?.bestPractices || 0
+                },
                 is_upgraded: business.is_upgraded || false,
                 audit_date: business.audit_date || business.created_at
               }}
