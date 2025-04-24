@@ -48,7 +48,11 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
   
   // Format audit date if available
   const formattedDate = business.audit_date 
-    ? new Date(business.audit_date).toLocaleDateString() 
+    ? new Date(business.audit_date).toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
     : 'Not audited yet';
   
   // Get the performance score if available for secondary display
