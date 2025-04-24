@@ -20,7 +20,8 @@ export const AuditsList = ({ limit = 6, showHeader = true, title = "Latest Audit
         .from('businesses')
         .select('*')
         .not('scores', 'is', null)
-        .order('audit_date', { ascending: false })
+        // Sort by audit_date if available, otherwise use created_at
+        .order('created_at', { ascending: false })
         .limit(limit);
 
       if (error) {
@@ -28,8 +29,17 @@ export const AuditsList = ({ limit = 6, showHeader = true, title = "Latest Audit
         throw error;
       }
 
-      console.log('Fetched audits:', data);
-      return data || [];
+      // Add validation and logging
+      const validAudits = (data || []).filter(business => {
+        const hasValidScores = business.scores && typeof business.scores.overall === 'number';
+        if (!hasValidScores) {
+          console.log(`Business ${business.id} has invalid scores:`, business.scores);
+        }
+        return hasValidScores;
+      });
+
+      console.log(`Fetched ${validAudits.length} valid audits out of ${data?.length || 0} total`);
+      return validAudits;
     },
   });
 
@@ -73,7 +83,7 @@ export const AuditsList = ({ limit = 6, showHeader = true, title = "Latest Audit
                 image: business.image || '',
                 scores: business.scores || { overall: 0 },
                 is_upgraded: business.is_upgraded || false,
-                audit_date: business.audit_date
+                audit_date: business.audit_date || business.created_at
               }}
             />
           ))}

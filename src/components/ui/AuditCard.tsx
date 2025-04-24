@@ -26,6 +26,7 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
   const [imageError, setImageError] = useState(false);
 
   const handleImageError = () => {
+    console.log(`Image failed to load for business: ${business.name}`);
     setImageError(true);
   };
 
@@ -61,6 +62,7 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
   // Helper function to validate scores
   function validateScore(score: any): number {
     if (typeof score !== 'number' || isNaN(score) || !isFinite(score)) {
+      console.log(`Invalid score detected:`, score);
       return 0;
     }
     return Math.min(100, Math.max(0, Math.round(score)));
