@@ -15,14 +15,20 @@ export const AuditsList = ({ limit = 6, showHeader = true, title = "Latest Audit
   const { data: recentAudits, isLoading, error } = useQuery({
     queryKey: ['recent-audits'],
     queryFn: async () => {
+      console.log('Fetching recent audits...');
       const { data, error } = await supabase
         .from('businesses')
         .select('*')
-        .not('audit_date', 'is', null)
+        .not('scores', 'is', null)
         .order('audit_date', { ascending: false })
         .limit(limit);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching audits:', error);
+        throw error;
+      }
+
+      console.log('Fetched audits:', data);
       return data || [];
     },
   });
