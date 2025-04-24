@@ -44,17 +44,23 @@ const AuditCard: React.FC<AuditCardProps> = ({ business }) => {
   };
 
   // Ensure we have a valid overall score
-  const overallScore = business.scores?.overall || 0;
+  const overallScore = validateScore(business.scores?.overall);
   
   // Format audit date if available
   const formattedDate = business.audit_date 
     ? new Date(business.audit_date).toLocaleDateString() 
     : 'Not audited yet';
   
-  console.log(`Rendering AuditCard for ${business.name} with score: ${overallScore}`);
-
   // Get the performance score if available for secondary display
-  const performanceScore = business.scores?.performance || 0;
+  const performanceScore = validateScore(business.scores?.performance);
+
+  // Helper function to validate scores
+  function validateScore(score: any): number {
+    if (typeof score !== 'number' || isNaN(score) || !isFinite(score)) {
+      return 0;
+    }
+    return Math.min(100, Math.max(0, Math.round(score)));
+  }
 
   return (
     <div className="card group hover:shadow-md transition-shadow border border-gray-100 rounded-lg p-4">

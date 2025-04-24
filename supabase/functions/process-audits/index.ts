@@ -45,7 +45,7 @@ serve(async (req) => {
     
     console.log(`Processing mode: ${isBatchProcess ? 'Batch' : 'Single'} (size: ${isBatchProcess ? batchSize : 1})`);
 
-    // Get the pending audits
+    // Get the pending audits - ONLY GET BUSINESSES WITH WEBSITES
     const { data: pendingAudits, error: fetchError } = await supabase
       .from('audit_queue')
       .select(`
@@ -57,6 +57,7 @@ serve(async (req) => {
       `)
       .eq('status', 'pending')
       .lt('attempts', 3)
+      .not('businesses.website', 'is', null) // Only get businesses with websites
       .order('created_at', { ascending: true })
       .limit(isBatchProcess ? batchSize : 1);
 
@@ -69,14 +70,14 @@ serve(async (req) => {
     }
 
     if (!pendingAudits || pendingAudits.length === 0) {
-      console.log('No businesses to audit at this time');
+      console.log('No businesses with valid websites to audit at this time');
       return new Response(
-        JSON.stringify({ message: 'No businesses to audit' }),
+        JSON.stringify({ message: 'No businesses with valid websites to audit' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
       );
     }
 
-    console.log(`Found ${pendingAudits.length} businesses to audit`);
+    console.log(`Found ${pendingAudits.length} businesses with websites to audit`);
 
     // Process the first business immediately
     const firstAudit = pendingAudits[0];
@@ -88,6 +89,16 @@ serve(async (req) => {
       name: firstAudit.businesses?.name,
       attempts: firstAudit.attempts || 0
     };
+
+    // Validate website URL before processing
+    if (!firstBusiness.website || !isValidUrl(firstBusiness.website)) {
+      console.error(`Invalid website URL for business: ${firstBusiness.business_id}`);
+      await updateAuditProgress(supabase, firstBusiness.queue_id, 'failed', 'Invalid website URL');
+      return new Response(
+        JSON.stringify({ error: 'Invalid website URL', business: firstBusiness.name }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
 
     // Update the first audit queue item status to processing
     await supabase
@@ -118,6 +129,12 @@ serve(async (req) => {
           name: audit.businesses?.name,
           attempts: audit.attempts || 0
         };
+        
+        // Skip businesses without websites
+        if (!business.website || !isValidUrl(business.website)) {
+          console.log(`Skipping business ${business.name} - invalid or missing website URL`);
+          return updateAuditProgress(supabase, business.queue_id, 'failed', 'Invalid or missing website URL');
+        }
         
         return processAuditInBackground(business, supabase);
       });
@@ -180,6 +197,16 @@ serve(async (req) => {
     );
   }
 });
+
+// URL validation helper function
+function isValidUrl(url: string): boolean {
+  try {
+    new URL(url);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
 
 // Helper to update batch status
 async function updateBatchStatus(supabase: any, batchId: string, successful: number, failed: number) {
@@ -244,7 +271,7 @@ async function processAudit(business: any, supabase: any): Promise<{ scores: any
   }
 
   console.log('Calculating scores for:', business.website);
-  // Calculate scores
+  // Extract scores
   const scores = {
     performance: Math.round(auditResult.categories.performance.score * 100),
     accessibility: Math.round(auditResult.categories.accessibility.score * 100),
@@ -253,7 +280,8 @@ async function processAudit(business: any, supabase: any): Promise<{ scores: any
     overall: Math.round(
       (auditResult.categories.performance.score * 0.3 +
       auditResult.categories.accessibility.score * 0.3 +
-      auditResult.categories['best-practices'].score * 0.4) * 100
+      auditResult.categories['best-practices'].score * 0.2 +
+      auditResult.categories.seo.score * 0.2) * 100
     )
   };
 

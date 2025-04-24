@@ -1,8 +1,7 @@
 
 // Enhanced Lighthouse simulation with Chrome browser automation for Supabase Edge Functions
 
-// Use proper Puppeteer import for Deno
-import { Puppeteer } from "https://deno.land/x/puppeteer@16.2.0/mod.ts";
+import puppeteer from "https://deno.land/x/puppeteer@16.2.0/mod.ts";
 
 // Constants for performance thresholds
 const PERFORMANCE_METRICS = {
@@ -45,7 +44,8 @@ export async function runLighthouse(url: string): Promise<any> {
   const startTime = Date.now();
   
   try {
-    const browser = await Puppeteer.launch({
+    // Use correct puppeteer launch for Deno
+    const browser = await puppeteer.launch({
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',

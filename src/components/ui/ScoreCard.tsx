@@ -27,11 +27,14 @@ const ScoreCard: React.FC<ScoreCardProps> = ({ label, score, icon, description }
   };
 
   // Validate and sanitize score
-  const validScore = typeof score === 'number' && !isNaN(score) 
+  const validScore = typeof score === 'number' && !isNaN(score) && isFinite(score)
     ? Math.min(100, Math.max(0, Math.round(score))) 
     : 0;
 
-  console.log(`ScoreCard rendering - ${label}: ${score} (validated to ${validScore})`);
+  // Add debug output for score validation
+  if (typeof score !== 'number' || isNaN(score) || !isFinite(score)) {
+    console.warn(`ScoreCard received invalid score for ${label}: ${score} (type: ${typeof score})`);
+  }
 
   return (
     <div className="card">
