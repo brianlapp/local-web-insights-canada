@@ -1,0 +1,17 @@
+{
+  "name": "Book Now",
+  "version": "1.0.0",
+  "description": "Website for Book Now",
+  "projectType": "website",
+  "framework": "nextjs",
+  "styling": "tailwind",
+  "backend": "supabase",
+  "siteUrl": "https://luxmenailsandspa.com",
+  "lastScraped": "2025-04-25",
+  "contentStructure": {
+    "pagesDirectory": "/content",
+    "dataDirectory": "/public/data",
+    "imagesDirectory": "/public/images",
+    "componentsDirectory": "/public/components"
+  }
+}

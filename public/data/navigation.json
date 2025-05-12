@@ -1,0 +1,12 @@
+{"navigation": [
+  {"url": "https://luxmenailsandspa.com/javascript: scrollto('home')", "label": "Home"},
+  {"url": "https://luxmenailsandspa.com/javascript: scrollto('about')", "label": "About"},
+  {"url": "https://luxmenailsandspa.com/javascript: scrollto('gallery')", "label": "Gallery"},
+  {"url": "https://luxmenailsandspa.com/javascript: scrollto('contact')", "label": "Contacts"},
+  {"url": "https://luxmenailsandspa.com/overview.html", "label": "Book Now"},
+  {"url": "https://luxmenailsandspa.com/team-member-profile.html", "label": "Mary Lucas"},
+  {"url": "https://luxmenailsandspa.com/team-member-profile.html", "label": "Janette Wade"},
+  {"url": "https://luxmenailsandspa.com/team-member-profile.html", "label": "Ann Smith"},
+  {"url": "https://luxmenailsandspa.com/grid-gallery.html", "label": "View our gallery"},
+  {"url": "https://luxmenailsandspa.com/index.html", "label": "Home"}
+]}
